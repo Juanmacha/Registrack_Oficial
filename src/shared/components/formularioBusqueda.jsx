@@ -18,8 +18,10 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     telefono: '',
     direccion: '',
     pais: '',
+    ciudad: '', // ✅ NUEVO CAMPO
     nitMarca: '',
     nombreMarca: '',
+    tipoProductoServicio: '', // ✅ NUEVO CAMPO
     clases: [{ numero: '', descripcion: '' }],
     poderRepresentante: null,
     poderAutorizacion: null,
@@ -53,8 +55,10 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
         telefono: '',
         direccion: '',
         pais: '',
+        ciudad: '', // ✅ NUEVO CAMPO
         nitMarca: '',
         nombreMarca: '',
+        tipoProductoServicio: '', // ✅ NUEVO CAMPO
         clases: [{ numero: '', descripcion: '' }],
         poderRepresentante: null,
         poderAutorizacion: null,
@@ -74,7 +78,7 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     const e = {};
     
     // ✅ NUEVO: Usar ValidationService para validaciones básicas
-    const requiredFields = ['tipoDocumento', 'numeroDocumento', 'nombres', 'apellidos', 'email', 'telefono', 'direccion', 'pais', 'nitMarca', 'nombreMarca'];
+    const requiredFields = ['tipoDocumento', 'numeroDocumento', 'nombres', 'apellidos', 'email', 'telefono', 'direccion', 'pais', 'ciudad', 'nombreMarca', 'tipoProductoServicio'];
     const requiredErrors = ValidationService.validateRequiredFields(f, requiredFields);
     Object.assign(e, requiredErrors);
     
@@ -107,6 +111,10 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     
     if (f.direccion && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9 .,#-]{5,100}$/.test(f.direccion)) {
       e.direccion = 'Dirección inválida';
+    }
+    
+    if (f.ciudad && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$/.test(f.ciudad)) {
+      e.ciudad = 'Solo letras, 2-50 caracteres';
     }
     
     if (f.nitMarca && !/^[0-9]{6,15}$/.test(f.nitMarca)) {
@@ -287,6 +295,11 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
               </div>
               {errors.pais && <p className="text-xs text-red-600">{errors.pais}</p>}
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Ciudad *</label>
+              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.ciudad ? 'border-red-500' : ''}`} placeholder="Ej: Bogotá" />
+              {errors.ciudad && <p className="text-xs text-red-600">{errors.ciudad}</p>}
+            </div>
                 <div>
               <label className="block text-sm font-medium mb-1">NIT de la Marca *</label>
               <input type="text" name="nitMarca" value={form.nitMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nitMarca ? 'border-red-500' : ''}`} />
@@ -296,6 +309,11 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
               <label className="block text-sm font-medium mb-1">Nombre de la Marca *</label>
               <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nombreMarca ? 'border-red-500' : ''}`} />
               {errors.nombreMarca && <p className="text-xs text-red-600">{errors.nombreMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo de Producto/Servicio *</label>
+              <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.tipoProductoServicio ? 'border-red-500' : ''}`} placeholder="Ej: Productos tecnológicos" />
+              {errors.tipoProductoServicio && <p className="text-xs text-red-600">{errors.tipoProductoServicio}</p>}
             </div>
           </div>
           {/* Clases de la Marca */}

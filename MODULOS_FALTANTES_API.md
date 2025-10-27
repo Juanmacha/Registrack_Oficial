@@ -16,12 +16,50 @@ Este documento identifica los módulos del frontend que aún **NO están conecta
 | **Usuarios** | ✅ Conectado | `gestionUsuarios.jsx` | `userApiService.js` |
 | **Empleados** | ✅ Conectado | `empleados.jsx` | `empleadosApiService.js` |
 | **Citas** | ✅ Conectado | `calendario.jsx` | `citasApiService.js` |
+| **Servicios** | ✅ Conectado | `Servicios.jsx` | `serviciosApiService.js` |
+| **Solicitudes/Procesos** | ✅ Conectado | `tablaVentasProceso.jsx` | `solicitudesApiService.js` |
+| **Mis Procesos** | ✅ Conectado | `misProcesos.jsx` | `procesosService.js` |
+
+---
+
+## ✅ **MÓDULOS RECIÉN CONECTADOS**
+
+### **1. 🛒 GESTIÓN DE VENTAS/SERVICIOS**
+- **📊 Estado:** ✅ **COMPLETAMENTE CONECTADO** (Diciembre 2024)
+- **🔧 Servicios API creados:**
+  - `serviciosApiService.js` - Gestión completa de servicios
+  - `solicitudesApiService.js` - Gestión completa de solicitudes/procesos
+- **📋 Componentes actualizados:**
+  - `Servicios.jsx` - Usa API real con fallback a mock
+  - `tablaVentasProceso.jsx` - Usa API real con fallback a mock
+  - `ventasService.js` - Funciones asíncronas con API
+  - `procesosService.js` - Funciones asíncronas con API
+- **🔗 Endpoints utilizados:**
+  - `GET /api/servicios` - Obtener servicios
+  - `PUT /api/servicios/:id` - Actualizar servicios
+  - `GET /api/gestion-solicitudes` - Obtener solicitudes
+  - `POST /api/gestion-solicitudes/crear/:servicio` - Crear solicitud
+  - `PUT /api/gestion-solicitudes/editar/:id` - Editar solicitud
+  - `PUT /api/gestion-solicitudes/anular/:id` - Anular solicitud
+  - `GET /api/gestion-solicitudes/mias` - Mis solicitudes
+  - `GET /api/gestion-solicitudes/buscar` - Buscar solicitudes
+
+### **2. 📋 MIS PROCESOS**
+- **📊 Estado:** ✅ **COMPLETAMENTE CONECTADO** (Diciembre 2024)
+- **🔧 Servicios actualizados:**
+  - `procesosService.js` - Usa API real con fallback a mock
+  - `useAsyncDataSync.js` - Hook para datos asíncronos
+- **📋 Componentes actualizados:**
+  - `misProcesos.jsx` - Usa API real con fallback a mock
+- **🔗 Endpoints utilizados:**
+  - `GET /api/gestion-solicitudes/mias` - Mis solicitudes
+  - `GET /api/gestion-solicitudes/buscar` - Buscar solicitudes
 
 ---
 
 ## ❌ **MÓDULOS FALTANTES POR CONECTAR**
 
-### **1. 🛒 GESTIÓN DE VENTAS/SERVICIOS**
+### **1. 🛒 GESTIÓN DE VENTAS/SERVICIOS (LEGACY)**
 - **📁 Ubicación:** `src/features/dashboard/pages/gestionVentasServicios/`
 - **🔧 Archivos afectados:**
   - `components/Servicios.jsx` - Gestión de servicios

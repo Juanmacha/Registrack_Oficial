@@ -1,6 +1,7 @@
 // Configuración de la API
 const API_CONFIG = {
   // URL base de la API desplegada
+  baseURL: 'https://api-registrack-2.onrender.com',
   BASE_URL: 'https://api-registrack-2.onrender.com',
   
   // Endpoints de autenticación
@@ -110,4 +111,6 @@ const API_CONFIG = {
   RETRY_DELAY: 1000
 };
 
+// Exportar tanto el objeto completo como propiedades individuales para compatibilidad
 export default API_CONFIG;
+export const apiConfig = API_CONFIG;

@@ -20,13 +20,18 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
     email: '',
     telefono: '',
     direccion: '',
+    ciudad: '', // ✅ NUEVO CAMPO
     tipoEntidad: '',
     razonSocial: '',
     nombreEmpresa: '',
     nit: '',
     pais: '',
+    tipoProductoServicio: '', // ✅ NUEVO CAMPO
     nitMarca: '',
     nombreMarca: '',
+    descripcionMarca: '', // ✅ NUEVO CAMPO
+    nombreRepresentante: '', // ✅ NUEVO CAMPO
+    documentoRepresentante: '', // ✅ NUEVO CAMPO
     categoria: '',
     clases: [{ numero: '', descripcion: '' }],
     certificadoCamara: null,
@@ -67,13 +72,18 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
         email: '',
         telefono: '',
         direccion: '',
+        ciudad: '', // ✅ NUEVO CAMPO
         tipoEntidad: '',
         razonSocial: '',
         nombreEmpresa: '',
         nit: '',
         pais: '',
+        tipoProductoServicio: '', // ✅ NUEVO CAMPO
         nitMarca: '',
         nombreMarca: '',
+        descripcionMarca: '', // ✅ NUEVO CAMPO
+        nombreRepresentante: '', // ✅ NUEVO CAMPO
+        documentoRepresentante: '', // ✅ NUEVO CAMPO
         categoria: '',
         clases: [{ numero: '', descripcion: '' }],
         certificadoCamara: null,
@@ -403,6 +413,11 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
               {errors.pais && <p className="text-xs text-red-600">{errors.pais}</p>}
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Ciudad *</label>
+              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.ciudad ? 'border-red-500' : ''}`} placeholder="Ej: Bogotá" />
+              {errors.ciudad && <p className="text-xs text-red-600">{errors.ciudad}</p>}
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">NIT de la Marca *</label>
               <input type="text" name="nitMarca" value={form.nitMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nitMarca ? 'border-red-500' : ''}`} />
               {errors.nitMarca && <p className="text-xs text-red-600">{errors.nitMarca}</p>}
@@ -411,6 +426,26 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
               <label className="block text-sm font-medium mb-1">Nombre de la Marca *</label>
               <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nombreMarca ? 'border-red-500' : ''}`} />
               {errors.nombreMarca && <p className="text-xs text-red-600">{errors.nombreMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Descripción de la Marca *</label>
+              <textarea name="descripcionMarca" value={form.descripcionMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.descripcionMarca ? 'border-red-500' : ''}`} rows="2" placeholder="Describe brevemente la marca"></textarea>
+              {errors.descripcionMarca && <p className="text-xs text-red-600">{errors.descripcionMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo de Producto/Servicio *</label>
+              <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.tipoProductoServicio ? 'border-red-500' : ''}`} placeholder="Ej: Productos tecnológicos" />
+              {errors.tipoProductoServicio && <p className="text-xs text-red-600">{errors.tipoProductoServicio}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Nombre del Representante *</label>
+              <input type="text" name="nombreRepresentante" value={form.nombreRepresentante} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nombreRepresentante ? 'border-red-500' : ''}`} />
+              {errors.nombreRepresentante && <p className="text-xs text-red-600">{errors.nombreRepresentante}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Documento del Representante *</label>
+              <input type="text" name="documentoRepresentante" value={form.documentoRepresentante} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.documentoRepresentante ? 'border-red-500' : ''}`} />
+              {errors.documentoRepresentante && <p className="text-xs text-red-600">{errors.documentoRepresentante}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Categoría *</label>

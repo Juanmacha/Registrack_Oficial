@@ -25,10 +25,6 @@ export function updateLandingData(id, landing_data) {
   return ServiceService.update(id, { landing_data });
 }
 
-// Métodos para info_page_data
-export function updateInfoPageData(id, info_page_data) {
-  return ServiceService.update(id, { info_page_data });
-}
 
 // Métodos para process_states
 export function updateProcessStates(id, process_states) {

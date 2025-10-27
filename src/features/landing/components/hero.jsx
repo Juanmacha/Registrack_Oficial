@@ -160,12 +160,30 @@ const useServicios = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cargar = () => {
-      const todos = mockDataService.getServices();
-      const serviciosVisibles = todos.filter(s => s.visible_en_landing);
-      console.log('🔧 [Hero] Servicios cargados:', serviciosVisibles);
-      setServicios(serviciosVisibles);
-      setLoading(false);
+    const cargar = async () => {
+      try {
+        console.log('🔧 [Hero] Cargando servicios desde la API...');
+        
+        // Importar el servicio API dinámicamente
+        const { default: serviciosApiService } = await import('../../dashboard/pages/gestionVentasServicios/services/serviciosApiService');
+        const todos = await serviciosApiService.getServicios();
+        const serviciosVisibles = todos.filter(s => s.visible_en_landing);
+        
+        console.log('✅ [Hero] Servicios cargados desde API:', serviciosVisibles.length);
+        console.log('🔍 [Hero] Servicios visibles:', serviciosVisibles.map(s => ({ id: s.id, nombre: s.nombre, visible: s.visible_en_landing })));
+        
+        setServicios(serviciosVisibles);
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ [Hero] Error cargando servicios desde API, usando mock:', error);
+        
+        // Fallback a datos mock en caso de error
+        const todos = mockDataService.getServices();
+        const serviciosVisibles = todos.filter(s => s.visible_en_landing);
+        console.log('🔄 [Hero] Usando servicios mock:', serviciosVisibles.length);
+        setServicios(serviciosVisibles);
+        setLoading(false);
+      }
     };
 
     cargar();
@@ -175,10 +193,17 @@ const useServicios = () => {
       if (e.key === 'servicios_management') cargar();
     };
     window.addEventListener('storage', onStorage);
+    
+    const onServiciosUpdated = () => {
+      console.log('🔄 [Hero] Servicios actualizados, recargando...');
+      cargar();
+    };
+    window.addEventListener('servicios_updated', onServiciosUpdated);
 
     return () => {
       window.removeEventListener('focus', cargar);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('servicios_updated', onServiciosUpdated);
     };
   }, []);
 

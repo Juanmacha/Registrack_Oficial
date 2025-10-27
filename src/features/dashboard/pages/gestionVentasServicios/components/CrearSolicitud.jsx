@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { crearVenta } from '../services/ventasService';
 import { mockDataService } from '../../../../../utils/mockDataService';
+import solicitudesApiService from '../services/solicitudesApiService';
 import authData from '../../../../auth/services/authData.js';
 import Swal from 'sweetalert2';
 import { PAISES } from '../../../../../shared/utils/paises.js';
@@ -181,10 +182,12 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
     console.log("🔧 [CrearSolicitud] Form actual:", form);
     console.log("🔧 [CrearSolicitud] Form keys:", Object.keys(form));
     e.preventDefault();
+    
     const newErrors = validate();
     console.log("🔧 [CrearSolicitud] Errores de validación encontrados:", newErrors);
     console.log("🔧 [CrearSolicitud] Número de errores:", Object.keys(newErrors).length);
     setErrors(newErrors);
+    
     if (Object.keys(newErrors).length > 0) {
       console.log("🔧 [CrearSolicitud] Errores de validación:", newErrors);
       // ✅ NO MOSTRAR ALERT, DEJAR QUE LOS ERRORES SE MUESTREN EN EL FORMULARIO
@@ -192,16 +195,20 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
     }
     console.log("🔧 [CrearSolicitud] Validación exitosa");
     
-    // ✅ DESDE ADMIN NO MOSTRAR PASARELA DE PAGO, GUARDAR DIRECTAMENTE
-    console.log("🔧 [CrearSolicitud] Guardando directamente desde admin (sin pasarela de pago)");
     try {
-      // Convertir archivos a base64 antes de guardar
-      const formToSave = { 
-        ...form,
-        tipoSolicitud: tipoSolicitud,
-        estado: 'Pendiente',
-        fechaSolicitud: new Date().toISOString().split('T')[0]
-      };
+      // Obtener token y rol del usuario
+      const token = authData.getToken();
+      const userRole = authData.getUserRole();
+      
+      if (!token) {
+        AlertService.error('Error', 'No hay sesión activa. Por favor, inicia sesión.');
+        return;
+      }
+
+      console.log("🔧 [CrearSolicitud] Token obtenido, rol del usuario:", userRole);
+
+      // Convertir archivos a base64 antes de enviar
+      const formToSave = { ...form };
       
       const fileFields = [
         'certificadoCamara',
@@ -209,20 +216,69 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
         'poderRepresentante',
         'poderAutorizacion',
       ];
+      
       for (const field of fileFields) {
         if (formToSave[field] instanceof File) {
           console.log("🔧 [CrearSolicitud] Convirtiendo archivo:", field);
           formToSave[field] = await fileToBase64(formToSave[field]);
         }
       }
+
+      // ✅ LÓGICA DE ROLES según la documentación de la API
+      // Los clientes NO envían id_cliente (se usa automáticamente del token)
+      // Los admin/empleados SÍ deben enviar id_cliente
       
-      console.log("🔧 [CrearSolicitud] Formulario final a guardar:", formToSave);
-      await onGuardar(formToSave);
-      
-      console.log("🔧 [CrearSolicitud] Solicitud creada exitosamente desde admin");
+      if (userRole === 'administrador' || userRole === 'empleado') {
+        // TODO: Implementar selector de cliente para admin/empleado
+        // Por ahora, usamos el ID del usuario actual como fallback
+        const userId = authData.getUserId();
+        formToSave.id_cliente = userId;
+        console.log("🔧 [CrearSolicitud] Admin/Empleado - Agregando id_cliente:", userId);
+      } else {
+        // Clientes: NO enviar id_cliente (se usa automáticamente del token JWT)
+        console.log("🔧 [CrearSolicitud] Cliente - No se envía id_cliente (se usa del token)");
+      }
+
+      // Transformar datos del formulario al formato de la API
+      const { servicioAPI, datosAPI } = solicitudesApiService.transformarDatosParaAPI(
+        formToSave,
+        tipoSolicitud
+      );
+
+      console.log("🔧 [CrearSolicitud] Servicio API:", servicioAPI);
+      console.log("🔧 [CrearSolicitud] Datos transformados para API:", datosAPI);
+
+      // Crear solicitud usando la API real
+      const resultado = await solicitudesApiService.crearSolicitud(
+        servicioAPI,
+        datosAPI,
+        token
+      );
+
+      console.log("✅ [CrearSolicitud] Solicitud creada exitosamente:", resultado);
+
+      // Mostrar mensaje de éxito
+      AlertService.success(
+        'Solicitud Creada', 
+        'La solicitud ha sido creada exitosamente. Se han enviado notificaciones por email.'
+      );
+
+      // Llamar a onGuardar con el resultado de la API
+      if (onGuardar) {
+        await onGuardar(resultado);
+      }
+
+      // Cerrar el modal
+      if (onClose) {
+        onClose();
+      }
+
     } catch (err) {
-      console.error("🔧 [CrearSolicitud] Error al guardar:", err);
-      AlertService.error("Error al guardar", "No se pudo crear la solicitud. Inténtalo de nuevo.");
+      console.error("❌ [CrearSolicitud] Error al guardar:", err);
+      AlertService.error(
+        "Error al crear solicitud", 
+        `No se pudo crear la solicitud: ${err.message || 'Error desconocido'}`
+      );
     }
   };
 

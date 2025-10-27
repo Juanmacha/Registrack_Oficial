@@ -4,9 +4,9 @@ import VerDetalleVenta from "./verDetalleVenta";
 import Observaciones from "./observaciones";
 import EditarVenta from "./editarVenta";
 import SeleccionarTipoSolicitud from "./SeleccionarTipoSolicitud";
-import { crearVenta, agregarComentario, anularVenta, initDatosPrueba, actualizarVenta } from "../services/ventasService";
+import { crearVenta, agregarComentario, anularVenta, initDatosPrueba, actualizarVenta, getInProcess } from "../services/ventasService";
 import { mockDataService } from '../../../../../utils/mockDataService.js';
-import { useSalesSync } from '../../../../../utils/hooks/useDataSync.js';
+import { useSalesSync } from '../../../../../utils/hooks/useAsyncDataSync.js';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
 import { AlertService } from '../../../../../shared/styles/alertStandards.js';
@@ -19,6 +19,9 @@ import { saveAs } from "file-saver";
 import JSZip from "jszip";
 import { EmployeeService } from '../../../../../utils/mockDataService.js';
 import ActionDropdown from '../../../../../shared/components/ActionDropdown.jsx';
+import empleadosApiService from '../../../../dashboard/services/empleadosApiService';
+import solicitudesApiService from '../services/solicitudesApiService';
+import authData from '../../../../auth/services/authData';
 
 const TablaVentasProceso = ({ adquirir }) => {
   const [busqueda, setBusqueda] = useState("");
@@ -41,15 +44,47 @@ const TablaVentasProceso = ({ adquirir }) => {
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
   const [modalAsignarEncargadoOpen, setModalAsignarEncargadoOpen] = useState(false);
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState("");
+  const [empleadosAPI, setEmpleadosAPI] = useState([]);
+  const [loadingEmpleados, setLoadingEmpleados] = useState(false);
 
-  // Usar hook de sincronización para ventas en proceso
-  const [ventasEnProceso, refreshVentas, lastUpdate] = useSalesSync(
-    () => {
-      const ventas = mockDataService.getSales().getInProcess();
-      console.log("🔧 [useSalesSync] Obteniendo ventas en proceso:", ventas);
-      return ventas;
+  // ✅ NUEVO: Usar API real para ventas en proceso
+  const [ventasEnProceso, refreshVentas, loading, lastUpdate, error] = useSalesSync(
+    async () => {
+      const token = authData.getToken();
+      if (!token) {
+        console.warn("🔧 [useSalesSync] No hay token, retornando array vacío");
+        return [];
+      }
+      
+      try {
+        console.log("🔧 [useSalesSync] Obteniendo solicitudes de la API...");
+        const solicitudes = await solicitudesApiService.getAllSolicitudes(token);
+        console.log("🔧 [useSalesSync] Solicitudes obtenidas:", solicitudes.length);
+        console.log("🔧 [useSalesSync] Solicitudes RAW:", solicitudes);
+        
+        // Transformar todas las solicitudes
+        const ventasTransformadas = solicitudes.map(s => {
+          const transformada = solicitudesApiService.transformarRespuestaDelAPI(s);
+          console.log(`🔧 [useSalesSync] Solicitud ${s.id} transformada:`, transformada);
+          return transformada;
+        });
+        
+        // Filtrar solo las que están en proceso (NO incluir Anuladas ni Finalizadas)
+        const ventasEnProceso = ventasTransformadas.filter(v => {
+          // Estados en proceso: "Pendiente" solamente (excluyendo Anulada y Finalizada)
+          const esEnProceso = v.estado === 'Pendiente';
+          console.log(`🔧 [useSalesSync] Venta ${v.id} - Estado: ${v.estado} - Es en proceso: ${esEnProceso}`);
+          return esEnProceso;
+        });
+        
+        console.log("✅ [useSalesSync] Ventas en proceso:", ventasEnProceso.length);
+        return ventasEnProceso;
+      } catch (error) {
+        console.error("❌ [useSalesSync] Error cargando ventas en proceso:", error);
+        return [];
+      }
     },
-    [busqueda, servicioFiltro, estadoFiltro]
+    [] // ✅ CORREGIDO: Sin dependencias innecesarias
   );
 
   // Filtrar por texto, servicio y estado
@@ -75,18 +110,21 @@ const TablaVentasProceso = ({ adquirir }) => {
     setTotalRegistros(datosFiltrados.length);
   }, [datosFiltrados]);
 
+  // ✅ NUEVO: Actualizar servicios y estados disponibles basados en las ventas reales
   useEffect(() => {
-    // Inicializar datos de prueba si no hay datos
-    initDatosPrueba();
-    
-    // Obtener servicios y estados únicos
-    const servicios = mockDataService.getServices();
-    setServiciosDisponibles(['Todos', ...servicios.map(s => s.nombre)]);
-    // Estados correctos solo para Certificación de Marca
-    const cert = servicios.find(s => s.nombre === 'Certificación de Marca');
-    const estadosCert = cert && cert.process_states ? cert.process_states.map(e => e.name) : [];
-    setEstadosDisponibles(['Todos', ...estadosCert]);
-  }, []);
+    if (ventasEnProceso && ventasEnProceso.length > 0) {
+      // Obtener servicios únicos de las ventas en proceso
+      const serviciosUnicos = Array.from(new Set(ventasEnProceso.map(v => v.tipoSolicitud))).filter(Boolean);
+      setServiciosDisponibles(['Todos', ...serviciosUnicos]);
+      
+      // Obtener estados únicos de las ventas en proceso
+      const estadosUnicos = Array.from(new Set(ventasEnProceso.map(v => v.estado))).filter(Boolean);
+      setEstadosDisponibles(['Todos', ...estadosUnicos]);
+      
+      console.log("✅ [TablaVentasProceso] Servicios disponibles actualizados:", serviciosUnicos);
+      console.log("✅ [TablaVentasProceso] Estados disponibles actualizados:", estadosUnicos);
+    }
+  }, [ventasEnProceso]);
 
   // Abrir modal de creación si viene adquirir
   useEffect(() => {
@@ -97,6 +135,36 @@ const TablaVentasProceso = ({ adquirir }) => {
       setModoCrear(true);
     }
   }, [adquirir]);
+
+  // Cargar empleados de la API cuando se abre el modal de asignar encargado
+  useEffect(() => {
+    if (modalAsignarEncargadoOpen) {
+      cargarEmpleadosAPI();
+    }
+  }, [modalAsignarEncargadoOpen]);
+
+  const cargarEmpleadosAPI = async () => {
+    setLoadingEmpleados(true);
+    try {
+      const resultado = await empleadosApiService.getAllEmpleados();
+      if (resultado.success) {
+        // Filtrar solo empleados activos
+        const empleadosActivos = resultado.data.filter(e => e.estado_empleado === true || e.estado_empleado === 1);
+        setEmpleadosAPI(empleadosActivos);
+        console.log('✅ [TablaVentasProceso] Empleados cargados desde API:', empleadosActivos);
+      } else {
+        console.error('❌ [TablaVentasProceso] Error al cargar empleados:', resultado.message);
+        AlertService.error('Error', 'No se pudieron cargar los empleados');
+        setEmpleadosAPI([]);
+      }
+    } catch (error) {
+      console.error('❌ [TablaVentasProceso] Error al cargar empleados:', error);
+      AlertService.error('Error', 'No se pudieron cargar los empleados');
+      setEmpleadosAPI([]);
+    } finally {
+      setLoadingEmpleados(false);
+    }
+  };
 
   const handleGuardarEdicion = (datosActualizados) => {
     if (datoSeleccionado && datoSeleccionado.id) {
@@ -158,15 +226,34 @@ const TablaVentasProceso = ({ adquirir }) => {
   const handleAnular = async () => {
     const result = await AlertService.warning("¿Anular venta?", "¿Estás seguro que deseas anular esta venta? Esta acción no se puede deshacer.");
     if (!result.isConfirmed) return;
+    
     try {
-      // Aquí va la lógica de anulación real
-      await anularVenta(datoSeleccionado.id, motivoAnular);
-      AlertService.success("Venta anulada", "La venta ha sido anulada correctamente.");
+      const token = authData.getToken();
+      if (!token) {
+        AlertService.error('Error', 'No hay sesión activa');
+        return;
+      }
+
+      console.log("🔧 [TablaVentasProceso] Anulando solicitud:", datoSeleccionado.id);
+      
+      // ✅ USAR API REAL
+      const resultado = await solicitudesApiService.anularSolicitud(datoSeleccionado.id, token);
+      
+      console.log("✅ [TablaVentasProceso] Solicitud anulada correctamente");
+      console.log("✅ [TablaVentasProceso] Resultado de anulación:", resultado);
+      
+      AlertService.success("Venta anulada", "La venta ha sido anulada correctamente. Se ha enviado una notificación por email.");
       setModalAnularOpen(false);
       setMotivoAnular("");
+      
+      // Refrescar datos para que se actualice la tabla
       refreshVentas();
+      
+      // ✅ NUEVO: Notificar a otras tablas (TablaVentasFin) que se actualizaron las solicitudes
+      window.dispatchEvent(new CustomEvent('solicitudAnulada', { detail: { id: datoSeleccionado.id } }));
     } catch (err) {
-      AlertService.error("Error al anular", "");
+      console.error("❌ [TablaVentasProceso] Error al anular:", err);
+      AlertService.error("Error al anular", err.message || "No se pudo anular la solicitud");
     }
   };
 
@@ -628,16 +715,25 @@ const TablaVentasProceso = ({ adquirir }) => {
             </div>
             {/* Content */}
             <div className="p-6 flex flex-col gap-4">
-              <select
-                className="w-full border border-gray-300 rounded-md p-2 text-base focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
-                value={empleadoSeleccionado}
-                onChange={e => setEmpleadoSeleccionado(e.target.value)}
-              >
-                <option value="">Sin asignar</option>
-                {EmployeeService.getAll().map(emp => (
-                  <option key={emp.cedula} value={`${emp.nombre} ${emp.apellido}`}>{emp.nombre} {emp.apellido}</option>
-                ))}
-              </select>
+              {loadingEmpleados ? (
+                <div className="text-center py-4">
+                  <i className="bi bi-arrow-repeat animate-spin text-blue-600 text-2xl"></i>
+                  <p className="text-sm text-gray-500 mt-2">Cargando empleados...</p>
+                </div>
+              ) : (
+                <select
+                  className="w-full border border-gray-300 rounded-md p-2 text-base focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+                  value={empleadoSeleccionado}
+                  onChange={e => setEmpleadoSeleccionado(e.target.value)}
+                >
+                  <option value="">Sin asignar</option>
+                  {empleadosAPI.map(emp => (
+                    <option key={emp.id_empleado} value={emp.id_empleado}>
+                      {emp.nombre} {emp.apellido}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             {/* Footer */}
             <div className="flex justify-end gap-2 px-6 pb-6">
@@ -649,20 +745,50 @@ const TablaVentasProceso = ({ adquirir }) => {
               </button>
               <button
                 onClick={async () => {
-                  if (!datoSeleccionado) return;
-                  await actualizarVenta(datoSeleccionado.id, { encargado: empleadoSeleccionado || "Sin asignar" });
-                  setModalAsignarEncargadoOpen(false);
-                  setEmpleadoSeleccionado("");
-                  Swal.fire({
-                    icon: "success",
-                    title: "Encargado asignado",
-                    text: "El encargado ha sido actualizado correctamente.",
-                    customClass: { popup: "swal2-border-radius" }
-                  });
-                  refreshVentas();
+                  if (!datoSeleccionado) {
+                    AlertService.error('Error', 'No hay solicitud seleccionada');
+                    return;
+                  }
+                  
+                  if (!empleadoSeleccionado) {
+                    AlertService.warning('Atención', 'Debes seleccionar un empleado');
+                    return;
+                  }
+
+                  try {
+                    const token = authData.getToken();
+                    if (!token) {
+                      AlertService.error('Error', 'No hay sesión activa');
+                      return;
+                    }
+
+                    console.log('🔧 [TablaVentasProceso] Asignando empleado:', empleadoSeleccionado, 'a solicitud:', datoSeleccionado.id);
+                    
+                    // Asignar empleado usando la API real
+                    await solicitudesApiService.asignarEmpleado(
+                      datoSeleccionado.id,
+                      parseInt(empleadoSeleccionado),
+                      token
+                    );
+
+                    setModalAsignarEncargadoOpen(false);
+                    setEmpleadoSeleccionado("");
+                    
+                    Swal.fire({
+                      icon: "success",
+                      title: "Encargado asignado",
+                      text: "El encargado ha sido actualizado correctamente. Se han enviado notificaciones por email.",
+                      customClass: { popup: "swal2-border-radius" }
+                    });
+                    
+                    refreshVentas();
+                  } catch (error) {
+                    console.error('❌ [TablaVentasProceso] Error asignando empleado:', error);
+                    AlertService.error('Error', 'No se pudo asignar el empleado: ' + error.message);
+                  }
                 }}
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-semibold"
-                disabled={empleadoSeleccionado === (datoSeleccionado?.encargado || "")}
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={!empleadoSeleccionado || loadingEmpleados}
               >
                 Asignar
               </button>

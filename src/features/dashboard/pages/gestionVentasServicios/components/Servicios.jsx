@@ -3,12 +3,13 @@ import { mockDataService } from '../../../../../utils/mockDataService';
 import {
   toggleVisibilidadServicio,
   updateLandingData,
-  updateInfoPageData,
   updateProcessStates,
 } from '../services/serviciosManagementService';
+import serviciosApiService from '../services/serviciosApiService';
 import ModalVerDetalleServicio from './ModalVerDetalleServicio';
 import ModalEditarServicio from './ModalEditarServicio';
 import Swal from 'sweetalert2';
+import authData from '../../../../auth/services/authData.js';
 
 const Servicios = () => {
   const [servicios, setServicios] = useState([]);
@@ -16,12 +17,41 @@ const Servicios = () => {
   const [detalle, setDetalle] = useState(null);
   const [editar, setEditar] = useState(null);
 
+
   const cargarServicios = async () => {
     setLoading(true);
-    // Forzar lectura fresca de localStorage
-    const nuevosServicios = await Promise.resolve(mockDataService.getServices());
-    setServicios([...nuevosServicios]);
+    try {
+      console.log('🔧 [Servicios] Cargando servicios desde la API...');
+      
+      const serviciosAPI = await serviciosApiService.getServicios();
+      console.log('✅ [Servicios] Servicios cargados desde API:', serviciosAPI.length);
+      console.log('📊 [Servicios] Estado de visibilidad de los servicios:', serviciosAPI.map(s => ({ id: s.id, nombre: s.nombre, visible: s.visible_en_landing })));
+      
+      // Log específico para verificar process_states del servicio 1
+      const servicio1 = serviciosAPI.find(s => s.id === '1');
+      if (servicio1) {
+        console.log('🔍 [DEBUG] Servicio 1 después de recarga:');
+        console.log('  - Process states:', servicio1.process_states);
+        console.log('  - Cantidad de process states:', servicio1.process_states?.length);
+        console.log('  - Último process state:', servicio1.process_states?.[servicio1.process_states?.length - 1]);
+        
+        // Verificar si los process_states persisten correctamente
+        if (servicio1.process_states?.length > 0) {
+          console.log('✅ [DEBUG] ¡Persistencia correcta! Process states se mantienen después de la recarga');
+          console.log('✅ [DEBUG] Backend funcionando correctamente - Process states cargados desde la base de datos');
+        } else {
+          console.log('⚠️ [DEBUG] Process states no persisten correctamente después de la recarga');
+        }
+      }
+      
+      setServicios(serviciosAPI);
+      
+    } catch (error) {
+      console.error('❌ [Servicios] Error cargando servicios:', error);
+      Swal.fire("Error", "No se pudieron cargar los servicios. Por favor, inténtelo de nuevo.", "error");
+    } finally {
     setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -30,16 +60,82 @@ const Servicios = () => {
 
   const handleToggleVisibilidad = async (id) => {
     const servicio = servicios.find(s => s.id === id);
-    if (servicio && servicio.visible_en_landing) {
-      const result = await AlertService.warning("¿Ocultar servicio?", "¿Estás seguro que deseas ocultar este servicio de la página principal? No será visible para los usuarios.");
+    if (!servicio) return;
+    
+    const nuevaVisibilidad = !servicio.visible_en_landing;
+    const accion = nuevaVisibilidad ? "mostrar" : "ocultar";
+    
+    const result = await Swal.fire({
+      title: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} servicio?`,
+      text: nuevaVisibilidad 
+        ? "¿Estás seguro que deseas mostrar este servicio en la página principal? Será visible para los usuarios."
+        : "¿Estás seguro que deseas ocultar este servicio de la página principal? No será visible para los usuarios.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: nuevaVisibilidad ? "#28a745" : "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: `Sí, ${accion}`,
+      cancelButtonText: "Cancelar"
+    });
+    
       if (!result.isConfirmed) return;
-    }
     try {
+      const token = authData.getToken();
+      console.log('🔑 [Servicios] Token disponible:', token ? 'Sí' : 'No');
+      if (token) {
+        console.log(`🔧 [Servicios] Cambiando visibilidad del servicio ${id} via API...`);
+        console.log('🔑 [Servicios] Token enviado:', token.substring(0, 20) + '...');
+        const nuevaVisibilidad = !servicio.visible_en_landing;
+        
+        // Actualización optimista del estado local
+        setServicios(prevServicios => 
+          prevServicios.map(s => 
+            s.id === id ? { ...s, visible_en_landing: nuevaVisibilidad } : s
+          )
+        );
+        
+        const resultado = await serviciosApiService.toggleVisibilidadServicio(id, nuevaVisibilidad, token);
+        console.log('✅ [Servicios] Visibilidad actualizada via API:', resultado);
+        
+        // Actualización optimista del estado local
+        setServicios(prevServicios => 
+          prevServicios.map(s => 
+            s.id === id ? { ...s, visible_en_landing: nuevaVisibilidad } : s
+          )
+        );
+        
+        // Detectar el tipo de respuesta
+        if (resultado.message && resultado.message.includes('No hay cambios necesarios')) {
+          console.log('ℹ️ [Servicios] No hay cambios necesarios');
+          Swal.fire("Sin cambios", "El servicio ya tiene el estado de visibilidad deseado.", "info");
+        } else {
+          Swal.fire("Visibilidad actualizada", "El estado de visibilidad del servicio ha sido actualizado.", "success");
+        }
+        
+        console.log('🔄 [Servicios] Recargando servicios después del cambio...');
+        await cargarServicios();
+        
+        // Notificar a la landing page que los servicios han cambiado
+        window.dispatchEvent(new CustomEvent('servicios_updated'));
+      } else {
+        console.log(`⚠️ [Servicios] No hay token, usando método mock para servicio ${id}...`);
+        const nuevaVisibilidad = !servicio.visible_en_landing;
+        
+        // Actualización optimista del estado local
+        setServicios(prevServicios => 
+          prevServicios.map(s => 
+            s.id === id ? { ...s, visible_en_landing: nuevaVisibilidad } : s
+          )
+        );
+        
       await Promise.resolve(toggleVisibilidadServicio(id));
-      AlertService.success("Visibilidad actualizada", "El estado de visibilidad del servicio ha sido actualizado.");
-      cargarServicios();
+        Swal.fire("Visibilidad actualizada", "El estado de visibilidad del servicio ha sido actualizado.", "success");
+        console.log('🔄 [Servicios] Recargando servicios después del cambio (mock)...');
+        await cargarServicios();
+      }
     } catch (err) {
-      AlertService.error("Error", "");
+      console.error('❌ [Servicios] Error cambiando visibilidad:', err);
+      Swal.fire("Error", "No se pudo cambiar la visibilidad del servicio. Por favor, inténtelo de nuevo.", "error");
     }
   };
 
@@ -49,13 +145,68 @@ const Servicios = () => {
   const handleGuardarEdicion = async (tipo, data) => {
     if (!editar) return;
     try {
+      const token = authData.getToken();
+      
+      console.log(`🔧 [Servicios] Actualizando servicio ${editar.id} via API (tipo: ${tipo})...`);
+      console.log('🔍 [DEBUG] Tipo de edición:', tipo);
+      console.log('🔍 [DEBUG] Datos recibidos:', data);
+      console.log('🔍 [DEBUG] Estructura de datos:', JSON.stringify(data, null, 2));
+      console.log('🔍 [DEBUG] Servicio a editar:', editar);
+      
+      if (token) {
+        console.log('🔑 [Servicios] Token disponible:', token ? 'Sí' : 'No');
+        
+        try {
+          if (tipo === 'landing') {
+            console.log('🔧 [Servicios] Ejecutando updateLandingData...');
+            await serviciosApiService.updateLandingData(editar.id, data, token);
+          } else if (tipo === 'process') {
+            console.log('🔧 [Servicios] Ejecutando updateProcessStates...');
+            await serviciosApiService.updateProcessStates(editar.id, data, token);
+          }
+          
+          console.log('✅ [Servicios] Servicio actualizado via API');
+          
+          // Actualizar el estado local optimistamente
+          setServicios(prevServicios => 
+            prevServicios.map(s => 
+              s.id === editar.id ? { ...s, [tipo === 'landing' ? 'landing_data' : 'process_states']: data } : s
+            )
+          );
+          
+          // Log específico para verificar actualización en UI
+          console.log('🔄 [Servicios] Actualización optimística aplicada:', {
+            tipo: tipo,
+            servicioId: editar.id,
+            campoActualizado: tipo === 'landing' ? 'landing_data' : 'process_states',
+            datos: data
+          });
+          
+          Swal.fire("Servicio actualizado", "El servicio ha sido actualizado correctamente.", "success");
+          cargarServicios();
+          
+          // Notificar a la landing page que los servicios han cambiado
+          window.dispatchEvent(new CustomEvent('servicios_updated'));
+        } catch (apiError) {
+          console.error('❌ [Servicios] Error actualizando servicio:', apiError);
+          Swal.fire("Error", "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.", "error");
+        }
+      } else {
+        console.log(`⚠️ [Servicios] No hay token, usando métodos mock para servicio ${editar.id}...`);
+        
       if (tipo === 'landing') await Promise.resolve(updateLandingData(editar.id, data));
-      if (tipo === 'info') await Promise.resolve(updateInfoPageData(editar.id, data));
       if (tipo === 'process') await Promise.resolve(updateProcessStates(editar.id, data));
-      AlertService.success("Servicio actualizado", "El servicio ha sido actualizado correctamente.");
+        
+        Swal.fire("Servicio actualizado", "El servicio ha sido actualizado correctamente.", "success");
       cargarServicios();
+        
+        // Notificar a la landing page que los servicios han cambiado
+        window.dispatchEvent(new CustomEvent('servicios_updated'));
+      }
     } catch (err) {
-      AlertService.error("Error", "");
+      console.error('❌ [Servicios] Error general actualizando servicio:', err);
+      console.error('🔍 [DEBUG] Error completo:', err);
+      Swal.fire("Error", "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.", "error");
     }
   };
 
@@ -73,6 +224,9 @@ const Servicios = () => {
   return (
     <div className="flex-1 flex justify-center">
       <div className="w-full px-4">
+        <div className="mb-6 flex items-center justify-between">
+          
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {servicios.map((servicio) => (
             <div
@@ -95,12 +249,12 @@ const Servicios = () => {
                 <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                   {servicio.descripcion_corta}
                 </p>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-3 flex-wrap">
                   <button
                     onClick={() => handleVerDetalle(servicio)}
-                    className="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-sm font-medium flex items-center justify-center"
+                    className="flex-1 px-4 py-2.5 bg-blue-400/20 backdrop-blur-sm border border-blue-300/30 text-blue-700 rounded-xl hover:bg-blue-400/30 hover:border-blue-400/50 transition-all duration-300 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow-lg transform hover:-translate-y-1"
                   >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
@@ -108,14 +262,20 @@ const Servicios = () => {
                   </button>
                   <button
                     onClick={() => handleToggleVisibilidad(servicio.id)}
-                    className="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-sm font-medium flex items-center justify-center"
+                    className={`flex-1 px-4 py-2.5 rounded-xl transition-all duration-300 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow-lg transform hover:-translate-y-1 backdrop-blur-sm border ${
+                      servicio.visible_en_landing 
+                        ? 'bg-rose-400/20 border-rose-300/30 text-rose-700 hover:bg-rose-400/30 hover:border-rose-400/50' 
+                        : 'bg-emerald-400/20 border-emerald-300/30 text-emerald-700 hover:bg-emerald-400/30 hover:border-emerald-400/50'
+                    }`}
                   >
                     {servicio.visible_en_landing ? (
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      // Icono de ojo tachado (para ocultar)
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      // Icono de ojo normal (para mostrar)
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
@@ -124,9 +284,9 @@ const Servicios = () => {
                   </button>
                   <button
                     onClick={() => handleEditar(servicio)}
-                    className="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-sm font-medium flex items-center justify-center"
+                    className="flex-1 px-4 py-2.5 bg-amber-400/20 backdrop-blur-sm border border-amber-300/30 text-amber-700 rounded-xl hover:bg-amber-400/30 hover:border-amber-400/50 transition-all duration-300 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow-lg transform hover:-translate-y-1"
                   >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Editar

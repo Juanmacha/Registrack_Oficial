@@ -50,12 +50,8 @@ export default function ModalVerDetalleServicio({ servicio, isOpen, onClose }) {
               {renderObj(servicio.landing_data)}
             </div>
           </div>
-          {/* Panel 3: Página de Información y Estados */}
+          {/* Panel 3: Estados del Proceso */}
           <div className="bg-white rounded-xl p-3 flex flex-col gap-1 border border-blue-100 shadow-sm max-h-56 overflow-y-auto">
-            <div className={labelClass}>Página de Información</div>
-            <div className="bg-blue-50 rounded p-2 border border-blue-100 text-xs overflow-x-auto mt-1 mb-2">
-              {renderObj(servicio.info_page_data)}
-            </div>
             <div className={labelClass}>PROCESOS DEL SERVICIO</div>
             <ol className="list-decimal ml-6 mt-1">
               {servicio.process_states && servicio.process_states.length > 0 ? servicio.process_states.map((ps) => (

@@ -5,6 +5,8 @@ import {
   SaleService,
   initializeMockData,
 } from "../../../../../utils/mockDataService.js";
+import solicitudesApiService from './solicitudesApiService';
+import authData from '../../../../auth/services/authData.js';
 
 // Inicializar datos mock centralizados
 initializeMockData();
@@ -154,4 +156,90 @@ export function agregarComentario(id, texto, especial = false) {
 export function getComentarios(id) {
   const venta = SaleService.getById(id);
   return venta?.comentarios || [];
+}
+
+// Obtener solicitudes en proceso (conectado a API)
+export async function getInProcess() {
+  try {
+    console.log('🔧 [VentasService] Obteniendo solicitudes en proceso...');
+    
+    const token = authData.getToken();
+    if (token) {
+      console.log('🔧 [VentasService] Obteniendo desde API...');
+      const solicitudesAPI = await solicitudesApiService.getAllSolicitudes(token);
+      
+      // Transformar respuesta de la API al formato del frontend
+      const solicitudesFormateadas = solicitudesAPI.map(solicitud => 
+        solicitudesApiService.transformarRespuestaDelAPI(solicitud)
+      );
+      
+      console.log('✅ [VentasService] Solicitudes obtenidas desde API:', solicitudesFormateadas.length);
+      return solicitudesFormateadas;
+    } else {
+      console.log('⚠️ [VentasService] No hay token, usando datos mock...');
+      return SaleService.getInProcess();
+    }
+  } catch (error) {
+    console.error('❌ [VentasService] Error obteniendo solicitudes desde API, usando datos mock:', error);
+    return SaleService.getInProcess();
+  }
+}
+
+// Obtener solicitudes por estado (conectado a API)
+export async function getByEstado(estado) {
+  try {
+    console.log(`🔧 [VentasService] Obteniendo solicitudes por estado: ${estado}...`);
+    
+    const token = authData.getToken();
+    if (token) {
+      console.log('🔧 [VentasService] Obteniendo desde API...');
+      const todasLasSolicitudes = await solicitudesApiService.getAllSolicitudes(token);
+      
+      // Filtrar por estado
+      const solicitudesFiltradas = todasLasSolicitudes.filter(solicitud => 
+        solicitud.estado === estado
+      );
+      
+      // Transformar respuesta de la API al formato del frontend
+      const solicitudesFormateadas = solicitudesFiltradas.map(solicitud => 
+        solicitudesApiService.transformarRespuestaDelAPI(solicitud)
+      );
+      
+      console.log(`✅ [VentasService] Solicitudes por estado ${estado} obtenidas desde API:`, solicitudesFormateadas.length);
+      return solicitudesFormateadas;
+    } else {
+      console.log('⚠️ [VentasService] No hay token, usando datos mock...');
+      return SaleService.getByEstado(estado);
+    }
+  } catch (error) {
+    console.error('❌ [VentasService] Error obteniendo solicitudes por estado desde API, usando datos mock:', error);
+    return SaleService.getByEstado(estado);
+  }
+}
+
+// Buscar solicitudes (conectado a API)
+export async function buscarSolicitudes(termino) {
+  try {
+    console.log(`🔧 [VentasService] Buscando solicitudes con término: ${termino}...`);
+    
+    const token = authData.getToken();
+    if (token) {
+      console.log('🔧 [VentasService] Buscando desde API...');
+      const solicitudesAPI = await solicitudesApiService.buscarSolicitudes(termino, token);
+      
+      // Transformar respuesta de la API al formato del frontend
+      const solicitudesFormateadas = solicitudesAPI.map(solicitud => 
+        solicitudesApiService.transformarRespuestaDelAPI(solicitud)
+      );
+      
+      console.log(`✅ [VentasService] Solicitudes encontradas desde API:`, solicitudesFormateadas.length);
+      return solicitudesFormateadas;
+    } else {
+      console.log('⚠️ [VentasService] No hay token, usando datos mock...');
+      return SaleService.buscarSolicitudes(termino);
+    }
+  } catch (error) {
+    console.error('❌ [VentasService] Error buscando solicitudes desde API, usando datos mock:', error);
+    return SaleService.buscarSolicitudes(termino);
+  }
 }

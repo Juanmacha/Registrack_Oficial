@@ -4,7 +4,7 @@ import authData from '../../../auth/services/authData.js';
 import ProcesosActivos from './components/ProcesosActivos.jsx';
 import HistorialProcesos from './components/HistorialProcesos.jsx';
 import { getSolicitudesUsuario, filtrarProcesos, obtenerServicios } from './services/procesosService.js';
-import { useSalesSync } from '../../../../utils/hooks/useDataSync.js';
+import { useSalesSync } from '../../../../utils/hooks/useAsyncDataSync.js';
 
 const MisProcesos = () => {
   const [servicios, setServicios] = useState([]);
@@ -29,7 +29,7 @@ const MisProcesos = () => {
   }, [user?.email]);
 
   // Usar hook de sincronización para procesos del usuario
-  const [procesos, refreshProcesos, lastUpdate] = useSalesSync(
+  const [procesos, refreshProcesos, loading, lastUpdate, errorProcesos] = useSalesSync(
     dataFetcher,
     [user?.email]
   );

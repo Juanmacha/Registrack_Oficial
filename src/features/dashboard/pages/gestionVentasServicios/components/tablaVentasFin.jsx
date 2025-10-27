@@ -5,6 +5,8 @@ import Observaciones from "./observaciones";
 import EditarVenta from "./editarVenta";
 import { agregarComentario } from "../services/ventasService";
 import { mockDataService } from '../../../../../utils/mockDataService';
+import solicitudesApiService from '../services/solicitudesApiService';
+import authData from '../../../../auth/services/authData.js';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import getEstadoBadge from "../services/getEstadoBadge"; // Usa el mismo servicio
 import * as xlsx from "xlsx";
@@ -27,25 +29,77 @@ const TablaVentasFin = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
   const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
+  
+  // ✅ NUEVO: Estados para API real
+  const [allDatos, setAllDatos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // ✅ NUEVO: Cargar ventas finalizadas de la API real
   useEffect(() => {
-    // Obtener servicios y estados únicos
-    const servicios = mockDataService.getServices().map(s => s.nombre);
-    setServiciosDisponibles(['Todos', ...servicios]);
-    // Obtener estados únicos de los datos
-    const ventas = mockDataService.getSales().getCompleted();
-    const estados = Array.from(new Set(ventas.map(v => v.estado))).filter(Boolean);
-    setEstadosDisponibles(['Todos', ...estados]);
+    const cargarVentasFinalizadas = async () => {
+      const token = authData.getToken();
+      if (!token) {
+        console.warn("🔧 [TablaVentasFin] No hay token, usando datos vacíos");
+        setAllDatos([]);
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        console.log("🔧 [TablaVentasFin] Cargando ventas finalizadas de la API...");
+        const solicitudes = await solicitudesApiService.getAllSolicitudes(token);
+        console.log("🔧 [TablaVentasFin] Solicitudes obtenidas:", solicitudes.length);
+        
+        // Transformar todas las solicitudes para ver sus estados
+        const todasTransformadas = solicitudes.map(s => {
+          const transformada = solicitudesApiService.transformarRespuestaDelAPI(s);
+          console.log(`🔍 [TablaVentasFin] Solicitud ${s.id} - Estado API: "${s.estado}" → Estado Frontend: "${transformada.estado}"`);
+          return transformada;
+        });
+        
+        // Filtrar: finalizadas, anuladas y rechazadas (por si el backend usa "Rechazada")
+        const ventasFinalizadas = todasTransformadas.filter(v => {
+          const esFinalizadaOAnulada = v.estado === 'Finalizada' || v.estado === 'Anulada' || v.estado === 'Rechazada';
+          console.log(`🔍 [TablaVentasFin] Venta ${v.id} - Estado: "${v.estado}" - Es finalizada/anulada/rechazada: ${esFinalizadaOAnulada}`);
+          return esFinalizadaOAnulada;
+        });
+        
+        console.log("✅ [TablaVentasFin] Ventas finalizadas/anuladas:", ventasFinalizadas.length);
+        console.log("✅ [TablaVentasFin] Estados encontrados:", todasTransformadas.map(v => v.estado));
+        setAllDatos(ventasFinalizadas);
+        
+        // Obtener servicios y estados únicos de las ventas finalizadas
+        const servicios = Array.from(new Set(ventasFinalizadas.map(v => v.tipoSolicitud))).filter(Boolean);
+        setServiciosDisponibles(['Todos', ...servicios]);
+        
+        const estados = Array.from(new Set(ventasFinalizadas.map(v => v.estado))).filter(Boolean);
+        setEstadosDisponibles(['Todos', ...estados]);
+        
+      } catch (error) {
+        console.error("❌ [TablaVentasFin] Error cargando ventas finalizadas:", error);
+        setAllDatos([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    cargarVentasFinalizadas();
+    
+    // ✅ NUEVO: Escuchar evento de solicitud anulada para refrescar automáticamente
+    const handleSolicitudAnulada = (event) => {
+      console.log("🔔 [TablaVentasFin] Evento de solicitud anulada recibido:", event.detail);
+      console.log("🔔 [TablaVentasFin] Refrescando tabla de ventas finalizadas...");
+      cargarVentasFinalizadas();
+    };
+    
+    window.addEventListener('solicitudAnulada', handleSolicitudAnulada);
+    
+    // Cleanup: remover listener cuando el componente se desmonte
+    return () => {
+      window.removeEventListener('solicitudAnulada', handleSolicitudAnulada);
+    };
   }, []);
-
-  // Obtener todos los datos sin paginar, con protección robusta
-  let allDatos = [];
-  try {
-    allDatos = mockDataService.getSales().getCompleted() || [];
-  } catch (e) {
-    console.error('Error al obtener ventas finalizadas:', e);
-    allDatos = [];
-  }
 
   // Filtrar por texto, servicio y estado
   const texto = busqueda.trim().toLowerCase();
@@ -77,21 +131,36 @@ const TablaVentasFin = () => {
   const fin = inicio + registrosPorPagina;
   const datosPagina = datosFiltrados.slice(inicio, fin);
 
-  // Refrescar datos
-  const refrescar = () => {
-    const ventas = mockDataService.getSales().getCompleted();
-    const datosFiltrados = busqueda ? ventas.filter(v => 
-      v.titular?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      v.marca?.toLowerCase().includes(busqueda.toLowerCase())
-    ) : ventas;
-    setDatos(datosFiltrados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina));
-    setTotalRegistros(datosFiltrados.length);
+  // ✅ NUEVO: Refrescar datos desde API
+  const refrescar = async () => {
+    const token = authData.getToken();
+    if (!token) {
+      console.warn("🔧 [TablaVentasFin] No hay token para refrescar");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log("🔧 [TablaVentasFin] Refrescando ventas finalizadas...");
+      const solicitudes = await solicitudesApiService.getAllSolicitudes(token);
+      
+      const todasTransformadas = solicitudes.map(s => {
+        const transformada = solicitudesApiService.transformarRespuestaDelAPI(s);
+        console.log(`🔍 [TablaVentasFin-Refresh] Solicitud ${s.id} - Estado API: "${s.estado}" → Estado Frontend: "${transformada.estado}"`);
+        return transformada;
+      });
+      
+      const ventasFinalizadas = todasTransformadas.filter(v => v.estado === 'Finalizada' || v.estado === 'Anulada' || v.estado === 'Rechazada');
+      
+      console.log("✅ [TablaVentasFin] Ventas finalizadas/anuladas refrescadas:", ventasFinalizadas.length);
+      console.log("✅ [TablaVentasFin] Todos los estados:", todasTransformadas.map(v => `${v.id}:${v.estado}`));
+      setAllDatos(ventasFinalizadas);
+    } catch (error) {
+      console.error("❌ [TablaVentasFin] Error refrescando ventas:", error);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => {
-    refrescar();
-    // eslint-disable-next-line
-  }, [paginaActual, busqueda]);
 
   const handleGuardarEdicion = () => {
     refrescar();
