@@ -70,39 +70,59 @@ const userApiService = {
   // Crear usuario (solo admin)
   createUser: async (userData) => {
     try {
-      const response = await apiService.post(API_CONFIG.ENDPOINTS.CREATE_USER, {
+      // Preparar datos según la documentación de la API
+      const requestData = {
         tipo_documento: userData.tipoDocumento || 'CC',
-        documento: userData.documento,
-        nombre: userData.nombre,
-        apellido: userData.apellido,
-        correo: userData.email,
-        contrasena: userData.password,
-        id_rol: userData.roleId || 3 // Por defecto cliente
-      });
+        documento: String(userData.documento).trim(),
+        nombre: String(userData.nombre).trim(),
+        apellido: String(userData.apellido).trim(),
+        correo: String(userData.email).trim(),
+        contrasena: String(userData.password).trim(),
+        id_rol: userData.roleId || 1 // Por defecto cliente (backend: 1=cliente, 2=admin, 3=empleado)
+      };
+      
+      console.log('📤 [userApiService] Datos enviados a la API:', requestData);
+      
+      const response = await apiService.post(API_CONFIG.ENDPOINTS.CREATE_USER, requestData);
+      
+      console.log('📥 [userApiService] Respuesta recibida:', response);
 
       if (response.success || response.mensaje) {
         return {
           success: true,
-          user: response.data?.usuario || response.usuario || response.data,
+          user: response.data?.usuario || response.usuario || response.data || response,
           message: response.mensaje || 'Usuario creado correctamente'
         };
       } else {
+        const errorMsg = response.error || response.message || 'Error al crear usuario';
+        console.error('❌ [userApiService] Error en respuesta:', errorMsg);
         return {
           success: false,
-          message: response.error || 'Error al crear usuario'
+          message: errorMsg
         };
       }
     } catch (error) {
-      console.error('Error al crear usuario:', error);
+      console.error('💥 [userApiService] Error al crear usuario:', error);
+      console.error('💥 [userApiService] Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
       
       let errorMessage = 'Error de conexión con el servidor';
       
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.mensaje) {
-        errorMessage = error.response.data.mensaje;
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Datos inválidos o usuario ya existe';
+      if (error.response?.data) {
+        // Intentar extraer mensaje de error de diferentes formatos
+        const errorData = error.response.data;
+        errorMessage = errorData.error || 
+                      errorData.mensaje || 
+                      errorData.message ||
+                      (typeof errorData === 'string' ? errorData : JSON.stringify(errorData));
+      }
+      
+      if (error.response?.status === 400) {
+        errorMessage = errorMessage || 'Datos inválidos o usuario ya existe';
       } else if (error.response?.status === 401) {
         errorMessage = 'No autorizado para crear usuarios';
       } else if (error.response?.status === 403) {

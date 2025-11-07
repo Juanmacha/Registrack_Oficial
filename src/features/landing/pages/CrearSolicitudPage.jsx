@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { mockDataService } from '../../../utils/mockDataService';
 import NavBarLanding from '../../landing/components/landingNavbar';
-import authData from '../../auth/services/authData.js';
+import { useAuth } from '../../../shared/contexts/authContext';
 import alertService from '../../../utils/alertService.js';
 import { crearVenta } from '../../dashboard/pages/gestionVentasServicios/services/ventasService';
 import DemoPasarelaPagoModal from '../../landing/components/DemoPasarelaPagoModal';
@@ -10,6 +10,7 @@ import DemoPasarelaPagoModal from '../../landing/components/DemoPasarelaPagoModa
 const CrearSolicitudPage = () => {
   const { servicioId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [paso, setPaso] = useState(1);
   const [servicio, setServicio] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,7 @@ const CrearSolicitudPage = () => {
 
   useEffect(() => {
     // Cargar datos del usuario si está autenticado
-    const user = authData.getUser();
+    // user ya está disponible desde useAuth
     if (user) {
       setForm(prev => ({
         ...prev,

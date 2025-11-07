@@ -55,10 +55,12 @@ const makeHttpRequest = async (url, options = {}) => {
     
     if (!response.ok) {
       console.log('❌ [makeHttpRequest] Error HTTP:', response.status);
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      console.log('❌ [makeHttpRequest] Error response data:', errorData);
       const error = new Error(`HTTP error! status: ${response.status}`);
       error.response = {
         status: response.status,
-        data: await response.json().catch(() => ({ error: 'Error desconocido' }))
+        data: errorData
       };
       throw error;
     }
@@ -77,10 +79,13 @@ const makeHttpRequest = async (url, options = {}) => {
     
     if (error.name === 'AbortError') {
       console.log('⏰ [makeHttpRequest] Petición cancelada por timeout');
-      const timeoutError = new Error('La petición tardó demasiado tiempo. Verifica tu conexión e intenta de nuevo.');
+      const timeoutError = new Error('El servidor está tardando mucho en responder. Esto puede suceder si el servidor está iniciando (especialmente en OnRender). Por favor, espera unos segundos e intenta de nuevo.');
       timeoutError.response = {
         status: 408,
-        data: { error: 'Timeout de conexión' }
+        data: { 
+          error: 'Timeout de conexión',
+          message: 'El servidor está tardando mucho en responder. Si estás usando OnRender, el servidor puede estar "despertando". Espera unos segundos e intenta de nuevo.'
+        }
       };
       throw timeoutError;
     }
@@ -109,7 +114,9 @@ const makeRequest = async (url, options = {}, retries = API_CONFIG.RETRY_ATTEMPT
       }
     }
     
-    if (retries > 0 && error.response?.status >= 500) {
+    // Reintentar si hay error 408 (timeout) o 500+ (errores del servidor)
+    if (retries > 0 && (error.response?.status === 408 || error.response?.status >= 500)) {
+      console.log(`🔄 [makeRequest] Reintentando petición... Intentos restantes: ${retries - 1}`);
       // Esperar antes del siguiente intento
       await new Promise(resolve => setTimeout(resolve, API_CONFIG.RETRY_DELAY));
       return makeRequest(url, options, retries - 1);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom'; // <-- Asegúrate de importar Navigate
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 import Landing from '../features/landing/landing';
 import Login from '../features/auth/pages/login';
@@ -26,6 +26,7 @@ import Ayuda from '../features/landing/pages/ayuda';
 import AuthLayout from '../features/auth/components/authLayout';
 import AdminRoute from '../features/auth/components/adminRoute';
 import EmployeeRoute from '../features/auth/components/employeeRoute';
+import ClientRoute from '../features/auth/components/clientRoute';
 
 // Layout general para admin
 import AdminLayout from '../features/dashboard/layouts/adminLayouts';
@@ -66,8 +67,6 @@ const AppRoutes = () => {
     <Routes>
       {/* Rutas públicas */}
       <Route path="/" element={<Landing />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path='/editProfile' element={<EditarProfile/>}/>
       <Route path="/api-test" element={<ApiTest />} />
 
       {/* Páginas individuales de servicios */}
@@ -77,7 +76,6 @@ const AppRoutes = () => {
       <Route path="/pages/busqueda" element={<Busqueda />} />
       <Route path="/pages/certificacion" element={<Certificacion />} />
       <Route path="/pages/ampliacion" element={<Ampliacion />} />
-      <Route path="/misprocesos" element={<MisProcesos/>}/>
       <Route path="/ayuda" element={<Ayuda />} />
 
       {/* Layout para autenticación */}
@@ -86,10 +84,26 @@ const AppRoutes = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/forgotPassword" element={<ForgotPassword />} />
         <Route path="/resetPassword" element={<ResetPassword />} />
-         <Route path="/codigoRecuperacion" element={<CodigoRecuperacion />} />
+        <Route path="/codigoRecuperacion" element={<CodigoRecuperacion />} />
       </Route>
 
-      {/* Rutas protegidas para admin y empleados con layout común */}
+      {/* ✅ RUTAS PROTEGIDAS PARA CLIENTES */}
+      <Route
+        path="/cliente"
+        element={
+          <ClientRoute>
+            <div className="min-h-screen bg-gray-50">
+              <Outlet />
+            </div>
+          </ClientRoute>
+        }
+      >
+        <Route path="misprocesos" element={<MisProcesos />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="editProfile" element={<EditarProfile />} />
+      </Route>
+
+      {/* ✅ RUTAS PROTEGIDAS PARA ADMIN Y EMPLEADOS */}
       <Route
         path="/admin"
         element={
@@ -98,22 +112,30 @@ const AppRoutes = () => {
           </EmployeeRoute>
         }
       >
+        {/* ✅ Rutas accesibles para admin Y empleado */}
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="pagos" element={<Pagos />} />
         <Route path="ventasServiciosProceso" element={<GestionVentasServiciosProceso />} />
         <Route path="ventasServiciosFin" element={<GestionVentasServiciosFin />} />
         <Route path="calendario" element={<Calendario />} />
         <Route path="gestionClientes" element={<GestionClientes />} />
-        <Route path="gestionUsuarios" element={<GestionUsuarios />} />
-        <Route path="roles" element={<Roles />} />
-        <Route path="empleados" element={<Empleados />} />
-        <Route path='servicios' element={<Servicios/>}/>
+        <Route path="servicios" element={<Servicios />} />
         <Route path="solicitudesCitas" element={<SolicitudesCitas />} />
         <Route path="solicitudesCitas-api" element={<SolicitudesCitasApi />} />
+
+        {/* ✅ Rutas SOLO para administradores (protección anidada) */}
+        <Route element={<AdminRoute><Outlet /></AdminRoute>}>
+          <Route path="gestionUsuarios" element={<GestionUsuarios />} />
+          <Route path="roles" element={<Roles />} />
+          <Route path="empleados" element={<Empleados />} />
+        </Route>
       </Route>
 
-      {/* ✅ Redirección temporal por compatibilidad */}
+      {/* ✅ Redirecciones para compatibilidad con URLs antiguas */}
       <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/misprocesos" element={<Navigate to="/cliente/misprocesos" replace />} />
+      <Route path="/profile" element={<Navigate to="/cliente/profile" replace />} />
+      <Route path="/editProfile" element={<Navigate to="/cliente/editProfile" replace />} />
 
       {/* Formularios anidados bajo un layout base */}
       <Route path="/formulario" element={<FormularioBase />}>

@@ -11,14 +11,38 @@ const ActionDropdown = ({
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
 
-  // Actualizar posición del dropdown
+  // ✅ MEJORADO: Actualizar posición del dropdown con ajuste automático
   const updatePosition = () => {
     if (dropdownRef.current) {
       const rect = dropdownRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 8,
-        left: rect.right - 150 // Centrar el dropdown con el botón trigger
-      });
+      const dropdownWidth = layout === "horizontal" ? 250 : 288; // w-72 = 288px
+      const dropdownHeight = 400; // Altura estimada máxima
+      
+      // Calcular posición inicial
+      let top = rect.bottom + 8;
+      let left = rect.right - 150;
+      
+      // ✅ Ajustar si se sale por la derecha
+      if (left + dropdownWidth > window.innerWidth) {
+        left = window.innerWidth - dropdownWidth - 16; // 16px de margen
+      }
+      
+      // ✅ Ajustar si se sale por la izquierda
+      if (left < 16) {
+        left = 16;
+      }
+      
+      // ✅ Ajustar si se sale por abajo (abrir hacia arriba)
+      if (top + dropdownHeight > window.innerHeight) {
+        top = rect.top - dropdownHeight - 8; // Abrir hacia arriba
+        
+        // Si tampoco cabe arriba, centrar verticalmente
+        if (top < 16) {
+          top = Math.max(16, (window.innerHeight - dropdownHeight) / 2);
+        }
+      }
+      
+      setDropdownPosition({ top, left });
     }
   };
 
@@ -78,7 +102,7 @@ const ActionDropdown = ({
       {/* Dropdown menu - Renderizado en portal */}
       {isOpen && (
         <div 
-          className={`fixed ${layout === "horizontal" ? "" : "w-72"} bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999] animate-fadeInDown`}
+          className={`fixed ${layout === "horizontal" ? "" : "w-72"} bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[9999] animate-fadeInDown max-h-[80vh] overflow-y-auto`}
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`

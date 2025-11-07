@@ -1,8 +1,15 @@
 // Configuración de la API
 const API_CONFIG = {
-  // URL base de la API desplegada
-  baseURL: 'https://api-registrack-2.onrender.com',
-  BASE_URL: 'https://api-registrack-2.onrender.com',
+  // ✅ URL base de la API - Usa proxy en desarrollo, URL completa en producción
+  // En desarrollo (npm run dev): Vite proxy redirige /api a la API real
+  // En producción: Se usa la URL completa del backend
+  baseURL: import.meta.env.DEV 
+    ? ''  // En desarrollo, usar proxy (ruta relativa /api)
+    : 'https://api-registrack-2.onrender.com',  // En producción, URL completa
+  
+  BASE_URL: import.meta.env.DEV 
+    ? ''  // En desarrollo, usar proxy
+    : 'https://api-registrack-2.onrender.com',  // En producción
   
   // Endpoints de autenticación
   ENDPOINTS: {
@@ -36,6 +43,7 @@ const API_CONFIG = {
     RESCHEDULE_APPOINTMENT: (id) => `/api/gestion-citas/${id}/reprogramar`,
     CANCEL_APPOINTMENT: (id) => `/api/gestion-citas/${id}/anular`,
     APPOINTMENTS_REPORT: '/api/gestion-citas/reporte/excel',
+    CREATE_APPOINTMENT_FROM_REQUEST: (idOrdenServicio) => `/api/gestion-citas/desde-solicitud/${idOrdenServicio}`,
     
     // Solicitudes de Citas
     APPOINTMENT_REQUESTS: '/api/gestion-solicitud-cita',
@@ -104,11 +112,12 @@ const API_CONFIG = {
   },
   
   // Timeout para las peticiones (en milisegundos)
-  TIMEOUT: 30000,
+  // OnRender puede tardar más en responder, especialmente si el servidor está "dormido"
+  TIMEOUT: 150000, // 150 segundos (2.5 minutos) para dar tiempo a que OnRender despierte el servidor y procese el envío de correos
   
   // Configuración de reintentos
   RETRY_ATTEMPTS: 3,
-  RETRY_DELAY: 1000
+  RETRY_DELAY: 2000 // 2 segundos entre reintentos
 };
 
 // Exportar tanto el objeto completo como propiedades individuales para compatibilidad

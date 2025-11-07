@@ -158,6 +158,7 @@ const GestionRoles = () => {
             setRolEditable={setRolEditable}
             roles={roles}
             setRoles={setRoles}
+            loadRoles={loadRoles}
           />
         )}
       </div>

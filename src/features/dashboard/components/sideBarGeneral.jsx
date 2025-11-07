@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   TbLayoutGrid,
   TbUser,
@@ -13,31 +13,51 @@ import {
   TbUserSquareRounded,
   TbCalendarEvent
 } from "react-icons/tb";
-import { FiChevronRight, FiChevronLeft } from "react-icons/fi";
+import { FiChevronRight } from "react-icons/fi";
 import { Link, useLocation } from "react-router-dom";
 import { useSidebar } from "../../../shared/contexts/SidebarContext";
+import { useAuth } from "../../../shared/contexts/authContext";
+import { getMenuItemsForRole, getSolicitudesDropdownItems } from "../../../shared/utils/sidebarUtils";
+
+// Mapa de iconos por nombre
+const iconMap = {
+  TbLayoutGrid,
+  TbUser,
+  TbUsers,
+  TbBriefcase,
+  TbCalendar,
+  TbCreditCard,
+  TbListDetails,
+  TbBox,
+  TbSettings,
+  TbCircleCheck,
+  TbUserSquareRounded,
+  TbCalendarEvent
+};
 
 const SideBarGeneral = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const location = useLocation();
   const { setIsSidebarExpanded } = useSidebar();
+  const { user } = useAuth();
 
   const iconClass = "text-gray-600 w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0";
   const baseLinkClasses =
     "flex items-center space-x-1 lg:space-x-2 p-1.5 lg:p-2 rounded-md hover:bg-gray-200 transition-all text-xs lg:text-[0.95rem]";
   const activeLinkClasses = "bg-gray-100 border-l-2 lg:border-l-4 border-blue-500";
 
-  const menuItems = [
-    { label: "Dashboard", icon: TbLayoutGrid, to: "/admin/dashboard" },
-    { label: "Configuración", icon: TbSettings, to: "/admin/roles" },
-    { label: "Usuarios", icon: TbUser, to: "/admin/gestionUsuarios" },
-    { label: "Servicios", icon: TbBox, to: "/admin/servicios" },
-    { label: "Empleados", icon: TbUsers, to: "/admin/empleados" },
-    { label: "Clientes", icon: TbUserSquareRounded, to: "/admin/gestionClientes" },
-    // Solicitudes va como dropdown abajo
-    { label: "Pagos", icon: TbCreditCard, to: "/admin/pagos" },
-    { label: "Citas", icon: TbCalendar, to: "/admin/calendario" },
-  ];
+  // ✅ Filtrar items del menú según el rol del usuario
+  const menuItems = useMemo(() => {
+    return getMenuItemsForRole(user).filter(item => !item.isDropdown);
+  }, [user]);
+
+  // ✅ Obtener items del dropdown de Solicitudes filtrados por rol
+  const solicitudesDropdownItems = useMemo(() => {
+    return getSolicitudesDropdownItems(user);
+  }, [user]);
+
+  // ✅ Verificar si el usuario puede ver el dropdown de Solicitudes
+  const showSolicitudesDropdown = solicitudesDropdownItems.length > 0;
 
   const handleToggleDropdown = () => setIsDropdownOpen(prev => !prev);
   const handleSidebarEnter = () => setIsSidebarExpanded(true);
@@ -64,71 +84,59 @@ const SideBarGeneral = () => {
           </div>
           {/* Navegación */}
           <nav className="space-y-2 h-full overflow-y-hidden group-hover:overflow-y-auto pr-1">
-            {menuItems.slice(0, 6).map(({ label, icon: Icon, to }) => (
-              <Link to={to} key={to} className="no-underline block">
-                <div
-                  className={`${baseLinkClasses} ${location.pathname === to ? activeLinkClasses : ""}`}
-                >
-                  <Icon className={iconClass} />
-                  <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{label}</span>
-                </div>
-              </Link>
-            ))}
-            {/* Dropdown: Solicitudes */}
-            <div className="relative">
-              <div
-                onClick={handleToggleDropdown}
-                role="button"
-                aria-expanded={isDropdownOpen}
-                className={`${baseLinkClasses} cursor-pointer justify-between`}
-              >
-                <div className="flex items-center space-x-2">
-                  <TbListDetails className={iconClass} />
-                  <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes</span>
-                </div>
-                <FiChevronRight
-                  className={`text-gray-600 transition-transform duration-300 hidden group-hover:inline ${isDropdownOpen ? "rotate-90" : ""}`}
-                />
-              </div>
-              <div
-                className={`ml-4 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? "max-h-60 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
-              >
-                <Link to="/admin/ventasServiciosProceso" className="no-underline block">
+            {/* Items principales del menú (filtrados por rol) */}
+            {menuItems.map((item) => {
+              const IconComponent = iconMap[item.icon];
+              if (!IconComponent) return null;
+
+              return (
+                <Link to={item.to} key={item.to} className="no-underline block">
                   <div
-                    className={`${baseLinkClasses} ${location.pathname === "/admin/ventasServiciosProceso" ? activeLinkClasses : ""}`}
+                    className={`${baseLinkClasses} ${location.pathname === item.to ? activeLinkClasses : ""}`}
                   >
+                    <IconComponent className={iconClass} />
+                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{item.label}</span>
+                  </div>
+                </Link>
+              );
+            })}
+
+            {/* Dropdown: Solicitudes (solo si el usuario tiene acceso) */}
+            {showSolicitudesDropdown && (
+              <div className="relative">
+                <div
+                  onClick={handleToggleDropdown}
+                  role="button"
+                  aria-expanded={isDropdownOpen}
+                  className={`${baseLinkClasses} cursor-pointer justify-between`}
+                >
+                  <div className="flex items-center space-x-2">
                     <TbListDetails className={iconClass} />
-                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">En proceso</span>
+                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes</span>
                   </div>
-                </Link>
-                <Link to="/admin/ventasServiciosFin" className="no-underline block">
-                  <div
-                    className={`${baseLinkClasses} ${location.pathname === "/admin/ventasServiciosFin" ? activeLinkClasses : ""}`}
-                  >
-                    <TbCircleCheck className={iconClass} />
-                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Terminadas</span>
-                  </div>
-                </Link>
-                <Link to="/admin/solicitudesCitas" className="no-underline block">
-                  <div
-                    className={`${baseLinkClasses} ${location.pathname === "/admin/solicitudesCitas" ? activeLinkClasses : ""}`}
-                  >
-                    <TbCalendarEvent className={iconClass} />
-                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes de citas</span>
-                  </div>
-                </Link>
-              </div>
-            </div>
-            {menuItems.slice(6).map(({ label, icon: Icon, to }) => (
-              <Link to={to} key={to} className="no-underline block">
-                <div
-                  className={`${baseLinkClasses} ${location.pathname === to ? activeLinkClasses : ""}`}
-                >
-                  <Icon className={iconClass} />
-                  <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{label}</span>
+                  <FiChevronRight
+                    className={`text-gray-600 transition-transform duration-300 hidden group-hover:inline ${isDropdownOpen ? "rotate-90" : ""}`}
+                  />
                 </div>
-              </Link>
-            ))}
+                <div
+                  className={`ml-4 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? "max-h-60 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
+                >
+                  {solicitudesDropdownItems.map((dropdownItem) => {
+                    const DropdownIcon = iconMap[dropdownItem.icon] || TbListDetails;
+                    return (
+                      <Link to={dropdownItem.to} key={dropdownItem.to} className="no-underline block">
+                        <div
+                          className={`${baseLinkClasses} ${location.pathname === dropdownItem.to ? activeLinkClasses : ""}`}
+                        >
+                          <DropdownIcon className={iconClass} />
+                          <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{dropdownItem.label}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </nav>
         </aside>
       </div>

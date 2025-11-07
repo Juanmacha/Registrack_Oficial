@@ -18,15 +18,20 @@ const TablaRoles = ({ roles, setRolEditable, setRolSeleccionado, setRoles, onTog
 
   // Contar permisos activos
   const contarPermisosActivos = (permisos) => {
-    if (!permisos) return 0;
+    if (!permisos || typeof permisos !== 'object') return 0;
+    
     let total = 0;
     Object.values(permisos).forEach(recurso => {
       if (recurso && typeof recurso === 'object') {
         Object.values(recurso).forEach(permiso => {
-          if (permiso === true) total++;
+          // Solo contar si el permiso es explícitamente true
+          if (permiso === true) {
+            total++;
+          }
         });
       }
     });
+    
     return total;
   };
 

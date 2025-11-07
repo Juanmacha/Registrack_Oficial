@@ -53,11 +53,10 @@ const GestionUsuarios = () => {
           firstName: usuario.nombre,
           lastName: usuario.apellido,
           email: usuario.correo,
-          role: obtenerNombreRol(usuario.id_rol), // Mapear desde id_rol
+          role: obtenerNombreRol(usuario.id_rol),
           estado: usuario.estado !== undefined ? Boolean(usuario.estado) : true,
           fechaCreacion: usuario.createdAt || usuario.fecha_creacion
         }));
-        console.log('🔄 [GestionUsuarios] Usuarios mapeados con estados y roles:', JSON.stringify(usuariosMapeados.map(u => ({ id: u.id, nombre: u.firstName, estado: u.estado, role: u.role })), null, 2));
         setUsuarios(usuariosMapeados);
       } else {
         console.error('❌ [GestionUsuarios] Error al cargar usuarios:', result.message);
@@ -206,31 +205,31 @@ const GestionUsuarios = () => {
   };
 
   // Función auxiliar para obtener el ID del rol
+  // ⚠️ IMPORTANTE: El backend tiene mapeo diferente:
+  // Backend: 1=cliente, 2=administrador, 3=empleado
   const obtenerIdRol = (nombreRol) => {
     const rolesMap = {
-      'administrador': 1,
-      'empleado': 2,
-      'cliente': 3,
-      'usuario': 3, // Por defecto cliente
-      'admin': 1,
-      'employee': 2,
-      'customer': 3
+      'administrador': 2,  // Backend usa id_rol=2 para admin
+      'empleado': 3,        // Backend usa id_rol=3 para empleado
+      'cliente': 1,         // Backend usa id_rol=1 para cliente
+      'usuario': 1,         // Por defecto cliente
+      'admin': 2,
+      'employee': 3,
+      'customer': 1
     };
-    const rolId = rolesMap[nombreRol?.toLowerCase()] || 3;
-    console.log('🔄 [GestionUsuarios] Mapeando rol:', nombreRol, '→ ID:', rolId);
-    return rolId;
+    return rolesMap[nombreRol?.toLowerCase()] || 1;
   };
 
   // Función auxiliar para obtener el nombre del rol desde el ID
+  // ⚠️ IMPORTANTE: El backend tiene mapeo diferente:
+  // Backend: 1=cliente, 2=administrador, 3=empleado
   const obtenerNombreRol = (idRol) => {
     const rolesMap = {
-      1: 'administrador',
-      2: 'empleado', 
-      3: 'cliente'
+      1: 'cliente',          // Backend: id_rol=1 es cliente
+      2: 'administrador',    // Backend: id_rol=2 es administrador
+      3: 'empleado'          // Backend: id_rol=3 es empleado
     };
-    const nombreRol = rolesMap[idRol] || 'cliente';
-    console.log('🔄 [GestionUsuarios] Mapeando ID de rol:', idRol, '→ Nombre:', nombreRol);
-    return nombreRol;
+    return rolesMap[idRol] || 'cliente';
   };
 
   const handleToggleEstado = async (usuario) => {

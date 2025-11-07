@@ -4,9 +4,12 @@ import solicitudesCitasApiService from '../../services/solicitudesCitasApiServic
 import alertService from '../../../../utils/alertService.js';
 import Swal from "sweetalert2";
 import StandardAvatar from "../../../../shared/components/StandardAvatar";
+import ModalAprobarSolicitud from './components/ModalAprobarSolicitud';
 
 const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, cargarSolicitudes }) => {
   const navigate = useNavigate();
+  const [mostrarModalAprobar, setMostrarModalAprobar] = useState(false);
+  const [solicitudAprobar, setSolicitudAprobar] = useState(null);
 
   const getEstadoBadge = (estado) => {
     const badges = {
@@ -17,52 +20,27 @@ const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, carga
     return badges[estado] || 'text-gray-800';
   };
 
-  const handleAprobar = async (solicitud) => {
-    try {
-      const { value: formValues } = await Swal.fire({
-        title: 'Aprobar Solicitud de Cita',
-        html: `
-          <div class="text-left">
-            <p class="mb-3">Cliente: <strong>${solicitud.cliente?.nombre || 'N/A'}</strong></p>
-            <p class="mb-3">Fecha solicitada: <strong>${solicitud.fecha_solicitada}</strong></p>
-            <p class="mb-3">Hora solicitada: <strong>${solicitud.hora_solicitada}</strong></p>
-          </div>
-          <input id="horaFin" type="time" class="swal2-input" placeholder="Hora de fin" required>
-          <input id="empleadoId" type="number" class="swal2-input" placeholder="ID del empleado asignado" required>
-          <textarea id="observacion" class="swal2-textarea" placeholder="Observaciones (opcional)"></textarea>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Aprobar Solicitud',
-        cancelButtonText: 'Cancelar',
-        preConfirm: () => {
-          const horaFin = document.getElementById('horaFin').value;
-          const empleadoId = document.getElementById('empleadoId').value;
-          const observacion = document.getElementById('observacion').value;
-          
-          if (!horaFin || !empleadoId) {
-            Swal.showValidationMessage('Por favor completa todos los campos requeridos');
-            return false;
-          }
-          
-          return { horaFin, empleadoId: parseInt(empleadoId), observacion };
-        }
-      });
+  const handleAprobar = (solicitud) => {
+    setSolicitudAprobar(solicitud);
+    setMostrarModalAprobar(true);
+  };
 
-      if (formValues) {
+  const handleAprobarSuccess = async (empleadoId, horaFin, observacion) => {
+    try {
         const result = await solicitudesCitasApiService.aprobarSolicitudCita(
-          solicitud.id,
-          formValues.empleadoId,
-          formValues.horaFin,
-          formValues.observacion
+        solicitudAprobar.id,
+        empleadoId,
+        horaFin,
+        observacion
         );
 
         if (result.success) {
           await alertService.success('¡Solicitud Aprobada!', 'La solicitud ha sido aprobada y se ha creado la cita automáticamente.');
           cargarSolicitudes(); // Recargar la lista
+        setMostrarModalAprobar(false);
+        setSolicitudAprobar(null);
         } else {
           await alertService.error('Error', result.message);
-        }
       }
     } catch (error) {
       console.error('Error al aprobar solicitud:', error);
@@ -193,6 +171,19 @@ const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, carga
           }
         `}</style>
       </div>
+
+      {/* Modal Aprobar Solicitud */}
+      {mostrarModalAprobar && solicitudAprobar && (
+        <ModalAprobarSolicitud
+          isOpen={mostrarModalAprobar}
+          onClose={() => {
+            setMostrarModalAprobar(false);
+            setSolicitudAprobar(null);
+          }}
+          solicitud={solicitudAprobar}
+          onSuccess={handleAprobarSuccess}
+        />
+      )}
     </>
   );
 };

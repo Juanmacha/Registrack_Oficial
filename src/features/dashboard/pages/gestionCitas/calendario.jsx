@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSidebar } from "../../../../shared/contexts/SidebarContext";
+import { useAuth } from "../../../../shared/contexts/authContext";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import FullCalendar from "@fullcalendar/react";
@@ -31,9 +32,11 @@ const esLocale = {
 };
 import citasApiService from "../../services/citasApiService.js";
 import alertService from "../../../../utils/alertService.js";
-import { EmployeeService } from "../../../../utils/mockDataService.js";
+import empleadosApiService from "../../services/empleadosApiService.js";
+import userApiService from "../../../auth/services/userApiService.js";
 import DownloadButton from "../../../../shared/components/DownloadButton";
 import VerDetalleCita from "../gestionCitas/components/verDetallecita";
+import ModalAgendarDesdeSolicitud from "../gestionCitas/components/ModalAgendarDesdeSolicitud";
 import Swal from "sweetalert2";
 import { FaCalendarAlt, FaUser, FaPhone, FaFileAlt, FaBriefcase, FaDownload, FaSearch, FaEye, FaEdit, FaTrash, FaCalendarDay } from "react-icons/fa";
 import { Dialog } from "@headlessui/react";
@@ -42,6 +45,7 @@ import "../../../../styles/fullcalendar-custom.css";
 
 
 const Calendario = () => {
+  const { getToken } = useAuth();
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -70,6 +74,73 @@ const Calendario = () => {
   const [modalEventos, setModalEventos] = useState({ open: false, eventos: [], hora: "" });
   const [errores, setErrores] = useState({});
   const [touched, setTouched] = useState({});
+  // ✅ Estado para el modal de solicitud SEPARADO
+  const [modalDesdeSolicitudOpen, setModalDesdeSolicitudOpen] = useState(false);
+  const [solicitudParaAgendar, setSolicitudParaAgendar] = useState(null);
+  // ✅ Estado para empleados cargados desde la API
+  const [empleadosActivos, setEmpleadosActivos] = useState([]);
+  const [loadingEmpleados, setLoadingEmpleados] = useState(false);
+  
+  // Función para refrescar citas cuando se crea desde solicitud
+  const handleCitaCreadaDesdeSolicitud = async () => {
+    await cargarCitasDesdeAPI();
+  };
+
+  // Función para cargar empleados desde la API
+  const cargarEmpleadosDesdeAPI = async () => {
+    setLoadingEmpleados(true);
+    try {
+      console.log('👥 [Calendario] Cargando empleados desde la API...');
+      const result = await empleadosApiService.getAllEmpleados();
+      
+      if (result && result.success && Array.isArray(result.data)) {
+        // Filtrar solo empleados activos y transformar al formato necesario
+        const empleadosFiltrados = result.data
+          .filter(emp => {
+            // Verificar que el empleado esté activo (puede venir como boolean o string)
+            const estadoEmpleado = emp.estado_empleado !== false && emp.estado_empleado !== 'Inactivo';
+            const estadoUsuario = emp.estado_usuario !== false && emp.estado_usuario !== 'Inactivo';
+            return estadoEmpleado && estadoUsuario;
+          })
+          .map(emp => ({
+            id_empleado: emp.id_empleado,
+            nombre: emp.nombre || '',
+            apellido: emp.apellido || '',
+            cedula: emp.documento || emp.cedula || '',
+            nombreCompleto: `${emp.nombre || ''} ${emp.apellido || ''}`.trim()
+          }));
+        
+        console.log('✅ [Calendario] Empleados cargados exitosamente:', empleadosFiltrados);
+        setEmpleadosActivos(empleadosFiltrados);
+      } else if (Array.isArray(result)) {
+        // Si la respuesta es directamente un array
+        const empleadosFiltrados = result
+          .filter(emp => {
+            const estadoEmpleado = emp.estado_empleado !== false && emp.estado_empleado !== 'Inactivo';
+            const estadoUsuario = emp.estado_usuario !== false && emp.estado_usuario !== 'Inactivo';
+            return estadoEmpleado && estadoUsuario;
+          })
+          .map(emp => ({
+            id_empleado: emp.id_empleado,
+            nombre: emp.nombre || '',
+            apellido: emp.apellido || '',
+            cedula: emp.documento || emp.cedula || '',
+            nombreCompleto: `${emp.nombre || ''} ${emp.apellido || ''}`.trim()
+          }));
+        
+        console.log('✅ [Calendario] Empleados cargados exitosamente (array directo):', empleadosFiltrados);
+        setEmpleadosActivos(empleadosFiltrados);
+      } else {
+        console.warn('⚠️ [Calendario] Formato de respuesta de empleados inesperado:', result);
+        setEmpleadosActivos([]);
+      }
+    } catch (error) {
+      console.error('❌ [Calendario] Error al cargar empleados:', error);
+      setEmpleadosActivos([]);
+    } finally {
+      setLoadingEmpleados(false);
+    }
+  };
 
   // Función para cargar citas desde la API
   const cargarCitasDesdeAPI = async () => {
@@ -97,13 +168,16 @@ const Calendario = () => {
         const eventosCalendario = result.data.map((cita, index) => {
           console.log(`📋 [Calendario] Procesando cita ${index + 1}:`, cita);
           
+          // Normalizar estado para que coincida con el formato esperado por las estadísticas
+          const estadoNormalizado = normalizarEstado(cita.estado);
+          
           const evento = {
             id: cita.id_cita || cita.id,
             title: `${cita.tipo || 'Sin tipo'} - ${cita.cliente?.nombre || cita.cliente?.nombre_completo || 'Cliente'}`,
             start: `${cita.fecha}T${cita.hora_inicio}`,
             end: `${cita.fecha}T${cita.hora_fin}`,
-            backgroundColor: getColorByEstado(cita.estado),
-            borderColor: getColorByEstado(cita.estado),
+            backgroundColor: getColorByEstado(estadoNormalizado),
+            borderColor: getColorByEstado(estadoNormalizado),
             textColor: '#ffffff',
             extendedProps: {
               // Mapear datos de la API al formato que espera VerDetalleCita
@@ -118,7 +192,7 @@ const Calendario = () => {
               horaFin: cita.hora_fin || 'N/A',
               asesor: cita.empleado?.nombre || cita.empleado?.nombre_completo || 'N/A',
               detalle: cita.descripcion || cita.observacion || 'Sin detalle',
-              estado: cita.estado || 'N/A',
+              estado: estadoNormalizado, // ✅ Usar estado normalizado
               modalidad: cita.modalidad || 'N/A',
               observacionAnulacion: cita.observacion_anulacion || '',
               fecha: cita.fecha || 'N/A',
@@ -160,6 +234,33 @@ const Calendario = () => {
     }
   };
 
+  // Función para normalizar el estado de la API al formato esperado por el frontend
+  const normalizarEstado = (estado) => {
+    if (!estado) return 'N/A';
+    
+    const estadoLower = estado.toLowerCase().trim();
+    
+    // Normalizar diferentes variantes de estados
+    if (estadoLower.includes('anulada') || estadoLower.includes('cancelada')) {
+      return 'Cita anulada';
+    }
+    if (estadoLower.includes('reprogramada')) {
+      return 'Reprogramada';
+    }
+    if (estadoLower.includes('programada')) {
+      return 'Programada';
+    }
+    if (estadoLower.includes('finalizada')) {
+      return 'Finalizada';
+    }
+    if (estadoLower.includes('iniciada')) {
+      return 'Iniciada';
+    }
+    
+    // Si no coincide con ningún patrón conocido, retornar el estado original capitalizado
+    return estado.charAt(0).toUpperCase() + estado.slice(1).toLowerCase();
+  };
+
   // Función para obtener color según el estado
   const getColorByEstado = (estado) => {
     const estadoLower = (estado || '').toLowerCase();
@@ -176,6 +277,8 @@ const Calendario = () => {
   useEffect(() => {
     // Cargar citas desde la API al montar el componente
     cargarCitasDesdeAPI();
+    // Cargar empleados desde la API al montar el componente
+    cargarEmpleadosDesdeAPI();
 
     // Forzar el re-renderizado del calendario después de que el DOM esté estable
     if (calendarRef.current) {
@@ -199,50 +302,35 @@ const Calendario = () => {
     } catch (error) {}
   }, [events]);
 
-  // ✅ NUEVO: useEffect para detectar solicitudes desde localStorage y abrir modal automáticamente
+  // ✅ useEffect para detectar solicitudes desde localStorage y abrir modal SEPARADO automáticamente
   useEffect(() => {
     const solicitudParaAgendar = localStorage.getItem('solicitudParaAgendar');
     if (solicitudParaAgendar) {
       try {
         const solicitudData = JSON.parse(solicitudParaAgendar);
         
-        // Separar nombre completo en nombre y apellido si es necesario
-        const nombreCompleto = solicitudData.clienteNombre || "";
-        const partesNombre = nombreCompleto.trim().split(' ');
-        const nombre = partesNombre[0] || "";
-        const apellido = partesNombre.slice(1).join(' ') || "";
+        console.log('✅ [Calendario] Solicitud detectada para agendar:', solicitudData);
         
-        // Prellenar el formulario con los datos de la solicitud
-        setFormData({
-          nombre: nombre,
-          apellido: apellido,
-          cedula: solicitudData.clienteDocumento || "",
-          tipoDocumento: solicitudData.tipoDocumento || "",
-          telefono: solicitudData.telefono || "",
-          tipoCita: solicitudData.tipoSolicitud || "",
-          horaInicio: "",
-          horaFin: "",
-          asesor: "",
-          detalle: solicitudData.mensaje || "",
-        });
-
-        // Abrir el modal automáticamente
-        setShowModal(true);
+        // Guardar datos de la solicitud
+        setSolicitudParaAgendar(solicitudData);
         
-        // Limpiar el localStorage para evitar que se abra nuevamente
+        // Abrir modal SEPARADO de solicitud
+        setModalDesdeSolicitudOpen(true);
+        
+        // Limpiar localStorage inmediatamente
         localStorage.removeItem('solicitudParaAgendar');
         
         // Mostrar mensaje informativo
         Swal.fire({
           icon: 'info',
           title: 'Datos cargados automáticamente',
-          text: `Se han cargado los datos de la solicitud de ${solicitudData.clienteNombre}. Solo necesitas seleccionar la hora y el asesor.`,
+          text: `Se han cargado los datos de la solicitud de ${solicitudData.clienteNombre}. Selecciona la fecha, hora y asesor.`,
           timer: 3000,
           showConfirmButton: false
         });
         
       } catch (error) {
-        console.error('Error al procesar solicitud para agendar:', error);
+        console.error('❌ [Calendario] Error al procesar solicitud para agendar:', error);
         localStorage.removeItem('solicitudParaAgendar');
       }
     }
@@ -384,13 +472,117 @@ const Calendario = () => {
     }
   };
 
-  const handleGuardarCita = (e) => {
+  // Función auxiliar para obtener o crear usuario y retornar su id_usuario
+  const obtenerIdUsuarioCliente = async (tipoDocumento, documento, nombre, apellido, telefono) => {
+    try {
+      console.log('🔍 [Calendario] Buscando usuario por documento:', documento);
+      
+      // 1. Buscar usuario existente por documento
+      const usuariosResult = await userApiService.getAllUsers();
+      
+      if (usuariosResult.success && usuariosResult.users && Array.isArray(usuariosResult.users)) {
+        // Normalizar tipo de documento para comparación
+        const tipoDocNormalizado = tipoDocumento?.toLowerCase().trim() || '';
+        const tiposValidos = {
+          'cc': 'CC',
+          'cédula de ciudadanía': 'CC',
+          'ti': 'TI',
+          'tarjeta de identidad': 'TI',
+          'ce': 'CE',
+          'cédula de extranjería': 'CE',
+          'pa': 'PA',
+          'pasaporte': 'PA'
+        };
+        const tipoDocFormato = tiposValidos[tipoDocNormalizado] || tipoDocumento;
+        
+        const usuarioExistente = usuariosResult.users.find(u => {
+          const docUsuario = String(u.documento || '').trim();
+          const tipoDocUsuario = String(u.tipo_documento || '').trim();
+          return docUsuario === String(documento).trim() && 
+                 (tipoDocUsuario === tipoDocFormato || tipoDocUsuario === tipoDocumento);
+        });
+        
+        if (usuarioExistente && usuarioExistente.id_usuario) {
+          console.log('✅ [Calendario] Usuario encontrado, id_usuario:', usuarioExistente.id_usuario);
+          return usuarioExistente.id_usuario;
+        }
+      }
+      
+      // 2. Si no existe, crear usuario nuevo
+      console.log('📝 [Calendario] Usuario no encontrado, creando nuevo usuario...');
+      
+      // Normalizar tipo de documento para la API (debe ser código corto: CC, TI, CE, PA)
+      const tipoDocNormalizado = tipoDocumento?.toLowerCase().trim() || '';
+      const tiposValidos = {
+        'cc': 'CC',
+        'cédula de ciudadanía': 'CC',
+        'cedula de ciudadania': 'CC',
+        'ti': 'TI',
+        'tarjeta de identidad': 'TI',
+        'ce': 'CE',
+        'cédula de extranjería': 'CE',
+        'cedula de extranjeria': 'CE',
+        'pa': 'PA',
+        'pasaporte': 'PA'
+      };
+      const tipoDocFormato = tiposValidos[tipoDocNormalizado] || 'CC'; // Por defecto CC si no se reconoce
+      
+      // Generar email temporal si no se proporciona
+      const emailTemporal = `temp_${documento}@registrack.com`;
+      // Generar contraseña temporal que cumpla con los requisitos del backend:
+      // - Mínimo 8 caracteres (según validaciones del backend)
+      // - Debe contener mayúsculas, minúsculas, números y caracteres especiales
+      const passwordTemporal = `Temp${documento}123!`;
+      
+      const nuevoUsuario = {
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        email: emailTemporal,
+        password: passwordTemporal,
+        tipoDocumento: tipoDocFormato, // ✅ Usar formato normalizado (CC, TI, CE, PA)
+        documento: String(documento).trim(),
+        telefono: telefono || '',
+        roleId: 1 // Rol cliente (id_rol=1 según backend: 1=cliente, 2=admin, 3=empleado)
+      };
+      
+      console.log('📤 [Calendario] Creando usuario:', nuevoUsuario);
+      console.log('📤 [Calendario] Tipo documento normalizado:', tipoDocFormato);
+      
+      const crearResult = await userApiService.createUser(nuevoUsuario);
+      
+      if (crearResult.success && crearResult.user) {
+        const idUsuario = crearResult.user.id_usuario || crearResult.user.id;
+        console.log('✅ [Calendario] Usuario creado exitosamente, id_usuario:', idUsuario);
+        
+        // Mostrar advertencia al usuario
+        await Swal.fire({
+          icon: 'info',
+          title: 'Usuario creado',
+          text: 'Se ha creado un usuario temporal para este cliente. El usuario deberá actualizar su contraseña al iniciar sesión.',
+          confirmButtonText: 'Entendido'
+        });
+        
+        return idUsuario;
+      } else {
+        // Mostrar error detallado
+        const errorMessage = crearResult.message || 'Error desconocido';
+        console.error('❌ [Calendario] Error al crear usuario:', errorMessage);
+        console.error('❌ [Calendario] Respuesta completa:', crearResult);
+        throw new Error('No se pudo crear el usuario: ' + errorMessage);
+      }
+    } catch (error) {
+      console.error('❌ [Calendario] Error al obtener/crear usuario:', error);
+      throw error;
+    }
+  };
+
+  const handleGuardarCita = async (e) => {
     e.preventDefault();
     
-    // Validar que modalDate esté presente (excepto en modo reprogramar)
-    if (!modoReprogramar && !modalDate) {
-      console.error('🔧 [Calendario] Error: modalDate no está presente');
-      Swal.fire({ 
+    // Validar fecha
+    if (!modalDate?.startStr && !modoReprogramar) {
+      console.error('🔧 [Calendario] Error: No hay fecha seleccionada');
+      await Swal.fire({ 
         icon: 'error', 
         title: 'Error de fecha', 
         text: 'No se ha seleccionado una fecha válida. Por favor, selecciona una fecha en el calendario.' 
@@ -401,7 +593,8 @@ const Calendario = () => {
     // Validación básica
     let camposObligatorios = ["nombre","apellido","cedula","telefono","tipoCita","horaInicio","horaFin","asesor"];
     if (modoReprogramar) {
-      camposObligatorios = ["tipoCita","horaInicio","horaFin","asesor"];
+      // En modo reprogramar solo se requieren fecha, hora y asesor (opcional)
+      camposObligatorios = ["horaInicio","horaFin"];
     }
     for (let campo of camposObligatorios) {
       if (!formData[campo]) {
@@ -411,65 +604,121 @@ const Calendario = () => {
     }
     // Validar que horaFin > horaInicio
     if (formData.horaFin <= formData.horaInicio) {
-      AlertService.error("Hora inválida", "La hora de fin debe ser mayor que la de inicio.");
+      await alertService.error("Hora inválida", "La hora de fin debe ser mayor que la de inicio.");
       return;
     }
-    // Validar cruce de horarios
-    console.log('🔧 [Calendario] modalDate en handleGuardarCita:', modalDate);
+    
+    // Determinar fechaBase
     let fechaBase;
     if (modoReprogramar && citaAReprogramar?.start) {
-      fechaBase = new Date(citaAReprogramar.start).toISOString().split("T")[0];
+      // En modo reprogramar, usar la fecha seleccionada en el modalDate si existe,
+      // de lo contrario usar la fecha actual de la cita
+      fechaBase = modalDate?.startStr ? modalDate.startStr.split("T")[0] : new Date(citaAReprogramar.start).toISOString().split("T")[0];
     } else if (modalDate?.startStr) {
       fechaBase = modalDate.startStr.split("T")[0];
     } else {
       console.error('🔧 [Calendario] Error: No se puede determinar la fecha base');
-      Swal.fire({ 
+      await Swal.fire({ 
         icon: 'error', 
         title: 'Error de fecha', 
-        text: 'No se puede determinar la fecha para la cita. Por favor, selecciona una fecha válida.' 
+        text: 'No se puede determinar la fecha para la cita.' 
       });
       return;
     }
-    console.log('🔧 [Calendario] fechaBase calculada:', fechaBase);
+    
+    // Validar cruce de horarios
     const horaInicio = formData.horaInicio;
     const horaFin = formData.horaFin;
     const cruza = events.some(ev => {
-      if (modoReprogramar && citaAReprogramar && ev.id === citaAReprogramar.id) return false; // Ignorar la cita actual al reprogramar
+      if (modoReprogramar && citaAReprogramar && ev.id === citaAReprogramar.id) return false;
       const fechaEv = ev.start.split('T')[0];
       if (fechaEv !== fechaBase) return false;
-      const inicioEv = ev.start.split('T')[1].slice(0,5);
-      const finEv = ev.end.split('T')[1].slice(0,5);
-      // Si el nuevo rango se traslapa con uno existente
+      const inicioEv = ev.start.split('T')[1]?.slice(0,5) || '';
+      const finEv = ev.end.split('T')[1]?.slice(0,5) || '';
       return (horaInicio < finEv && horaFin > inicioEv);
     });
-    console.log('Intentando guardar cita:', { ...formData, fechaBase });
+    
     if (cruza) {
-      AlertService.error("Horario ocupado", "Ya existe una cita en ese rango de horas.");
+      await alertService.error("Horario ocupado", "Ya existe una cita en ese rango de horas.");
       return;
     }
 
     if (modoReprogramar && citaAReprogramar) {
-      // Reprogramar cita usando la API
-      handleReprogramarCita(citaAReprogramar.id, {
+      // Buscar el ID del empleado seleccionado para reprogramar (opcional)
+      const empleadoSeleccionado = empleadosActivos.find(emp => emp.nombreCompleto === formData.asesor);
+      const idEmpleado = empleadoSeleccionado?.id_empleado || null;
+      
+      // Preparar datos para reprogramar según la documentación de la API
+      // Solo requiere: fecha, hora_inicio, hora_fin, y opcionalmente observacion e id_empleado
+      const datosReprogramar = {
         fecha: fechaBase,
         hora_inicio: formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 ? formData.horaInicio + ':00' : formData.horaInicio,
-        hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin,
-        tipo: formData.tipoCita,
-        modalidad: "Presencial",
-        observacion: formData.detalle || ''
-      });
+        hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin
+      };
+      
+      // Campos opcionales
+      if (formData.detalle && formData.detalle.trim()) {
+        datosReprogramar.observacion = formData.detalle.trim();
+      }
+      
+      // Incluir id_empleado solo si se seleccionó un empleado diferente
+      if (idEmpleado) {
+        datosReprogramar.id_empleado = idEmpleado;
+      }
+      
+      // Reprogramar cita usando la API
+      await handleReprogramarCita(citaAReprogramar.id, datosReprogramar);
       return;
     }
 
-    // Crear cita usando la API
+    // Crear cita normal usando la API
+    // Buscar el ID del empleado seleccionado
+    const empleadoSeleccionado = empleadosActivos.find(emp => emp.nombreCompleto === formData.asesor);
+    const idEmpleado = empleadoSeleccionado?.id_empleado || null;
+    
+    if (!idEmpleado) {
+      await alertService.error("Error", "Debe seleccionar un asesor válido.");
+      return;
+    }
+    
+    // Obtener id_usuario del cliente (buscar o crear si no existe)
+    let idUsuarioCliente;
+    try {
+      setIsLoading(true);
+      idUsuarioCliente = await obtenerIdUsuarioCliente(
+        formData.tipoDocumento,
+        formData.cedula,
+        formData.nombre,
+        formData.apellido,
+        formData.telefono
+      );
+      
+      if (!idUsuarioCliente) {
+        await alertService.error(
+          "Error al obtener usuario",
+          "No se pudo obtener o crear el usuario. Verifica los datos ingresados."
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('❌ [Calendario] Error al obtener id_usuario:', error);
+      await alertService.error(
+        "Error al procesar cliente",
+        error.message || "No se pudo procesar la información del cliente. Intenta de nuevo."
+      );
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+    
     const citaData = {
       fecha: fechaBase,
       hora_inicio: formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 ? formData.horaInicio + ':00' : formData.horaInicio,
       hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin,
       tipo: formData.tipoCita,
       modalidad: "Presencial",
-      id_cliente: parseInt(formData.cedula) || 1, // Convertir a número entero
-      id_empleado: parseInt(formData.asesor) || 1, // Convertir a número entero
+      id_cliente: idUsuarioCliente, // ✅ Usar id_usuario correcto
+      id_empleado: idEmpleado,
       observacion: formData.detalle || '',
       cliente: {
         nombre: formData.nombre,
@@ -479,19 +728,7 @@ const Calendario = () => {
       }
     };
     
-    console.log('📤 [Calendario] Datos a enviar para crear cita:', citaData);
-    console.log('📊 [Calendario] FormData completo:', formData);
-    console.log('🔍 [Calendario] Validación de tipos:', {
-      fecha: typeof citaData.fecha,
-      hora_inicio: typeof citaData.hora_inicio,
-      hora_fin: typeof citaData.hora_fin,
-      tipo: typeof citaData.tipo,
-      modalidad: typeof citaData.modalidad,
-      id_cliente: typeof citaData.id_cliente,
-      id_empleado: typeof citaData.id_empleado
-    });
-    
-    handleCreateCita(citaData);
+    await handleCreateCita(citaData);
   };
 
   // Cambiar la generación de opciones de hora a intervalos de 1 hora
@@ -509,9 +746,6 @@ const Calendario = () => {
     return opciones;
   };
   const opcionesHora = generarOpcionesHora();
-
-// ✅ NUEVO: Obtener empleados del servicio centralizado
-const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === 'Activo');
 
 
   const initialValues = {
@@ -612,28 +846,27 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
   function abrirModal(dateInfo = null) {
     console.log('🔧 [Calendario] abrirModal llamado con dateInfo:', dateInfo);
     setShowModal(true);
-    setModalDate(dateInfo); // Aquí se guarda la fecha seleccionada
-    console.log('🔧 [Calendario] modalDate establecido:', dateInfo);
+    setModalDate(dateInfo);
     
-    // Solo resetear el formulario si no viene de una solicitud
-    const solicitudParaAgendar = localStorage.getItem('solicitudParaAgendar');
-    if (!solicitudParaAgendar) {
-      setFormData({
-        nombre: "",
-        apellido: "",
-        cedula: "",
-        tipoDocumento: "",
-        telefono: "",
-        tipoCita: "",
-        horaInicio: dateInfo?.startStr ? dateInfo.startStr.split('T')[1]?.slice(0,5) : "",
-        horaFin: "",
-        asesor: "",
-        detalle: "",
-      });
-    }
+    // Recargar empleados al abrir el modal para asegurar datos actualizados
+    cargarEmpleadosDesdeAPI();
     
-    setErrores({}); // Limpiar errores al abrir modal
-    setTouched({}); // Limpiar campos tocados al abrir modal
+    // Resetear formulario
+    setFormData({
+      nombre: "",
+      apellido: "",
+      cedula: "",
+      tipoDocumento: "",
+      telefono: "",
+      tipoCita: "",
+      horaInicio: dateInfo?.startStr ? dateInfo.startStr.split('T')[1]?.slice(0,5) : "",
+      horaFin: "",
+      asesor: "",
+      detalle: "",
+    });
+    
+    setErrores({});
+    setTouched({});
   }
 
   function cerrarModal() {
@@ -651,8 +884,8 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
       asesor: "",
       detalle: "",
     });
-    setErrores({}); // Limpiar errores al cerrar modal
-    setTouched({}); // Limpiar campos tocados al cerrar modal
+    setErrores({});
+    setTouched({});
   }
 
   function horaEstaOcupada(hora, fecha) {
@@ -820,50 +1053,6 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
       {/* Barra de controles */}
       <div className="bg-white rounded-xl shadow flex flex-wrap items-center justify-between px-6 py-4 mb-6 gap-4">
         <div className="flex gap-2 items-center">
-          {/* Indicador de que se está usando API */}
-          <div className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium">
-            🌐 Conectado a API
-          </div>
-          
-          {/* Botón de verificar citas */}
-          <button
-            onClick={async () => {
-              console.log('🔍 [Calendario] Verificando citas existentes...');
-              const result = await citasApiService.checkCitasExists();
-              console.log('🔍 [Calendario] Resultado de verificación:', result);
-              if (result.success) {
-                if (result.hasCitas) {
-                  await alertService.success('Citas encontradas', `Se encontraron ${result.count} citas en la base de datos`);
-                } else {
-                  await alertService.info('Sin citas', 'No hay citas registradas en la base de datos');
-                }
-              } else {
-                // Si es error 404, significa que el endpoint no existe
-                if (result.message && (result.message.includes('404') || result.message.includes('not found'))) {
-                  await alertService.info(
-                    'Endpoint no disponible', 
-                    'El endpoint /api/gestion-citas no está implementado. Las citas se crean automáticamente al aprobar solicitudes de cita.'
-                  );
-                } else {
-                  await alertService.error('Error', result.message || 'No se pudo verificar las citas');
-                }
-              }
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <FaCalendarDay className="w-4 h-4" />
-            <span>Verificar Citas</span>
-          </button>
-          
-          {/* Botón de refrescar */}
-          <button
-            onClick={cargarCitasDesdeAPI}
-            disabled={isLoading}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            <FaSearch className="w-4 h-4" />
-            <span>{isLoading ? 'Cargando...' : 'Refrescar'}</span>
-          </button>
           <button
             className="bg-gray-300 text-gray-700 px-3 py-1 rounded hover:bg-gray-400"
             onClick={() => {
@@ -1170,9 +1359,12 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
                     disabled={!modoReprogramar ? false : !modoReprogramar ? false : false}
                   >
                     <option value="">Seleccionar...</option>
-                    {opcionesHora.map(hora => (
-                      <option key={hora.value} value={hora.value} disabled={horaEstaOcupada(hora.value, modalDate?.startStr?.split('T')[0] || new Date().toISOString().split('T')[0])}>{hora.label}</option>
-                    ))}
+                    {opcionesHora.map(hora => {
+                      const fechaValidacion = modalDate?.startStr?.split('T')[0] || new Date().toISOString().split('T')[0];
+                      return (
+                        <option key={hora.value} value={hora.value} disabled={horaEstaOcupada(hora.value, fechaValidacion)}>{hora.label}</option>
+                      );
+                    })}
                   </select>
                   {touched.horaInicio && errores.horaInicio && <p className="text-red-600 text-xs mt-1">{errores.horaInicio}</p>}
                 </div>
@@ -1190,7 +1382,8 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
                     <option value="">Seleccionar...</option>
                     {opcionesHora.map(hora => {
                       const menorOIgual = formData.horaInicio && hora.value <= formData.horaInicio;
-                      const cruce = horaEstaOcupada(hora.value, modalDate?.startStr?.split('T')[0] || new Date().toISOString().split('T')[0]);
+                      const fechaValidacion = modalDate?.startStr?.split('T')[0] || new Date().toISOString().split('T')[0];
+                      const cruce = horaEstaOcupada(hora.value, fechaValidacion);
                       return (
                         <option key={hora.value} value={hora.value} disabled={menorOIgual || cruce}>
                           {hora.label}
@@ -1204,20 +1397,41 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     <FaUser className="inline text-gray-400 mr-1" /> Asesor <span className="text-gray-500">*</span>
+                    {loadingEmpleados && (
+                      <span className="ml-2 text-blue-600 text-xs">
+                        <i className="bi bi-arrow-repeat animate-spin"></i> Cargando...
+                      </span>
+                    )}
                   </label>
                   <select
                     name="asesor"
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 text-sm"
+                    disabled={loadingEmpleados || (!modoReprogramar ? false : !modoReprogramar ? false : false)}
+                    className={`w-full px-2 py-1.5 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 text-sm ${loadingEmpleados ? 'opacity-50 cursor-not-allowed' : ''}`}
                     value={formData.asesor}
-                    disabled={!modoReprogramar ? false : !modoReprogramar ? false : false}
                   >
-                    <option value="">Seleccionar...</option>
+                    <option value="">
+                      {loadingEmpleados ? 'Cargando empleados...' : 'Seleccionar...'}
+                    </option>
                     {empleadosActivos.map(e => (
-                      <option key={e.cedula} value={`${e.nombre} ${e.apellido}`}>{e.nombre} {e.apellido}</option>
+                      <option key={e.id_empleado || e.cedula} value={e.nombreCompleto}>
+                        {e.nombreCompleto}
+                      </option>
                     ))}
                   </select>
+                  {loadingEmpleados && empleadosActivos.length === 0 && (
+                    <p className="text-blue-600 text-xs mt-1 flex items-center">
+                      <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                      Cargando empleados desde la base de datos...
+                    </p>
+                  )}
+                  {!loadingEmpleados && empleadosActivos.length === 0 && (
+                    <p className="text-yellow-600 text-xs mt-1 flex items-center">
+                      <i className="bi bi-exclamation-triangle mr-2"></i>
+                      No hay empleados disponibles. Verifica que existan empleados activos en el sistema.
+                    </p>
+                  )}
                   {touched.asesor && errores.asesor && <p className="text-red-600 text-xs mt-1">{errores.asesor}</p>}
                 </div>
                 {/* Detalle */}
@@ -1301,6 +1515,18 @@ const empleadosActivos = EmployeeService.getAll().filter(emp => emp.estado === '
           </div>
         </div>
       )}
+      
+      {/* ✅ Modal separado para agendar citas desde solicitudes */}
+      <ModalAgendarDesdeSolicitud
+        isOpen={modalDesdeSolicitudOpen}
+        onClose={() => {
+          setModalDesdeSolicitudOpen(false);
+          setSolicitudParaAgendar(null);
+        }}
+        solicitudData={solicitudParaAgendar}
+        onSuccess={handleCitaCreadaDesdeSolicitud}
+        events={events}
+      />
     </div>
   );
 };

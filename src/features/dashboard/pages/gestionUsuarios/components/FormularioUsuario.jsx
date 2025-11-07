@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import { validarUsuario } from "../services/validarUsuario";
+import rolesApiService from "../../gestionRoles/services/rolesApiService";
 
 const FormularioUsuario = ({
   nuevoUsuario,
@@ -18,23 +19,54 @@ const FormularioUsuario = ({
   const [touched, setTouched] = useState({});
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [rolesDisponibles, setRolesDisponibles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [errorRoles, setErrorRoles] = useState(null);
 
-  // Cargar roles activos del sistema
+  // Cargar roles activos desde la API
   useEffect(() => {
-    // Roles por defecto según la documentación de la API
+    const cargarRoles = async () => {
+      setLoadingRoles(true);
+      setErrorRoles(null);
+      
+      try {
+        console.log('📤 [FormularioUsuario] Cargando roles desde la API...');
+        const rolesData = await rolesApiService.getAllRoles();
+        
+        // Filtrar solo roles activos y transformar al formato necesario
+        const rolesActivos = rolesData
+          .filter(rol => {
+            const estado = rol.estado?.toString().toLowerCase();
+            return estado === "activo" || estado === "active";
+          })
+          .map(rol => {
+            // Normalizar el nombre del rol a minúsculas para consistencia
+            const nombreNormalizado = rol.nombre?.toLowerCase().trim() || '';
+            return {
+              id: rol.id,
+              nombre: nombreNormalizado,
+              descripcion: rol.descripcion || rol.nombre
+            };
+          });
+        
+        console.log('✅ [FormularioUsuario] Roles cargados exitosamente:', rolesActivos);
+        setRolesDisponibles(rolesActivos);
+      } catch (error) {
+        console.error('❌ [FormularioUsuario] Error cargando roles:', error);
+        setErrorRoles('Error al cargar los roles');
+        
+        // Roles por defecto como fallback
     const rolesPorDefecto = [
       { id: 1, nombre: 'administrador', descripcion: 'Administrador del sistema' },
       { id: 2, nombre: 'empleado', descripcion: 'Empleado de la empresa' },
       { id: 3, nombre: 'cliente', descripcion: 'Cliente de la empresa' }
     ];
-    
-    // Intentar cargar roles desde localStorage (si existen)
-    const rolesLocal = JSON.parse(localStorage.getItem("roles_mock")) || [];
-    const rolesActivos = rolesLocal.length > 0 ? 
-      rolesLocal.filter(rol => rol.estado === "Activo") : 
-      rolesPorDefecto;
-    
-    setRolesDisponibles(rolesActivos);
+        setRolesDisponibles(rolesPorDefecto);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    cargarRoles();
   }, []);
 
   useEffect(() => {
@@ -269,16 +301,31 @@ const FormularioUsuario = ({
                 value={nuevoUsuario.role}
                 onChange={handleInputChangeRealtime}
                 onBlur={handleBlur}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 bg-white ${mostrarError('role') ? 'border-red-500' : 'border-gray-300'}`}
+                disabled={loadingRoles}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 bg-white ${mostrarError('role') ? 'border-red-500' : 'border-gray-300'} ${loadingRoles ? 'opacity-50 cursor-not-allowed' : ''}`}
                 required
               >
-                <option value="">Seleccionar rol...</option>
+                <option value="">
+                  {loadingRoles ? 'Cargando roles...' : 'Seleccionar rol...'}
+                </option>
                 {rolesDisponibles.map(rol => (
                   <option key={rol.id} value={rol.nombre}>
-                    {rol.nombre}
+                    {rol.nombre.charAt(0).toUpperCase() + rol.nombre.slice(1)}
                   </option>
                 ))}
               </select>
+              {loadingRoles && (
+                <p className="text-blue-600 text-sm mt-1 flex items-center">
+                  <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                  Cargando roles desde la base de datos...
+                </p>
+              )}
+              {errorRoles && !loadingRoles && (
+                <p className="text-yellow-600 text-sm mt-1 flex items-center">
+                  <i className="bi bi-exclamation-triangle mr-2"></i>
+                  {errorRoles} (usando roles por defecto)
+                </p>
+              )}
               {mostrarError('role') && <p className="text-red-600 text-sm mt-1">{errores.role}</p>}
             </div>
             {/* Contraseña y Confirmar Contraseña solo en modo creación */}

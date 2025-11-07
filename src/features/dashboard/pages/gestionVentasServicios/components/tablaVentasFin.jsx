@@ -6,7 +6,7 @@ import EditarVenta from "./editarVenta";
 import { agregarComentario } from "../services/ventasService";
 import { mockDataService } from '../../../../../utils/mockDataService';
 import solicitudesApiService from '../services/solicitudesApiService';
-import authData from '../../../../auth/services/authData.js';
+import { useAuth } from '../../../../../shared/contexts/authContext';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import getEstadoBadge from "../services/getEstadoBadge"; // Usa el mismo servicio
 import * as xlsx from "xlsx";
@@ -16,6 +16,8 @@ import ActionDropdown from "../../../../../shared/components/ActionDropdown";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
 
 const TablaVentasFin = () => {
+  const { getToken } = useAuth();
+  
   const [datos, setDatos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
@@ -37,7 +39,7 @@ const TablaVentasFin = () => {
   // ✅ NUEVO: Cargar ventas finalizadas de la API real
   useEffect(() => {
     const cargarVentasFinalizadas = async () => {
-      const token = authData.getToken();
+      const token = getToken();
       if (!token) {
         console.warn("🔧 [TablaVentasFin] No hay token, usando datos vacíos");
         setAllDatos([]);
@@ -60,9 +62,11 @@ const TablaVentasFin = () => {
         
         // Filtrar: finalizadas, anuladas y rechazadas (por si el backend usa "Rechazada")
         const ventasFinalizadas = todasTransformadas.filter(v => {
-          const esFinalizadaOAnulada = v.estado === 'Finalizada' || v.estado === 'Anulada' || v.estado === 'Rechazada';
-          console.log(`🔍 [TablaVentasFin] Venta ${v.id} - Estado: "${v.estado}" - Es finalizada/anulada/rechazada: ${esFinalizadaOAnulada}`);
-          return esFinalizadaOAnulada;
+          // ⚠️ IMPORTANTE: Backend usa tanto femenino como masculino ("Anulada" y "Anulado")
+          const estadosFinales = ['Finalizada', 'Finalizado', 'Anulada', 'Anulado', 'Rechazada', 'Rechazado'];
+          const esFinalizada = estadosFinales.includes(v.estado);
+          console.log(`🔍 [TablaVentasFin] Venta ${v.id} - Estado: "${v.estado}" - Es finalizada: ${esFinalizada}`);
+          return esFinalizada;
         });
         
         console.log("✅ [TablaVentasFin] Ventas finalizadas/anuladas:", ventasFinalizadas.length);
@@ -92,12 +96,24 @@ const TablaVentasFin = () => {
       console.log("🔔 [TablaVentasFin] Refrescando tabla de ventas finalizadas...");
       cargarVentasFinalizadas();
     };
+
+    // ✅ NUEVO: Escuchar evento de solicitud finalizada (cambio de estado a Finalizada/Finalizado)
+    const handleSolicitudFinalizada = (event) => {
+      console.log("🔔 [TablaVentasFin] Evento de solicitud finalizada recibido:", event.detail);
+      console.log("🔔 [TablaVentasFin] Nueva solicitud finalizada. Refrescando tabla...");
+      // Pequeño delay para asegurar que el backend haya actualizado el estado
+      setTimeout(() => {
+        cargarVentasFinalizadas();
+      }, 500);
+    };
     
     window.addEventListener('solicitudAnulada', handleSolicitudAnulada);
+    window.addEventListener('solicitudFinalizada', handleSolicitudFinalizada);
     
-    // Cleanup: remover listener cuando el componente se desmonte
+    // Cleanup: remover listeners cuando el componente se desmonte
     return () => {
       window.removeEventListener('solicitudAnulada', handleSolicitudAnulada);
+      window.removeEventListener('solicitudFinalizada', handleSolicitudFinalizada);
     };
   }, []);
 
@@ -133,7 +149,7 @@ const TablaVentasFin = () => {
 
   // ✅ NUEVO: Refrescar datos desde API
   const refrescar = async () => {
-    const token = authData.getToken();
+      const token = getToken();
     if (!token) {
       console.warn("🔧 [TablaVentasFin] No hay token para refrescar");
       return;
@@ -150,7 +166,9 @@ const TablaVentasFin = () => {
         return transformada;
       });
       
-      const ventasFinalizadas = todasTransformadas.filter(v => v.estado === 'Finalizada' || v.estado === 'Anulada' || v.estado === 'Rechazada');
+      // ⚠️ IMPORTANTE: Backend usa tanto femenino como masculino
+      const estadosFinales = ['Finalizada', 'Finalizado', 'Anulada', 'Anulado', 'Rechazada', 'Rechazado'];
+      const ventasFinalizadas = todasTransformadas.filter(v => estadosFinales.includes(v.estado));
       
       console.log("✅ [TablaVentasFin] Ventas finalizadas/anuladas refrescadas:", ventasFinalizadas.length);
       console.log("✅ [TablaVentasFin] Todos los estados:", todasTransformadas.map(v => `${v.id}:${v.estado}`));
@@ -360,11 +378,10 @@ const TablaVentasFin = () => {
             <thead className="text-left text-sm text-gray-500 bg-gray-50">
               <tr>
                 <th className="px-6 py-4 font-bold text-center">Titular</th>
-                <th className="px-6 py-4 font-bold text-center">Expediente</th>
-                <th className="px-6 py-4 font-bold text-center">Solicitud</th>
+                <th className="px-6 py-4 font-bold text-center">Email</th>
+                <th className="px-6 py-4 font-bold text-center">Teléfono</th>
                 <th className="px-6 py-4 font-bold text-center">Marca</th>
-                <th className="px-6 py-4 font-bold text-center">Encargado</th>
-                <th className="px-6 py-4 font-bold text-center">Cita</th>
+                <th className="px-6 py-4 font-bold text-center">Tipo de Solicitud</th>
                 <th className="px-6 py-4 font-bold text-center">Estado</th>
                 <th className="px-6 py-4 font-bold text-center">Acciones</th>
               </tr>
@@ -372,7 +389,7 @@ const TablaVentasFin = () => {
             <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
               {datosPagina.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-gray-400 text-lg">No se encontraron resultados.</td>
+                  <td colSpan={7} className="text-center py-8 text-gray-400 text-lg">No se encontraron resultados.</td>
                 </tr>
               ) : datosPagina.filter(item => item && typeof item === 'object').map((item, idx) => {
                 try {
@@ -391,15 +408,10 @@ const TablaVentasFin = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">{item.expediente || '-'}</td>
+                      <td className="px-6 py-4 text-center">{item.email || 'N/A'}</td>
+                      <td className="px-6 py-4 text-center">{item.telefono || 'N/A'}</td>
+                      <td className="px-6 py-4 text-center">{item.marca || item.nombreMarca || 'N/A'}</td>
                       <td className="px-6 py-4 text-center">{item.tipoSolicitud || '-'}</td>
-                      <td className="px-6 py-4 text-center">{item.marca || '-'}</td>
-                      <td className="px-6 py-4 text-center">{item.encargado || '-'}</td>
-                      <td className="px-6 py-4 text-center">
-                        {item.proximaCita || (
-                          <span className="text-xs italic text-gray-400">Sin citas</span>
-                        )}
-                      </td>
                       <td className="px-6 py-4 text-center">
                         <span style={{ color, fontWeight: 600, fontSize: "14px" }}>{texto || '-'}</span>
                       </td>

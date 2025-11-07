@@ -1,8 +1,26 @@
 import React from "react";
 import { getComentarios } from '../services/ventasService';
+import BaseModal from '../../../../../shared/components/BaseModal';
+import Badge from '../../../../../shared/components/Badge';
+import { Eye } from 'lucide-react';
 
 const labelClass = "text-xs text-gray-500 font-semibold mb-1";
 const valueClass = "text-xs text-gray-800 mb-2 break-all";
+
+// ✅ Helper para verificar si un valor está realmente vacío (null, undefined, "", 0 como número es válido)
+const isEmpty = (value) => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string' && value.trim() === '') return true;
+  return false;
+};
+
+// ✅ Helper para renderizar valor con fallback
+const renderValue = (value, fallbackText = "No especificado") => {
+  if (isEmpty(value)) {
+    return <span className="italic text-gray-400">{fallbackText}</span>;
+  }
+  return value;
+};
 
 const renderFileDisplayName = (file) => {
   if (!file) return <span className="italic text-gray-400">No disponible</span>;
@@ -12,66 +30,34 @@ const renderFileDisplayName = (file) => {
 };
 
 const VerDetalleVenta = ({ datos, isOpen, onClose }) => {
-  if (!isOpen || !datos) return null;
-
-  const getEstadoBadge = (estado) => {
-    const estadoLower = estado?.toLowerCase() || '';
-    if (estadoLower === "finalizado") {
-      return (
-        <span className="px-3 py-1 text-blue-700 bg-blue-100 rounded-full text-xs font-semibold">
-          Finalizado
-        </span>
-      );
-    }
-    if (estadoLower === "anulado") {
-      return (
-        <span className="px-3 py-1 text-red-700 bg-red-100 rounded-full text-xs font-semibold">
-          Anulado
-        </span>
-      );
-    }
-    if (estadoLower.includes("revisión") || estadoLower.includes("activo")) {
-      return (
-        <span className="px-3 py-1 text-green-700 bg-green-100 rounded-full text-xs font-semibold">
-          {estado}
-        </span>
-      );
-    }
-    if (estadoLower.includes("pendiente")) {
-      return (
-        <span className="px-3 py-1 text-yellow-800 bg-yellow-100 rounded-full text-xs font-semibold">
-          {estado}
-        </span>
-      );
-    }
-    return (
-      <span className="px-3 py-1 text-gray-700 bg-gray-100 rounded-full text-xs font-semibold">
-        {estado}
-      </span>
-    );
-  };
+  // ✅ Guard clause: Si no hay datos, no renderizar nada
+  if (!datos) {
+    return null;
+  }
 
   // Obtener comentarios de la venta
   const comentarios = getComentarios(datos.id);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75 backdrop-blur-sm transition-all">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl p-0 overflow-y-auto max-h-[90vh] relative border border-gray-200">
-        {/* Header sticky */}
-        <div className="sticky top-0 z-10 bg-gray-50 px-6 py-3 border-b border-gray-200 flex items-center space-x-3 rounded-t-2xl shadow-sm">
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-100 p-2 rounded-full">
-              <i className="bi bi-eye text-blue-600 text-xl"></i>
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800">Detalle del Servicio</h2>
-              <p className="text-sm text-gray-500">Expediente: {datos.expediente || <span className="italic text-gray-400">No especificado</span>}</p>
-            </div>
-          </div>
-        </div>
+    <BaseModal
+      isOpen={isOpen && datos}
+      onClose={onClose}
+      title="Detalle del Servicio"
+      subtitle={`Expediente: ${datos?.expediente || 'No especificado'}`}
+      headerGradient="blue"
+      headerIcon={<Eye className="w-5 h-5 text-white" />}
+      maxWidth="6xl"
+      footerActions={[
+        {
+          label: "Cerrar",
+          onClick: onClose,
+          variant: "secondary"
+        }
+      ]}
+    >
 
         {/* Content: grid 4 columnas en desktop, 1 en móvil */}
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 -m-6 p-6">
           {/* Columna 1: Cliente y Representante */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">Titular / Representante</h3>
@@ -88,31 +74,31 @@ const VerDetalleVenta = ({ datos, isOpen, onClose }) => {
                 </div>
               </div>
               <div className={labelClass}>Tipo de Solicitante:</div>
-              <div className={valueClass}>{datos.tipoSolicitante || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.tipoSolicitante || datos.tipoPersona)}</div>
               <div className={labelClass}>Tipo de Persona:</div>
-              <div className={valueClass}>{datos.tipoPersona || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.tipoPersona)}</div>
               <div className={labelClass}>Tipo de Documento:</div>
-              <div className={valueClass}>{datos.tipoDocumento || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.tipoDocumento)}</div>
               <div className={labelClass}>N° Documento:</div>
-              <div className={valueClass}>{datos.numeroDocumento || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.numeroDocumento)}</div>
               <div className={labelClass}>Email:</div>
-              <div className={valueClass}>{datos.email || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.email)}</div>
               <div className={labelClass}>Teléfono:</div>
-              <div className={valueClass}>{datos.telefono || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.telefono)}</div>
               <div className={labelClass}>Dirección:</div>
-              <div className={valueClass}>{datos.direccion || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.direccion)}</div>
               <div className={labelClass}>Tipo de Entidad:</div>
-              <div className={valueClass}>{datos.tipoEntidad || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.tipoEntidad)}</div>
               <div className={labelClass}>Razón Social:</div>
-              <div className={valueClass}>{datos.razonSocial || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.razonSocial)}</div>
               <div className={labelClass}>Nombre Empresa:</div>
-              <div className={valueClass}>{datos.nombreEmpresa || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.nombreEmpresa)}</div>
               <div className={labelClass}>NIT:</div>
-              <div className={valueClass}>{datos.nit || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.nit)}</div>
               <div className={labelClass}>Poder Representante:</div>
-              <div className={valueClass}>{renderFileDisplayName(datos.poderRepresentante)}</div>
+              <div className={valueClass}>{renderValue(datos.poderRepresentante, "No disponible")}</div>
               <div className={labelClass}>Poder Autorización:</div>
-              <div className={valueClass}>{renderFileDisplayName(datos.poderAutorizacion)}</div>
+              <div className={valueClass}>{renderValue(datos.poderAutorizacion, "No disponible")}</div>
             </div>
           </div>
 
@@ -122,16 +108,16 @@ const VerDetalleVenta = ({ datos, isOpen, onClose }) => {
             <div className="bg-gray-50 rounded-lg p-3 max-h-56 overflow-y-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-600">Estado:</span>
-                {getEstadoBadge(datos.estado)}
+                <Badge estado={datos.estado} tipo="solicitud" size="xs" />
               </div>
               <div className={labelClass}>Tipo de Solicitud:</div>
-              <div className={valueClass}>{datos.tipoSolicitud || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.tipoSolicitud)}</div>
               <div className={labelClass}>Encargado:</div>
-              <div className={valueClass}>{datos.encargado || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.encargado)}</div>
               <div className={labelClass}>Fecha Solicitud:</div>
-              <div className={valueClass}>{datos.fechaSolicitud || <span className="italic text-gray-400">No especificado</span>}</div>
+              <div className={valueClass}>{renderValue(datos.fechaSolicitud || datos.fechaCreacion)}</div>
               <div className={labelClass}>Próxima Cita:</div>
-              <div className={valueClass}>{datos.proximaCita || <span className="italic text-gray-400">Sin citas</span>}</div>
+              <div className={valueClass}>{renderValue(datos.proximaCita, "Sin citas")}</div>
               {datos.motivoAnulacion && (
                 <div className="flex items-center space-x-2 text-xs bg-red-50 p-2 rounded mt-2">
                   <i className="bi bi-exclamation-triangle text-red-400"></i>
@@ -141,11 +127,11 @@ const VerDetalleVenta = ({ datos, isOpen, onClose }) => {
               )}
               <div className="mt-2 border-t pt-2">
                 <div className={labelClass}>País:</div>
-                <div className={valueClass}>{datos.pais || <span className="italic text-gray-400">No especificado</span>}</div>
-                <div className={labelClass}>NIT Marca:</div>
-                <div className={valueClass}>{datos.nitMarca || <span className="italic text-gray-400">No especificado</span>}</div>
+                <div className={valueClass}>{renderValue(datos.pais)}</div>
+                <div className={labelClass}>Ciudad:</div>
+                <div className={valueClass}>{renderValue(datos.ciudad)}</div>
                 <div className={labelClass}>Nombre Marca:</div>
-                <div className={valueClass}>{datos.nombreMarca || <span className="italic text-gray-400">No especificado</span>}</div>
+                <div className={valueClass}>{renderValue(datos.nombreMarca || datos.marca)}</div>
                 <div className="flex items-center justify-between">
                   <span className={labelClass}>Categoría:</span>
                   <div className="flex items-center gap-1">
@@ -278,17 +264,7 @@ const VerDetalleVenta = ({ datos, isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Footer compacto */}
-        <div className="bg-gray-50 px-6 py-2 border-t border-gray-200 flex justify-end sticky bottom-0 z-10">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

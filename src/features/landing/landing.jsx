@@ -5,11 +5,11 @@ import Hero from './components/hero';
 import SolicitudCitaLanding from './components/SolicitudCitaLanding';
 import Footer from './components/footer';
 import ScrollToTopButton from './components/ScrollToTopButton';
-import authData from '../auth/services/authData';
+import { useAuth } from '../../shared/contexts/authContext';
 
 const Landing = () => {
   const navigate = useNavigate();
-  const user = authData.getUser();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Redirigir a administradores y empleados al dashboard
@@ -23,7 +23,6 @@ const Landing = () => {
       <LandingNavbar />
       <div>
         <Hero />
-        <SolicitudCitaLanding />
         <Footer />
       </div>
       <ScrollToTopButton />

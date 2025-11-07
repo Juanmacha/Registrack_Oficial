@@ -130,23 +130,37 @@ class RolesApiService {
    * Actualizar rol
    */
   async updateRole(id, roleData) {
-    console.log(`📤 [RolesApiService] Actualizando rol ${id}:`, roleData);
+    console.log(`📤 [RolesApiService] ===== ACTUALIZANDO ROL ${id} =====`);
+    console.log(`📤 [RolesApiService] Datos recibidos del componente:`, JSON.stringify(roleData, null, 2));
     const url = `${this.baseUrl}${this.endpoints.ROLE_BY_ID(id)}`;
+    console.log(`📤 [RolesApiService] URL de la API:`, url);
     
     // Transformar datos del frontend al formato de la API
     const apiData = this.transformRoleToAPI(roleData);
-    console.log('🔄 [RolesApiService] Datos transformados para API:', apiData);
+    console.log('🔄 [RolesApiService] Datos transformados para API:', JSON.stringify(apiData, null, 2));
+    console.log('🔄 [RolesApiService] JSON stringificado:', JSON.stringify(apiData));
     
     try {
       const response = await this.makeRequest(url, {
         method: 'PUT',
         body: JSON.stringify(apiData)
       });
-      console.log('✅ [RolesApiService] Rol actualizado:', response);
+      console.log('✅ [RolesApiService] Respuesta completa de la API:', JSON.stringify(response, null, 2));
       
-      return this.transformRoleFromAPI(response);
+      // La respuesta puede venir como { success: true, data: {...} } o directamente el objeto
+      const roleDataResponse = response.data || response;
+      console.log('🔄 [RolesApiService] Datos extraídos de la respuesta:', JSON.stringify(roleDataResponse, null, 2));
+      
+      const transformedRole = this.transformRoleFromAPI(roleDataResponse);
+      
+      console.log('✅ [RolesApiService] Rol transformado para frontend:', JSON.stringify(transformedRole, null, 2));
+      console.log(`✅ [RolesApiService] ===== ACTUALIZACIÓN COMPLETADA =====`);
+      return transformedRole;
     } catch (error) {
-      console.error('❌ [RolesApiService] Error actualizando rol:', error);
+      console.error('❌ [RolesApiService] ===== ERROR EN ACTUALIZACIÓN =====');
+      console.error('❌ [RolesApiService] Error completo:', error);
+      console.error('❌ [RolesApiService] Mensaje:', error.message);
+      console.error('❌ [RolesApiService] Stack:', error.stack);
       throw error;
     }
   }
@@ -287,10 +301,19 @@ class RolesApiService {
    * NOTA: El backend ahora devuelve el formato granular directamente
    */
   transformRoleFromAPI(apiRole) {
+    // Normalizar estado desde la API
+    let estadoNormalizado = apiRole.estado;
+    if (typeof estadoNormalizado === 'boolean') {
+      estadoNormalizado = estadoNormalizado ? 'Activo' : 'Inactivo';
+    } else if (typeof estadoNormalizado === 'string') {
+      // Mantener el formato original pero capitalizar primera letra
+      estadoNormalizado = estadoNormalizado.charAt(0).toUpperCase() + estadoNormalizado.slice(1).toLowerCase();
+    }
+
     return {
       id: apiRole.id?.toString() || apiRole.id_rol?.toString(),
       nombre: apiRole.nombre,
-      estado: apiRole.estado,
+      estado: estadoNormalizado || 'Activo',
       permisos: this.transformPermissionsFromAPI(apiRole.permisos || {})
     };
   }
@@ -311,10 +334,45 @@ class RolesApiService {
    * NOTA: El backend ahora acepta el formato granular directamente
    */
   transformRoleToAPI(frontendRole) {
-    return {
-      nombre: frontendRole.nombre,
-      permisos: frontendRole.permisos || {}
-    };
+    console.log('🔄 [RolesApiService] transformRoleToAPI - Entrada:', JSON.stringify(frontendRole, null, 2));
+
+    const apiData = {};
+
+    // Incluir nombre si se proporciona
+    if (frontendRole.nombre !== undefined && frontendRole.nombre !== null && frontendRole.nombre.trim() !== '') {
+      apiData.nombre = frontendRole.nombre.trim();
+      console.log('✅ [RolesApiService] Nombre incluido:', apiData.nombre);
+    } else {
+      console.log('⚠️ [RolesApiService] Nombre no proporcionado o vacío');
+    }
+
+    // Incluir estado si se proporciona (opcional según el backend)
+    if (frontendRole.estado !== undefined && frontendRole.estado !== null) {
+      // Normalizar estado: acepta "Activo", "activo", "Inactivo", "inactivo", true, false
+      const estado = frontendRole.estado;
+      if (typeof estado === 'string') {
+        apiData.estado = estado.toLowerCase() === 'activo' ? true : false;
+      } else if (typeof estado === 'boolean') {
+        apiData.estado = estado;
+      } else {
+        apiData.estado = estado === 1 || estado === '1' || estado === 'Activo' || estado === 'activo';
+      }
+      console.log('✅ [RolesApiService] Estado incluido:', apiData.estado, '(desde:', estado, ')');
+    } else {
+      console.log('⚠️ [RolesApiService] Estado no proporcionado');
+    }
+
+    // Incluir permisos si se proporcionan
+    if (frontendRole.permisos !== undefined && frontendRole.permisos !== null) {
+      apiData.permisos = frontendRole.permisos;
+      console.log('✅ [RolesApiService] Permisos incluidos:', Object.keys(apiData.permisos).length, 'módulos');
+      console.log('📋 [RolesApiService] Detalle de permisos:', JSON.stringify(apiData.permisos, null, 2));
+    } else {
+      console.log('⚠️ [RolesApiService] Permisos no proporcionados');
+    }
+
+    console.log('🔄 [RolesApiService] transformRoleToAPI - Salida:', JSON.stringify(apiData, null, 2));
+    return apiData;
   }
 
   /**
@@ -322,12 +380,36 @@ class RolesApiService {
    * NOTA: El backend ahora devuelve el formato granular directamente
    */
   transformPermissionsFromAPI(apiPermissions) {
+    console.log('🔄 [RolesApiService] transformPermissionsFromAPI - Entrada:', JSON.stringify(apiPermissions, null, 2));
+    
     // El backend ahora devuelve el formato granular directamente
-    if (typeof apiPermissions === 'object' && apiPermissions !== null) {
-      return apiPermissions;
+    if (typeof apiPermissions === 'object' && apiPermissions !== null && !Array.isArray(apiPermissions)) {
+      // Asegurar que solo se incluyan los módulos con al menos un permiso activo
+      // O incluir todos los módulos pero solo con los valores que vienen del backend
+      const permisosNormalizados = {};
+      
+      // Si vienen permisos en formato granular, asegurarse de que solo tengan los valores correctos
+      Object.keys(apiPermissions).forEach(modulo => {
+        const moduloPermisos = apiPermissions[modulo];
+        if (moduloPermisos && typeof moduloPermisos === 'object') {
+          // Solo incluir el módulo si tiene estructura válida
+          permisosNormalizados[modulo] = {
+            crear: moduloPermisos.crear === true,
+            leer: moduloPermisos.leer === true,
+            actualizar: moduloPermisos.actualizar === true,
+            eliminar: moduloPermisos.eliminar === true
+          };
+        }
+      });
+      
+      console.log('✅ [RolesApiService] Permisos normalizados:', Object.keys(permisosNormalizados).length, 'módulos');
+      console.log('📋 [RolesApiService] Detalle normalizado:', JSON.stringify(permisosNormalizados, null, 2));
+      
+      return permisosNormalizados;
     }
     
     // Fallback para casos donde no viene en formato granular
+    console.log('⚠️ [RolesApiService] Permisos no vienen en formato granular, retornando objeto vacío');
     return {};
   }
 

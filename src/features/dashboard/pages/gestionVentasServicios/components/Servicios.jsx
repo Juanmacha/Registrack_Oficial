@@ -9,9 +9,10 @@ import serviciosApiService from '../services/serviciosApiService';
 import ModalVerDetalleServicio from './ModalVerDetalleServicio';
 import ModalEditarServicio from './ModalEditarServicio';
 import Swal from 'sweetalert2';
-import authData from '../../../../auth/services/authData.js';
+import { useAuth } from '../../../../../shared/contexts/authContext';
 
 const Servicios = () => {
+  const { getToken } = useAuth();
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detalle, setDetalle] = useState(null);
@@ -80,7 +81,7 @@ const Servicios = () => {
     
       if (!result.isConfirmed) return;
     try {
-      const token = authData.getToken();
+      const token = getToken();
       console.log('🔑 [Servicios] Token disponible:', token ? 'Sí' : 'No');
       if (token) {
         console.log(`🔧 [Servicios] Cambiando visibilidad del servicio ${id} via API...`);
@@ -145,7 +146,7 @@ const Servicios = () => {
   const handleGuardarEdicion = async (tipo, data) => {
     if (!editar) return;
     try {
-      const token = authData.getToken();
+      const token = getToken();
       
       console.log(`🔧 [Servicios] Actualizando servicio ${editar.id} via API (tipo: ${tipo})...`);
       console.log('🔍 [DEBUG] Tipo de edición:', tipo);

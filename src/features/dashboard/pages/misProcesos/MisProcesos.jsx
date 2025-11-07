@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import NavBarLanding from '../../../landing/components/landingNavbar.jsx';
-import authData from '../../../auth/services/authData.js';
+import { useAuth } from '../../../../shared/contexts/authContext';
 import ProcesosActivos from './components/ProcesosActivos.jsx';
 import HistorialProcesos from './components/HistorialProcesos.jsx';
 import { getSolicitudesUsuario, filtrarProcesos, obtenerServicios } from './services/procesosService.js';
 import { useSalesSync } from '../../../../utils/hooks/useAsyncDataSync.js';
 
 const MisProcesos = () => {
+  const { user } = useAuth();
+  
   const [servicios, setServicios] = useState([]);
   const [error, setError] = useState(null);
   const [vistaHistorial, setVistaHistorial] = useState(false);
@@ -16,7 +18,6 @@ const MisProcesos = () => {
   const [busquedaActivos, setBusquedaActivos] = useState("");
   const [servicioFiltroActivos, setServicioFiltroActivos] = useState('Todos');
   const [estadoFiltroActivos, setEstadoFiltroActivos] = useState('Todos');
-  const user = authData.getUser();
 
   // Estabilizar la función dataFetcher para evitar bucles infinitos
   const dataFetcher = useMemo(() => {

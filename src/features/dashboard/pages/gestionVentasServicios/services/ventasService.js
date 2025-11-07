@@ -6,7 +6,7 @@ import {
   initializeMockData,
 } from "../../../../../utils/mockDataService.js";
 import solicitudesApiService from './solicitudesApiService';
-import authData from '../../../../auth/services/authData.js';
+import { getAuthToken } from '../../../../../shared/utils/authHelpers.js';
 
 // Inicializar datos mock centralizados
 initializeMockData();
@@ -163,7 +163,7 @@ export async function getInProcess() {
   try {
     console.log('🔧 [VentasService] Obteniendo solicitudes en proceso...');
     
-    const token = authData.getToken();
+    const token = getAuthToken();
     if (token) {
       console.log('🔧 [VentasService] Obteniendo desde API...');
       const solicitudesAPI = await solicitudesApiService.getAllSolicitudes(token);
@@ -190,7 +190,7 @@ export async function getByEstado(estado) {
   try {
     console.log(`🔧 [VentasService] Obteniendo solicitudes por estado: ${estado}...`);
     
-    const token = authData.getToken();
+    const token = getAuthToken();
     if (token) {
       console.log('🔧 [VentasService] Obteniendo desde API...');
       const todasLasSolicitudes = await solicitudesApiService.getAllSolicitudes(token);
@@ -222,7 +222,7 @@ export async function buscarSolicitudes(termino) {
   try {
     console.log(`🔧 [VentasService] Buscando solicitudes con término: ${termino}...`);
     
-    const token = authData.getToken();
+    const token = getAuthToken();
     if (token) {
       console.log('🔧 [VentasService] Buscando desde API...');
       const solicitudesAPI = await solicitudesApiService.buscarSolicitudes(termino, token);

@@ -13,47 +13,87 @@ const DemoPasarelaPagoModal = ({ isOpen, onClose, monto, datosPago, onPagoExitos
 
   if (!isOpen) return null;
 
-  const handlePagar = () => {
+  // ✅ NUEVO: Procesar pago con la API real
+  const handlePagar = async () => {
     setPagando(true);
-    setTimeout(() => {
-      setExito(true);
+    try {
+      // Si hay una función onPagoExitoso, usarla (procesa el pago con la API real)
+      if (onPagoExitoso) {
+        console.log('🔧 [DemoPasarelaPagoModal] Procesando pago con API real...');
+        await onPagoExitoso();
+        // Si llegamos aquí sin errores, el pago fue exitoso
+        // El modal se cerrará automáticamente desde handleProcesarPago
+        // Solo actualizamos el estado local para mostrar éxito si no se cierra
+        setExito(true);
+        setPagando(false);
+        
+        // Crear objeto de pago para mostrar en el modal
+        const pago = {
+          ...datosPago,
+          monto,
+          fechaPago: new Date().toLocaleDateString(),
+          valorTotal: monto,
+          gastoLegal: datosPago.gastoLegal || '928.000,00 COP',
+          honorarios: datosPago.honorarios || '920.000,00 COP',
+          numeroTransaccion: Math.floor(Math.random() * 1000000000),
+        };
+        setPagoRealizado(pago);
+        registrarPago(pago);
+        
+        // Guardar el pago en el almacenamiento local
+        PaymentService.create({
+          monto: pago.valorTotal,
+          metodo_pago: 'Tarjeta',
+          estado: true,
+          id_orden_servicio: datosPago.orden_id || '4',
+          fecha_pago: new Date().toISOString(),
+          comprobante_url: '#',
+        });
+      } else {
+        // Modo legacy: simulación de pago (solo si no hay onPagoExitoso)
+        setTimeout(() => {
+          setExito(true);
+          setPagando(false);
+          const pago = {
+            ...datosPago,
+            monto,
+            fechaPago: new Date().toLocaleDateString(),
+            valorTotal: monto,
+            gastoLegal: datosPago.gastoLegal || '928.000,00 COP',
+            honorarios: datosPago.honorarios || '920.000,00 COP',
+            numeroTransaccion: Math.floor(Math.random() * 1000000000),
+            servicioOposicion: datosPago.servicioOposicion || '4',
+            nombreMarca: datosPago.nombreMarca || 'Certimarcas',
+            nombreRepresentante: datosPago.nombreRepresentante || 'Jorge Vanegas',
+            tipoDocumento: datosPago.tipoDocumento || 'CC',
+            numeroDocumento: datosPago.numeroDocumento || '1021804359',
+          };
+          setPagoRealizado(pago);
+          registrarPago(pago);
+          
+          PaymentService.create({
+            monto: pago.valorTotal,
+            metodo_pago: 'Demo',
+            estado: true,
+            id_orden_servicio: pago.servicioOposicion || '4',
+            fecha_pago: new Date().toISOString(),
+            comprobante_url: '#',
+            nombreMarca: pago.nombreMarca,
+            nombreRepresentante: pago.nombreRepresentante,
+            tipoDocumento: pago.tipoDocumento,
+            numeroDocumento: pago.numeroDocumento,
+            gastoLegal: pago.gastoLegal,
+            honorarios: pago.honorarios,
+            numeroTransaccion: pago.numeroTransaccion
+          });
+        }, 1800);
+      }
+    } catch (error) {
+      console.error('❌ [DemoPasarelaPagoModal] Error al procesar pago:', error);
       setPagando(false);
-      const pago = {
-        ...datosPago,
-        monto,
-        fechaPago: new Date().toLocaleDateString(),
-        valorTotal: monto,
-        gastoLegal: datosPago.gastoLegal || '928.000,00 COP',
-        honorarios: datosPago.honorarios || '920.000,00 COP',
-        numeroTransaccion: Math.floor(Math.random() * 1000000000),
-        servicioOposicion: datosPago.servicioOposicion || '4',
-        nombreMarca: datosPago.nombreMarca || 'Certimarcas',
-        nombreRepresentante: datosPago.nombreRepresentante || 'Jorge Vanegas',
-        tipoDocumento: datosPago.tipoDocumento || 'CC',
-        numeroDocumento: datosPago.numeroDocumento || '1021804359',
-      };
-      setPagoRealizado(pago);
-      registrarPago(pago);
-      
-      // Guardar el pago en el almacenamiento local
-      PaymentService.create({
-        monto: pago.valorTotal,
-        metodo_pago: 'Demo',
-        estado: true,
-        id_orden_servicio: pago.servicioOposicion || '4',
-        fecha_pago: new Date().toISOString(),
-        comprobante_url: '#',
-        nombreMarca: pago.nombreMarca,
-        nombreRepresentante: pago.nombreRepresentante,
-        tipoDocumento: pago.tipoDocumento,
-        numeroDocumento: pago.numeroDocumento,
-        gastoLegal: pago.gastoLegal,
-        honorarios: pago.honorarios,
-        numeroTransaccion: pago.numeroTransaccion
-      });
-      
-      if (onPagoExitoso) onPagoExitoso(pago);
-    }, 1800);
+      // El error ya fue manejado en handleProcesarPago, pero si hay error aquí, lanzarlo
+      throw error;
+    }
   };
 
   const handleDescargarComprobante = () => {

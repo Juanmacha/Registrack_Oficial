@@ -3,9 +3,12 @@
  * Versión actualizada - Backend funcionando correctamente
  */
 
+import API_CONFIG from '../../../../../shared/config/apiConfig.js';
+
 class ServiciosApiService {
   constructor() {
-    this.baseURL = 'https://api-registrack-2.onrender.com';
+    // ✅ Usar API_CONFIG para manejar proxy en desarrollo y URL completa en producción
+    this.baseURL = API_CONFIG.BASE_URL || API_CONFIG.baseURL || '';
   }
 
   // 🔧 Función base para hacer peticiones HTTP

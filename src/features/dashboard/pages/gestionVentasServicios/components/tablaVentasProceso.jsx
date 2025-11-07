@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import VerDetalleVenta from "./verDetalleVenta";
-import Observaciones from "./observaciones";
+import Seguimiento from "./seguimiento";
 import EditarVenta from "./editarVenta";
 import SeleccionarTipoSolicitud from "./SeleccionarTipoSolicitud";
 import { crearVenta, agregarComentario, anularVenta, initDatosPrueba, actualizarVenta, getInProcess } from "../services/ventasService";
@@ -21,9 +22,13 @@ import { EmployeeService } from '../../../../../utils/mockDataService.js';
 import ActionDropdown from '../../../../../shared/components/ActionDropdown.jsx';
 import empleadosApiService from '../../../../dashboard/services/empleadosApiService';
 import solicitudesApiService from '../services/solicitudesApiService';
-import authData from '../../../../auth/services/authData';
+import seguimientoApiService from '../services/seguimientoApiService';
+import { useAuth } from '../../../../../shared/contexts/authContext';
 
 const TablaVentasProceso = ({ adquirir }) => {
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
+  
   const [busqueda, setBusqueda] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalRegistros, setTotalRegistros] = useState(0);
@@ -50,34 +55,35 @@ const TablaVentasProceso = ({ adquirir }) => {
   // ✅ NUEVO: Usar API real para ventas en proceso
   const [ventasEnProceso, refreshVentas, loading, lastUpdate, error] = useSalesSync(
     async () => {
-      const token = authData.getToken();
+      const token = getToken();
       if (!token) {
         console.warn("🔧 [useSalesSync] No hay token, retornando array vacío");
         return [];
       }
       
       try {
-        console.log("🔧 [useSalesSync] Obteniendo solicitudes de la API...");
+        console.log("🔧 [TablaVentasProceso] Obteniendo solicitudes de la API...");
         const solicitudes = await solicitudesApiService.getAllSolicitudes(token);
-        console.log("🔧 [useSalesSync] Solicitudes obtenidas:", solicitudes.length);
-        console.log("🔧 [useSalesSync] Solicitudes RAW:", solicitudes);
+        console.log("✅ [TablaVentasProceso] Solicitudes obtenidas:", solicitudes.length);
         
         // Transformar todas las solicitudes
-        const ventasTransformadas = solicitudes.map(s => {
-          const transformada = solicitudesApiService.transformarRespuestaDelAPI(s);
-          console.log(`🔧 [useSalesSync] Solicitud ${s.id} transformada:`, transformada);
-          return transformada;
-        });
+        const ventasTransformadas = solicitudes.map(s => solicitudesApiService.transformarRespuestaDelAPI(s));
         
-        // Filtrar solo las que están en proceso (NO incluir Anuladas ni Finalizadas)
+        // ✅ CORRECTO: Filtrar solo las que están en proceso (excluir solo estados terminales)
         const ventasEnProceso = ventasTransformadas.filter(v => {
-          // Estados en proceso: "Pendiente" solamente (excluyendo Anulada y Finalizada)
-          const esEnProceso = v.estado === 'Pendiente';
-          console.log(`🔧 [useSalesSync] Venta ${v.id} - Estado: ${v.estado} - Es en proceso: ${esEnProceso}`);
+          // Estados terminales del sistema (solicitudes finalizadas, no se pueden modificar):
+          // ⚠️ IMPORTANTE: Backend puede usar tanto femenino como masculino ("Finalizada" y "Finalizado")
+          const estadosTerminales = ['Finalizada', 'Finalizado', 'Anulada', 'Anulado', 'Rechazada', 'Rechazado'];
+          const esEnProceso = !estadosTerminales.includes(v.estado);
+          
+          // Estados en proceso incluyen TODOS los process_states dinámicos del servicio:
+          // Ejemplos: "Solicitud Inicial", "Verificación de Documentos", "Procesamiento de Pago",
+          // "Consulta en BD", "Generación de Certificado", "Entrega Final", etc.
           return esEnProceso;
         });
         
-        console.log("✅ [useSalesSync] Ventas en proceso:", ventasEnProceso.length);
+        console.log("✅ [TablaVentasProceso] Ventas en proceso:", ventasEnProceso.length);
+        console.log("✅ [TablaVentasProceso] Estados encontrados:", ventasTransformadas.map(v => v.estado));
         return ventasEnProceso;
       } catch (error) {
         console.error("❌ [useSalesSync] Error cargando ventas en proceso:", error);
@@ -166,15 +172,59 @@ const TablaVentasProceso = ({ adquirir }) => {
     }
   };
 
-  const handleGuardarEdicion = (datosActualizados) => {
-    if (datoSeleccionado && datoSeleccionado.id) {
-      actualizarVenta(datoSeleccionado.id, datosActualizados);
+  const handleGuardarEdicion = async (datosActualizados) => {
+    if (!datoSeleccionado || !datoSeleccionado.id) {
+      AlertService.error('Error', 'No se ha seleccionado una solicitud para editar');
+      return;
     }
-    setModalEditarOpen(false);
-    setModoCrear(false);
-    setTimeout(() => {
-      refreshVentas();
-    }, 100);
+
+    try {
+      console.log('🔧 [handleGuardarEdicion] Actualizando solicitud:', datoSeleccionado.id, datosActualizados);
+      
+      const token = getToken();
+      if (!token) {
+        AlertService.error('Error', 'No se encontró token de autenticación');
+        return;
+      }
+
+      // ✅ Mapear datos del formulario al formato de la API
+      const datosAPI = {
+        pais: datosActualizados.pais || '',
+        ciudad: datosActualizados.ciudad || '',
+        tipodepersona: datosActualizados.tipoPersona || '',
+        tipodedocumento: datosActualizados.tipoDocumento || '',
+        numerodedocumento: datosActualizados.numeroDocumento || '',
+        nombrecompleto: datosActualizados.nombres && datosActualizados.apellidos 
+          ? `${datosActualizados.nombres} ${datosActualizados.apellidos}`.trim()
+          : datosActualizados.titular || '',
+        correoelectronico: datosActualizados.email || '',
+        telefono: datosActualizados.telefono || '',
+        direccion: datosActualizados.direccion || '',
+        tipodeentidadrazonsocial: datosActualizados.tipoEntidad || '',
+        nombredelaempresa: datosActualizados.nombreEmpresa || '',
+        nit: datosActualizados.nit || '',
+        poderdelrepresentanteautorizado: datosActualizados.poderRepresentante || '',
+        poderparaelregistrodelamarca: datosActualizados.poderAutorizacion || ''
+      };
+
+      // ✅ Llamar a la API
+      await solicitudesApiService.editarSolicitud(datoSeleccionado.id, datosAPI, token);
+      
+      AlertService.success('Éxito', 'Solicitud actualizada correctamente');
+      
+      // ✅ Cerrar modal y refrescar datos
+      setModalEditarOpen(false);
+      setModoCrear(false);
+      
+      // ✅ Refresh después de un delay para asegurar que el backend procesó
+      setTimeout(() => {
+        refreshVentas();
+      }, 300);
+      
+    } catch (error) {
+      console.error('❌ [handleGuardarEdicion] Error actualizando solicitud:', error);
+      AlertService.error('Error', 'No se pudo actualizar la solicitud. Intenta de nuevo.');
+    }
   };
 
   // Nuevo flujo: abrir modal de tipo
@@ -211,46 +261,197 @@ const TablaVentasProceso = ({ adquirir }) => {
   };
 
 
-  const handleGuardarComentario = (texto) => {
-    if (datoSeleccionado && datoSeleccionado.id) {
-      agregarComentario(datoSeleccionado.id, texto);
-      // Refrescar inmediatamente y luego de un pequeño delay para asegurar consistencia
-      refreshVentas();
+  const handleGuardarComentario = async (datos) => {
+    if (!datoSeleccionado || !datoSeleccionado.id) {
+      AlertService.error('Error', 'No se ha seleccionado una solicitud para agregar seguimiento');
+      return;
+    }
+
+    try {
+      console.log('🔧 [handleGuardarComentario] Agregando seguimiento a solicitud:', datoSeleccionado.id, datos);
+      
+      const token = getToken();
+      if (!token) {
+        AlertService.error('Error', 'No se encontró token de autenticación');
+        return;
+      }
+
+      // ✅ Crear seguimiento con los datos del formulario
+      // Validar que id_orden_servicio sea un número válido
+      const idOrdenServicio = parseInt(datoSeleccionado.id);
+      if (isNaN(idOrdenServicio) || idOrdenServicio <= 0) {
+        AlertService.error('Error', 'ID de orden de servicio inválido');
+        return;
+      }
+
+      // ✅ Construir payload según documentación exacta del backend
+      // Campos requeridos según backend (validación en servicio)
+      if (!datos.titulo || !datos.titulo.trim()) {
+        AlertService.error('Error', 'El título es requerido');
+        return;
+      }
+
+      if (!datos.descripcion || !datos.descripcion.trim()) {
+        AlertService.error('Error', 'La descripción es requerida');
+        return;
+      }
+
+      // Validar longitud del título (máx 200 caracteres según backend)
+      if (datos.titulo.trim().length > 200) {
+        AlertService.error('Error', 'El título no puede exceder los 200 caracteres');
+        return;
+      }
+
+      // Construir payload mínimo requerido
+      const datosSeguimiento = {
+        id_orden_servicio: idOrdenServicio,
+        titulo: datos.titulo.trim(),
+        descripcion: datos.descripcion.trim()
+      };
+
+      // Campos opcionales según la documentación del backend
+      // Solo agregar si tienen valor (no enviar null o undefined)
+      if (datos.observaciones && datos.observaciones.trim()) {
+        datosSeguimiento.observaciones = datos.observaciones.trim();
+      }
+
+      if (datos.documentos_adjuntos && datos.documentos_adjuntos.trim()) {
+        datosSeguimiento.documentos_adjuntos = datos.documentos_adjuntos.trim();
+      }
+
+      // Si hay cambio de estado, agregar nuevo_proceso (nombre exacto del estado según backend)
+      if (datos.nuevo_proceso && datos.nuevo_proceso.trim()) {
+        datosSeguimiento.nuevo_proceso = datos.nuevo_proceso.trim();
+      }
+
+      console.log('📤 [handleGuardarComentario] Payload que se enviará a la API:', JSON.stringify(datosSeguimiento, null, 2));
+      console.log('📤 [handleGuardarComentario] Verificación de campos requeridos:', {
+        id_orden_servicio: datosSeguimiento.id_orden_servicio,
+        titulo: datosSeguimiento.titulo?.length || 0,
+        descripcion: datosSeguimiento.descripcion?.length || 0
+      });
+      
+      const respuestaSeguimiento = await seguimientoApiService.crearSeguimiento(datosSeguimiento, token);
+      
+      // ✅ Verificar si el nuevo estado es terminal (Finalizada/Finalizado)
+      const nuevoEstadoEsFinal = datosSeguimiento.nuevo_proceso && 
+        ['Finalizada', 'Finalizado', 'Anulada', 'Anulado', 'Rechazada', 'Rechazado'].includes(datosSeguimiento.nuevo_proceso);
+      
+      if (nuevoEstadoEsFinal) {
+        console.log('✅ [handleGuardarComentario] El nuevo estado es terminal. La solicitud se moverá a finalizadas.');
+        // Notificar a la tabla de finalizadas para que se refresque
+        window.dispatchEvent(new CustomEvent('solicitudFinalizada', {
+          detail: {
+            id_orden_servicio: idOrdenServicio,
+            nuevo_estado: datosSeguimiento.nuevo_proceso
+          }
+        }));
+      }
+      
+      AlertService.success('Éxito', 'Seguimiento agregado correctamente');
+      
+      // ✅ Cerrar modal
+      setModalObservacionOpen(false);
+      
+      // ✅ Refresh después de un delay para asegurar consistencia
+      // Si el estado es terminal, la solicitud desaparecerá de esta tabla automáticamente
       setTimeout(() => {
         refreshVentas();
-      }, 200);
+      }, 300);
+      
+    } catch (error) {
+      console.error('❌ [handleGuardarComentario] Error agregando seguimiento:', error);
+      console.error('❌ [handleGuardarComentario] Detalles del error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // Manejar diferentes tipos de errores según documentación del backend
+      let errorMessage = 'No se pudo agregar el seguimiento. Intenta de nuevo.';
+      
+      if (error.message) {
+        // Mensajes específicos del backend según documentación
+        if (error.message.includes('Campo') && error.message.includes('requerido')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('título') || error.message.includes('200 caracteres')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('proceso') && error.message.includes('válido')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('Orden de servicio no encontrada')) {
+          errorMessage = 'La orden de servicio no existe o no es válida.';
+        } else if (error.message.includes('No autorizado') || error.message.includes('autenticado')) {
+          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        } else if (error.message.includes('Error interno del servidor')) {
+          errorMessage = 'Error del servidor. Por favor, verifica que la orden existe y vuelve a intentar. Si el problema persiste, contacta al administrador.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      AlertService.error('Error', errorMessage);
     }
-    setModalObservacionOpen(false);
   };
 
   const handleAnular = async () => {
-    const result = await AlertService.warning("¿Anular venta?", "¿Estás seguro que deseas anular esta venta? Esta acción no se puede deshacer.");
-    if (!result.isConfirmed) return;
+    // ✅ NUEVO: Validar que haya un motivo antes de continuar
+    if (!motivoAnular.trim()) {
+      AlertService.error('Motivo requerido', 'Debes proporcionar un motivo para anular la solicitud.');
+      return;
+    }
     
     try {
-      const token = authData.getToken();
+      const token = getToken();
       if (!token) {
         AlertService.error('Error', 'No hay sesión activa');
         return;
       }
 
       console.log("🔧 [TablaVentasProceso] Anulando solicitud:", datoSeleccionado.id);
+      console.log("🔧 [TablaVentasProceso] Motivo:", motivoAnular.trim());
       
-      // ✅ USAR API REAL
-      const resultado = await solicitudesApiService.anularSolicitud(datoSeleccionado.id, token);
+      // ✅ USAR API REAL - Ahora pasando el motivo como segundo parámetro
+      const resultado = await solicitudesApiService.anularSolicitud(
+        datoSeleccionado.id, 
+        motivoAnular.trim(), 
+        token
+      );
       
-      console.log("✅ [TablaVentasProceso] Solicitud anulada correctamente");
-      console.log("✅ [TablaVentasProceso] Resultado de anulación:", resultado);
+      console.log("✅ [TablaVentasProceso] Solicitud anulada - ID:", datoSeleccionado.id);
+      console.log("✅ [TablaVentasProceso] Resultado:", resultado);
       
-      AlertService.success("Venta anulada", "La venta ha sido anulada correctamente. Se ha enviado una notificación por email.");
+      // Cerrar modal y limpiar
       setModalAnularOpen(false);
       setMotivoAnular("");
       
-      // Refrescar datos para que se actualice la tabla
-      refreshVentas();
+      AlertService.success("Venta anulada", "La venta ha sido anulada correctamente. Se ha enviado una notificación por email.");
       
-      // ✅ NUEVO: Notificar a otras tablas (TablaVentasFin) que se actualizaron las solicitudes
-      window.dispatchEvent(new CustomEvent('solicitudAnulada', { detail: { id: datoSeleccionado.id } }));
+      // ✅ MEJORADO: Notificar inmediatamente a otras tablas
+      console.log("🔔 [TablaVentasProceso] Notificando anulación a TablaVentasFin...");
+      window.dispatchEvent(new CustomEvent('solicitudAnulada', { 
+        detail: { 
+          id: datoSeleccionado.id,
+          estado: 'Anulada' 
+        } 
+      }));
+      
+      // ✅ MEJORADO: Esperar y refrescar múltiples veces para asegurar sincronización
+      console.log("🔄 [TablaVentasProceso] Iniciando refresh de datos...");
+      
+      // Refresh inmediato
+      await refreshVentas();
+      
+      // Segundo refresh después de 300ms (dar tiempo al backend)
+      setTimeout(async () => {
+        console.log("🔄 [TablaVentasProceso] Segundo refresh (300ms)...");
+        await refreshVentas();
+      }, 300);
+      
+      // Tercer refresh después de 800ms (por si el backend es lento)
+      setTimeout(async () => {
+        console.log("🔄 [TablaVentasProceso] Tercer refresh (800ms)...");
+        await refreshVentas();
+      }, 800);
     } catch (err) {
       console.error("❌ [TablaVentasProceso] Error al anular:", err);
       AlertService.error("Error al anular", err.message || "No se pudo anular la solicitud");
@@ -466,10 +667,9 @@ const TablaVentasProceso = ({ adquirir }) => {
             <thead className="text-left text-sm text-gray-500 bg-gray-50">
               <tr>
                 <th className="px-6 py-4 font-bold text-center">Titular</th>
-                <th className="px-6 py-4 font-bold text-center">Tipo de Documento</th>
-                <th className="px-6 py-4 font-bold text-center">País</th>
+                <th className="px-6 py-4 font-bold text-center">Email</th>
                 <th className="px-6 py-4 font-bold text-center">Teléfono</th>
-                <th className="px-6 py-4 font-bold text-center">Dirección</th>
+                <th className="px-6 py-4 font-bold text-center">Marca</th>
                 <th className="px-6 py-4 font-bold text-center">Tipo de Solicitud</th>
                 <th className="px-6 py-4 font-bold text-center">Proceso</th>
                 <th className="px-6 py-4 font-bold text-center">Acciones</th>
@@ -488,10 +688,9 @@ const TablaVentasProceso = ({ adquirir }) => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">{item.tipoDocumento || ''}</td>
-                  <td className="px-4 py-3 text-center">{item.pais || ''}</td>
-                  <td className="px-4 py-3 text-center">{item.telefono || ''}</td>
-                  <td className="px-4 py-3 text-center">{item.direccion || ''}</td>
+                  <td className="px-4 py-3 text-center">{item.email || 'N/A'}</td>
+                  <td className="px-4 py-3 text-center">{item.telefono || 'N/A'}</td>
+                  <td className="px-4 py-3 text-center">{item.marca || item.nombreMarca || 'N/A'}</td>
                   <td className="px-4 py-3 text-center">{item.tipoSolicitud || ''}</td>
                   <td className="px-4 py-3 text-center">{item.estado || ''}</td>
                   <td className="px-4 py-3 text-center">
@@ -509,12 +708,40 @@ const TablaVentasProceso = ({ adquirir }) => {
                             }
                           },
                           {
-                            icon: "bi bi-chat-dots-fill",
-                            label: "Observaciones",
-                            title: "Ver y agregar observaciones",
+                            icon: "bi bi-clipboard-check",
+                            label: "Seguimiento",
+                            title: "Ver y agregar seguimiento",
                             onClick: () => {
                               setDatoSeleccionado(item);
                               setModalObservacionOpen(true);
+                            }
+                          },
+                          {
+                            icon: "bi bi-calendar-plus",
+                            label: "Agendar cita",
+                            title: "Agendar una cita asociada a esta solicitud",
+                            onClick: () => {
+                              // Guardar datos de la solicitud en localStorage para que calendario.jsx los detecte
+                              const solicitudParaAgendar = {
+                                idOrdenServicio: item.id,
+                                id_orden_servicio: item.id, // Para el endpoint
+                                clienteNombre: item.titular || item.nombrecompleto || '',
+                                clienteDocumento: item.cedula || item.documento || '',
+                                tipoDocumento: item.tipodedocumento || item.tipoDocumento || '',
+                                telefono: item.telefono || '',
+                                tipoSolicitud: item.tipoSolicitud || item.servicio || '',
+                                mensaje: item.observaciones || item.descripcion || '',
+                                // ✅ NUEVO: Empleado asignado si existe
+                                empleadoAsignado: item.encargado || '',
+                                empleadoCompleto: item.empleadoCompleto || null, // Objeto completo con id_empleado
+                                // Datos adicionales de la solicitud para referencia
+                                solicitudData: item
+                              };
+                              
+                              localStorage.setItem('solicitudParaAgendar', JSON.stringify(solicitudParaAgendar));
+                              
+                              // Redirigir al calendario
+                              navigate('/admin/calendario');
                             }
                           },
                           {
@@ -647,9 +874,10 @@ const TablaVentasProceso = ({ adquirir }) => {
         isOpen={modalDetalleOpen}
         onClose={() => setModalDetalleOpen(false)}
       />
-      <Observaciones
+      <Seguimiento
         isOpen={modalObservacionOpen}
         onClose={() => setModalObservacionOpen(false)}
+        solicitudId={datoSeleccionado?.id}
         onGuardar={handleGuardarComentario}
       />
       <EditarVenta
@@ -756,7 +984,7 @@ const TablaVentasProceso = ({ adquirir }) => {
                   }
 
                   try {
-                    const token = authData.getToken();
+                    const token = getToken();
                     if (!token) {
                       AlertService.error('Error', 'No hay sesión activa');
                       return;
@@ -796,13 +1024,6 @@ const TablaVentasProceso = ({ adquirir }) => {
           </div>
         </div>
       )}
-      <style jsx>{`
-        .custom-hover:hover {
-          opacity: 0.8;
-          transform: scale(1.05);
-          transition: all 0.2s ease-in-out;
-        }
-      `}</style>
     </div>
   );
 };

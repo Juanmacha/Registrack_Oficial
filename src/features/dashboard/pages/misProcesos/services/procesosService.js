@@ -3,7 +3,7 @@
 
 import { SaleService, ServiceService, initializeMockData } from '../../../../../utils/mockDataService.js';
 import solicitudesApiService from '../../gestionVentasServicios/services/solicitudesApiService';
-import authData from '../../../../auth/services/authData.js';
+import { getAuthToken } from '../../../../../shared/utils/authHelpers.js';
 
 // Inicializar datos mock centralizados
 initializeMockData();
@@ -12,7 +12,7 @@ export async function getSolicitudesUsuario(email) {
   try {
     console.log(`🔧 [ProcesosService] Obteniendo solicitudes del usuario: ${email}...`);
     
-    const token = authData.getToken();
+    const token = getAuthToken();
     if (token) {
       console.log('🔧 [ProcesosService] Obteniendo desde API...');
       const solicitudesAPI = await solicitudesApiService.getMisSolicitudes(token);

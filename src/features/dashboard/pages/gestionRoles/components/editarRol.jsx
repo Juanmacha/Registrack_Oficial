@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNotification } from "../../../../../shared/contexts/NotificationContext.jsx";
-import { RoleService } from "../../../../../utils/mockDataService";
+import rolesApiService from "../services/rolesApiService";
 
-const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles }) => {
+const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRoles }) => {
   console.log("EditarRolModal - rolEditable:", rolEditable);  // Depuración
   const { updateSuccess, updateError } = useNotification();
 
@@ -19,10 +19,17 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles }) => {
 
   useEffect(() => {
     if (rolEditable) {
+      // Normalizar el estado antes de asignarlo al formData
+      let estadoNormalizado = "activo";
+      if (rolEditable.estado) {
+        const estadoStr = String(rolEditable.estado).toLowerCase();
+        estadoNormalizado = estadoStr === "activo" || estadoStr === "true" || estadoStr === "1" ? "activo" : "inactivo";
+      }
+
       setFormData({
         id: rolEditable.id,
-        nombre: rolEditable.nombre,
-        estado: rolEditable.estado ? rolEditable.estado.toLowerCase() : "activo", // Asegurar minúsculas
+        nombre: rolEditable.nombre || "",
+        estado: estadoNormalizado,
         permisos: rolEditable.permisos || {},
       });
     }
@@ -32,19 +39,79 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles }) => {
     return null;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Guardando cambios para rol:", formData);
+    console.log("📤 [EditarRol] ===== INICIANDO ACTUALIZACIÓN =====");
+    console.log("📤 [EditarRol] formData completo:", formData);
+    console.log("📤 [EditarRol] ID del rol:", formData.id);
+    console.log("📤 [EditarRol] Nombre actual:", formData.nombre);
+    console.log("📤 [EditarRol] Estado actual:", formData.estado);
+    console.log("📤 [EditarRol] Permisos actuales:", JSON.stringify(formData.permisos, null, 2));
 
-    // Usar RoleService para actualizar el rol
-    const rolActualizado = RoleService.update(formData.id, formData);
-    if (rolActualizado) {
-      setRoles(RoleService.getAll());
+    try {
+      // Enviar solo los módulos que tienen al menos un permiso true (igual que cuando se crea)
+      // Si un módulo tiene todos los permisos en false, NO se incluye (para que el backend lo procese correctamente)
+      const permisosCompletos = {};
+      recursosSistema.forEach(recurso => {
+        const crear = formData.permisos?.[recurso.key]?.crear === true;
+        const leer = formData.permisos?.[recurso.key]?.leer === true;
+        const actualizar = formData.permisos?.[recurso.key]?.actualizar === true;
+        const eliminar = formData.permisos?.[recurso.key]?.eliminar === true;
+        
+        // Solo incluir el módulo si tiene al menos un permiso en true
+        if (crear || leer || actualizar || eliminar) {
+          permisosCompletos[recurso.key] = {
+            crear: crear || false,
+            leer: leer || false,
+            actualizar: actualizar || false,
+            eliminar: eliminar || false
+          };
+        }
+        // Si todos los permisos están en false, no se incluye el módulo (igual que cuando se crea)
+      });
+
+      console.log("📤 [EditarRol] Permisos completos (solo módulos con permisos activos):", JSON.stringify(permisosCompletos, null, 2));
+
+      // Preparar datos para enviar a la API
+      const datosActualizacion = {
+        nombre: formData.nombre.trim(),
+        estado: formData.estado === "activo" ? "Activo" : "Inactivo",
+        permisos: permisosCompletos
+      };
+
+      console.log("📤 [EditarRol] Datos preparados para enviar:", JSON.stringify(datosActualizacion, null, 2));
+
+      // Actualizar el rol usando la API
+      const rolActualizado = await rolesApiService.updateRole(formData.id, datosActualizacion);
+      
+      console.log("✅ [EditarRol] Respuesta del backend:", JSON.stringify(rolActualizado, null, 2));
+
+      // Cerrar el modal primero para evitar problemas de estado
       setRolEditable(null);
+
+      // Esperar un momento para que el backend procese completamente la actualización
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Recargar la lista de roles desde la API
+      console.log("🔄 [EditarRol] Recargando lista de roles...");
+      if (loadRoles) {
+        await loadRoles();
+      } else {
+        // Fallback: recargar manualmente
+        const rolesData = await rolesApiService.getAllRoles();
+        console.log("🔄 [EditarRol] Roles recargados:", rolesData);
+        setRoles(rolesData);
+      }
+
+      console.log("✅ [EditarRol] ===== ACTUALIZACIÓN COMPLETADA =====");
       updateSuccess('rol');
-    } else {
-      updateError('rol');
+    } catch (error) {
+      console.error("❌ [EditarRol] ===== ERROR EN ACTUALIZACIÓN =====");
+      console.error("❌ [EditarRol] Error completo:", error);
+      console.error("❌ [EditarRol] Mensaje de error:", error.message);
+      console.error("❌ [EditarRol] Stack:", error.stack);
+      updateError(error.message || 'Error al actualizar el rol');
     }
   };
 
@@ -120,6 +187,7 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles }) => {
                   </label>
                   <input
                     type="text"
+                    name="nombre"
                     value={formData.nombre}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
