@@ -477,14 +477,45 @@ const Hero = () => {
       }
     } catch (error) {
       console.error('❌ [Hero] Error al guardar la orden:', error);
-      const errorMessage = error.message || error.response?.data?.mensaje || error.response?.data?.message || 'Error desconocido';
+      
+      // ✅ Backend mejorado: extraer mensaje de error estructurado
+      let errorMessage = error.message || 'Error desconocido';
+      
+      // Si el error viene del backend con estructura mejorada
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        // Priorizar mensaje del backend mejorado
+        errorMessage = errorData.mensaje || 
+                      errorData.message || 
+                      errorData.error?.message || 
+                      errorMessage;
+        
+        // Agregar detalles si están disponibles (backend mejorado los proporciona)
+        if (errorData.error?.details) {
+          const detalles = errorData.error.details;
+          if (typeof detalles === 'object' && detalles.message) {
+            errorMessage += `\n\n${detalles.message}`;
+          }
+        }
+        
+        // Agregar campos faltantes si están disponibles
+        if (errorData.camposFaltantes && errorData.camposFaltantes.length > 0) {
+          errorMessage += `\n\nCampos faltantes: ${errorData.camposFaltantes.join(', ')}`;
+        }
+      }
+      
       let detailedMessage = `No se pudo crear la solicitud: ${errorMessage}`;
       
       // Mensajes más específicos según el tipo de error
-      if (errorMessage.includes('validación') || errorMessage.includes('validation')) {
-        detailedMessage = `Error de validación: ${errorMessage}. Por favor, verifica que todos los campos requeridos estén completos y sean válidos.`;
-      } else if (errorMessage.includes('token') || errorMessage.includes('autenticación')) {
+      if (errorMessage.includes('validación') || errorMessage.includes('validation') || errorMessage.includes('Campos faltantes')) {
+        detailedMessage = `Error de validación: ${errorMessage}\n\nPor favor, verifica que todos los campos requeridos estén completos y sean válidos.`;
+      } else if (errorMessage.includes('token') || errorMessage.includes('autenticación') || errorMessage.includes('unauthorized')) {
         detailedMessage = 'Error de autenticación: Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (errorMessage.includes('payload') || errorMessage.includes('too large')) {
+        detailedMessage = `Error: El tamaño de los archivos es demasiado grande. Por favor, reduce el tamaño de las imágenes o documentos.`;
+      } else if (errorMessage.includes('Data too long for column') || errorMessage.includes('ER_DATA_TOO_LONG') || errorMessage.includes('DatabaseError')) {
+        // Error de base de datos - las columnas son demasiado pequeñas
+        detailedMessage = `🚨 ERROR CRÍTICO DE BASE DE DATOS\n\n${errorMessage}\n\n⚠️ PROBLEMA:\nLas columnas de la base de datos son demasiado pequeñas (VARCHAR) para almacenar archivos Base64 grandes.\n\n✅ SOLUCIÓN:\nEl equipo de backend debe cambiar las columnas de archivos a tipo LONGTEXT.\n\n📋 Columnas que necesitan cambio:\n- logotipo\n- poder_autorizacion\n- certificado_camara_comercio\n- poderparaelregistrodelamarca\n- poderdelrepresentanteautorizado\n- certificado_renovacion\n- documento_cesion\n- soportes\n\n💡 Ver archivo: INSTRUCCIONES_BACKEND_COLUMNAS_ARCHIVOS.md para solución completa.`;
       }
       
       await alertService.error(

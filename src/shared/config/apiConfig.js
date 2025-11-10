@@ -63,6 +63,7 @@ const API_CONFIG = {
     UPLOAD_FILE: '/api/archivos/upload',
     DOWNLOAD_FILE: (id) => `/api/archivos/${id}/download`,
     CLIENT_FILES: (id) => `/api/archivos/cliente/${id}`,
+    SOLICITUD_FILES_ZIP: (id) => `/api/gestion-solicitudes/${id}/descargar-archivos`,
     
     // Clientes
     CLIENTS: '/api/gestion-clientes',
@@ -74,6 +75,12 @@ const API_CONFIG = {
     // Pagos
     PAYMENTS: '/api/gestion-pagos',
     PAYMENT_BY_ID: (id) => `/api/gestion-pagos/${id}`,
+    PAYMENT_PROCESS_MOCK: '/api/gestion-pagos/process-mock',
+    PAYMENT_COMPROBANTE: (id) => `/api/gestion-pagos/${id}/comprobante`,
+    PAYMENT_COMPROBANTE_DOWNLOAD: (id) => `/api/gestion-pagos/${id}/comprobante/download`,
+    PAYMENT_REPORTE_EXCEL: '/api/gestion-pagos/reporte/excel',
+    PAYMENT_VERIFY_MANUAL: (id) => `/api/gestion-pagos/${id}/verify-manual`,
+    PAYMENT_SIMULAR: '/api/gestion-pagos/simular',
     
     // Empresas
     COMPANIES: '/api/empresas',
@@ -102,7 +109,17 @@ const API_CONFIG = {
     PERMISSIONS: '/api/gestion-permisos',
     PERMISSION_BY_ID: (id) => `/api/gestion-permisos/${id}`,
     PRIVILEGES: '/api/gestion-privilegios',
-    PRIVILEGE_BY_ID: (id) => `/api/gestion-privilegios/${id}`
+    PRIVILEGE_BY_ID: (id) => `/api/gestion-privilegios/${id}`,
+    
+    // Dashboard
+    DASHBOARD_INGRESOS: (periodo = '12meses') => `/api/dashboard/ingresos?periodo=${periodo}`,
+    DASHBOARD_SERVICIOS: (periodo = '12meses') => `/api/dashboard/servicios?periodo=${periodo}`,
+    DASHBOARD_RESUMEN: (periodo = '12meses') => `/api/dashboard/resumen?periodo=${periodo}`,
+    DASHBOARD_PENDIENTES: (format = 'json') => `/api/dashboard/pendientes?format=${format}`,
+    DASHBOARD_INACTIVAS: (format = 'json') => `/api/dashboard/inactivas?format=${format}`,
+    DASHBOARD_RENOVACIONES: (format = 'json') => `/api/dashboard/renovaciones-proximas?format=${format}`,
+    DASHBOARD_TEST_ALERTAS: '/api/dashboard/renovaciones-proximas/test-alertas',
+    DASHBOARD_PERIODOS: '/api/dashboard/periodos' // Obtener períodos disponibles desde el backend
   },
   
   // Configuración de headers por defecto

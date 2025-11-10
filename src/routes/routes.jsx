@@ -27,6 +27,7 @@ import AuthLayout from '../features/auth/components/authLayout';
 import AdminRoute from '../features/auth/components/adminRoute';
 import EmployeeRoute from '../features/auth/components/employeeRoute';
 import ClientRoute from '../features/auth/components/clientRoute';
+import ProfileRedirect from '../features/auth/components/ProfileRedirect';
 
 // Layout general para admin
 import AdminLayout from '../features/dashboard/layouts/adminLayouts';
@@ -122,6 +123,7 @@ const AppRoutes = () => {
         <Route path="servicios" element={<Servicios />} />
         <Route path="solicitudesCitas" element={<SolicitudesCitas />} />
         <Route path="solicitudesCitas-api" element={<SolicitudesCitasApi />} />
+        <Route path="profile" element={<Profile />} />
 
         {/* ✅ Rutas SOLO para administradores (protección anidada) */}
         <Route element={<AdminRoute><Outlet /></AdminRoute>}>
@@ -134,7 +136,7 @@ const AppRoutes = () => {
       {/* ✅ Redirecciones para compatibilidad con URLs antiguas */}
       <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="/misprocesos" element={<Navigate to="/cliente/misprocesos" replace />} />
-      <Route path="/profile" element={<Navigate to="/cliente/profile" replace />} />
+      <Route path="/profile" element={<ProfileRedirect />} />
       <Route path="/editProfile" element={<Navigate to="/cliente/editProfile" replace />} />
 
       {/* Formularios anidados bajo un layout base */}

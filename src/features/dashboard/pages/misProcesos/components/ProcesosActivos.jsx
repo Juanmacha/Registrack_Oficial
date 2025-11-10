@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Timeline from './Timeline.jsx';
-import { obtenerFechaCreacion } from '../services/procesosService.js';
+import { obtenerFechaCreacion, obtenerFechaSolicitud } from '../services/procesosService.js';
 import { PAISES } from '../../../../../shared/utils/paises.js';
 import { usePayments } from '../../../../../shared/contexts/PaymentContext';
 import { generarComprobantePDF } from '../../../../../shared/utils/generarComprobantePDF';
@@ -164,6 +164,11 @@ const ProcesosActivos = ({ procesos, servicios }) => {
                 <div className="text-sm text-gray-600 font-medium">Expediente: <span className="font-normal">{proc.expediente || '-'}</span></div>
                 <div className="text-sm text-gray-600 font-medium">Servicio: <span className="font-normal">{proc.tipoSolicitud || '-'}</span></div>
                 <div className="text-sm text-gray-600 font-medium">Representante: <span className="font-normal">{proc.nombreCompleto || proc.titular || '-'}</span></div>
+                {proc.encargado && proc.encargado !== 'Sin asignar' && (
+                  <div className="text-sm text-gray-600 font-medium">
+                    Encargado: <span className="font-normal text-blue-700">{proc.encargado}</span>
+                  </div>
+                )}
                 <div className="text-sm text-gray-600 font-medium">Fecha de creación: <span className="font-normal">{obtenerFechaCreacion(proc)}</span></div>
               </div>
               {/* Estado actual centrado entre los dos bloques */}
@@ -174,7 +179,7 @@ const ProcesosActivos = ({ procesos, servicios }) => {
               </div>
               <div className="text-right flex-1 min-w-0">
                 <div className="text-xs text-gray-500 font-semibold">Última actualización</div>
-                <div className="text-2xl font-bold text-blue-900">{proc.fechaSolicitud || '-'}</div>
+                <div className="text-2xl font-bold text-blue-900">{obtenerFechaSolicitud(proc)}</div>
               </div>
             </div>
             {/* Línea de tiempo y estado */}
@@ -195,7 +200,9 @@ const ProcesosActivos = ({ procesos, servicios }) => {
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   <div>Tiempo estimado: <span className="font-bold">15-30 días</span></div>
-                  <div>Responsable: <span className="font-bold text-gray-800">Oficina de Marcas</span></div>
+                  <div>Responsable: <span className="font-bold text-gray-800">
+                    {proc.encargado && proc.encargado !== 'Sin asignar' ? proc.encargado : 'Sin asignar'}
+                  </span></div>
                 </div>
                 {/* Botón de historial de pagos alineado a la derecha */}
                 <div className="flex justify-end md:justify-center items-center mt-4 md:mt-0">

@@ -6,7 +6,10 @@
 > 
 > **✅ Estado:** Producción Ready (98%)
 > 
-> **🔥 Nuevo:** Sistema de Pago Requerido para Activar Solicitudes - Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock.
+> **🔥 Nuevo:** 
+> - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
+> - **Sistema de Pago Requerido**: Las solicitudes ahora se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse automáticamente. Integración completa con sistema de pagos mock
+> - **Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP comprimido
 
 ---
 
@@ -20,6 +23,10 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 
 | Fecha | Mejora | Impacto |
 |-------|--------|---------|
+| **Ene 2026** | 📊 **Dashboard: Estados Reales (Process States)** | Corrección crítica: El dashboard de servicios ahora muestra los estados reales (process_states) de cada servicio en lugar de estados fijos genéricos. Los estados se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden. "Anulado" se maneja por separado. Estados dinámicos y precisos según los process_states definidos para cada servicio. |
+| **Ene 2026** | 📊 **Dashboard: Períodos Mejorados** | Sistema de períodos ampliado con 9 opciones (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom). Validación automática, normalización a período por defecto, soporte para período "todo" sin filtros, y nuevo endpoint para obtener períodos disponibles. Mejora significativa en flexibilidad del dashboard. |
+| **Ene 2026** | 📦 **Descarga de Archivos en ZIP** | Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP. Incluye logotipo, poderes, certificados, documentos de cesión/oposición y soportes. Detección automática de tipos MIME, nombres descriptivos y archivo README con información de la solicitud. |
+| **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
 | **4 Nov 2025** | 📧 **Solución de Timeouts en Emails + Render** | Envío de emails en background después de responder HTTP. Timeouts adaptativos según entorno (30s/60s en producción). Verificación no bloqueante. Funciona correctamente en Render con manejo inteligente de timeouts. |
@@ -160,8 +167,10 @@ PUT  /api/gestion-solicitudes/anular/:id          # Anular (admin/empleado)
 
 #### Dashboard (Solo Admin)
 ```
-GET /api/dashboard/resumen                    # KPIs generales
-GET /api/dashboard/ingresos?periodo=6meses    # Análisis ingresos
+GET /api/dashboard/periodos                   # Períodos disponibles 📦 NUEVO
+GET /api/dashboard/resumen                    # KPIs generales (todos los períodos)
+GET /api/dashboard/ingresos?periodo=12meses   # Análisis ingresos (todos los períodos)
+GET /api/dashboard/servicios?periodo=12meses  # Resumen servicios (estados reales) ✅ CORREGIDO
 GET /api/dashboard/pendientes?format=json     # Servicios pendientes
 GET /api/dashboard/renovaciones-proximas      # Alertas renovación
 ```
@@ -984,7 +993,7 @@ Authorization: Bearer <token_admin>
 - Asociación de servicios con procesos
 - Precios y descripciones
 
-### 3. Sistema de Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO**
+### 3. Sistema de Solicitudes (`/api/gestion-solicitudes`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Creación automática de entidades**: Clientes, empresas y servicios se crean automáticamente si no existen
 - **Formularios dinámicos** personalizables según el tipo de servicio
 - **Validación robusta** con campos requeridos específicos por servicio
@@ -993,24 +1002,28 @@ Authorization: Bearer <token_admin>
 - **Búsqueda y filtrado avanzado** con query parameters
 - **Manejo de errores mejorado** con mensajes descriptivos
 - **Compatibilidad MySQL** optimizada (LIKE en lugar de ILIKE)
+- **📦 Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud (logotipo, poderes, certificados, documentos) en un archivo ZIP comprimido con nombres descriptivos y archivo README incluido
 
-### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - 3 Nov 2025**
+### 4. Gestión de Citas (`/api/gestion-citas`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Citas independientes**: Crear citas generales sin asociar a solicitud
 - **Citas asociadas**: Vincular citas con solicitudes de servicio existentes
 - **Datos automáticos**: Cliente y tipo de servicio se toman automáticamente
 - **Emails automáticos**: Notificación a cliente y empleado asignado (en citas directas y desde solicitudes)
 - **Validación de horarios**: Verificación de disponibilidad y solapamiento
 - **Reportes en Excel**: Incluye columna "ID Solicitud" para trazabilidad
-- **Tipos unificados**: Validación consistente de tipos permitidos (`General`, `Busqueda`, `Ampliacion`, etc.)
+- **Normalización automática de tipos**: Acepta variaciones con acentos y las normaliza automáticamente (ej: "Certificación" → "Certificacion")
+- **Búsqueda de usuario por documento**: Autocompletar datos de usuario al crear cita
+- **Prevención de citas duplicadas**: Valida que el usuario no tenga una cita activa en el mismo horario
 
-**Nuevas Funcionalidades:**
-- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
-- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
-- Todas las respuestas incluyen `id_orden_servicio` (null si no está asociada)
-- Seguimiento automático creado en la solicitud
+**Nuevas Funcionalidades (Ene 2026):**
+- `GET /api/gestion-citas/buscar-usuario/:documento` - Buscar usuario por documento y autocompletar datos
+- Normalización automática de tipos de cita (acepta "Certificación", "Búsqueda", etc.)
+- Validación de citas duplicadas para el mismo cliente
 
 **Funcionalidades Existentes:**
-- `POST /api/gestion-citas` - Crear cita independiente
+- `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
+- `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
+- `POST /api/gestion-citas` - Crear cita independiente (acepta `id_cliente` o `documento`)
 - `GET /api/gestion-citas` - Ver todas las citas
 - `PUT /api/gestion-citas/:id/reprogramar` - Reprogramar cita
 - `PUT /api/gestion-citas/:id/anular` - Anular cita
@@ -1112,9 +1125,9 @@ Authorization: Bearer <token_admin>
 - Reportes en Excel con información detallada
 - CRUD completo (Crear, Leer, Actualizar, Eliminar)
 
-### 10. Dashboard Administrativo (`/api/dashboard`) ⭐ **NUEVO - 30 Oct 2025**
+### 10. Dashboard Administrativo (`/api/dashboard`) ⭐ **ACTUALIZADO - Ene 2026**
 - **Control de Ingresos**: Análisis por mes y método de pago con tendencias
-- **Resumen de Servicios**: Estadísticas de uso, más/menos solicitados, distribución por estado
+- **Resumen de Servicios**: Estadísticas de uso, más/menos solicitados, distribución por estado real (process_states) ✅ CORREGIDO
 - **KPIs Generales**: Ingresos totales, solicitudes, tasa de finalización, clientes activos
 - **Servicios Pendientes**: Tabla filtrable con días en espera, exportación a Excel
 - **Solicitudes Inactivas**: Detección de procesos estancados (>30 días sin actualizar)
@@ -1122,15 +1135,33 @@ Authorization: Bearer <token_admin>
 - **Sistema de Alertas**: Notificaciones automáticas según umbrales
 - **Reportes Excel**: Código de colores según urgencia (amarillo, naranja, rojo)
 - **Solo Administradores**: Protegido con JWT + roleMiddleware
+- **📊 Períodos Mejorados**: Soporte para 9 períodos diferentes (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom)
+- **🔧 Estados Reales**: Distribución de estados basada en process_states reales de cada servicio (no estados fijos)
 
 **Funcionalidades:**
-- `GET /api/dashboard/ingresos` - Análisis de ingresos (6 meses, 12 meses, custom)
-- `GET /api/dashboard/servicios` - Resumen de servicios y estadísticas
-- `GET /api/dashboard/resumen` - Todos los KPIs en un solo endpoint
+- `GET /api/dashboard/periodos` - Obtener lista de períodos disponibles 📦 NUEVO
+- `GET /api/dashboard/ingresos` - Análisis de ingresos (todos los períodos + custom)
+- `GET /api/dashboard/servicios` - Resumen de servicios y estadísticas (todos los períodos excepto custom) ✅ CORREGIDO
+- `GET /api/dashboard/resumen` - Todos los KPIs en un solo endpoint (todos los períodos + custom)
 - `GET /api/dashboard/pendientes` - Servicios pendientes (JSON o Excel)
 - `GET /api/dashboard/inactivas` - Solicitudes sin actualizar (JSON o Excel)
 - `GET /api/dashboard/renovaciones-proximas` - Marcas próximas a vencer (JSON o Excel)
 - `POST /api/dashboard/renovaciones-proximas/test-alertas` - Probar envío de alertas manualmente
+
+**Períodos Disponibles:**
+- **Cortos**: `1mes`, `3meses`
+- **Medios**: `6meses`, `12meses` (por defecto), `18meses`
+- **Largos**: `2anos`, `3anos`, `5anos`
+- **Especiales**: `todo` (todos los datos), `custom` (rango personalizado con fechas)
+
+**Estados Reales (Process States):**
+- Los estados en `estado_distribucion` son **dinámicos** y dependen de los process_states definidos para cada servicio
+- Se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden
+- "Anulado" se maneja por separado (estado de orden, no de proceso)
+- Ejemplos de estados: "Solicitud Recibida", "Revisión de Documentos", "Publicación", "Certificado Emitido", "Finalizado", etc.
+
+**📝 Ejemplos Postman:** Ver `POSTMAN_EJEMPLOS_DASHBOARD_PERIODOS.md` para ejemplos completos de uso.
+**📝 Documentación de Corrección:** Ver `CORRECCION_DASHBOARD_SERVICIOS_ESTADOS.md` para detalles de la corrección de estados.
 
 ## 🔌 Endpoints de la API
 
@@ -1156,6 +1187,7 @@ GET /api/gestion-solicitudes/mias                      # Mis solicitudes (client
 GET /api/gestion-solicitudes                           # Todas las solicitudes (admin/empleado)
 GET /api/gestion-solicitudes/buscar                    # Buscar solicitudes (query search)
 GET /api/gestion-solicitudes/:id                       # Obtener solicitud específica
+GET /api/gestion-solicitudes/:id/descargar-archivos    # Descargar todos los archivos en ZIP 📦 NUEVO
 PUT /api/gestion-solicitudes/editar/:id                # Editar solicitud
 PUT /api/gestion-solicitudes/anular/:id                # Anular solicitud
 PUT /api/gestion-solicitudes/asignar-empleado/:id      # Asignar empleado a solicitud
@@ -1165,6 +1197,14 @@ GET /api/gestion-solicitudes/:id/empleado-asignado     # Ver empleado asignado
 **💰 Nota Importante:**
 - **Clientes:** Las solicitudes se crean con estado "Pendiente de Pago" y requieren procesamiento de pago para activarse
 - **Administradores/Empleados:** Las solicitudes se activan automáticamente con el primer estado del proceso (NO requieren pago por API)
+
+**📦 Descarga de Archivos:**
+- `GET /api/gestion-solicitudes/:id/descargar-archivos` - Descarga todos los archivos de una solicitud en un archivo ZIP
+- Incluye: logotipo, poderes, certificados, documentos de cesión/oposición y soportes
+- Los archivos se nombran descriptivamente (01_logotipo.pdf, 02_poder_registro_marca.pdf, etc.)
+- Incluye un archivo README.txt con información de la solicitud
+- Los clientes solo pueden descargar archivos de sus propias solicitudes
+- Requiere autenticación (JWT)
 
 Ver sección de **Pagos** para más detalles sobre el flujo de pago de clientes.
 
@@ -1185,16 +1225,22 @@ POST /api/gestion-pagos/simular                # Simular pago para testing
 2. Procesar pago con `POST /api/gestion-pagos/process-mock` → Activa solicitud automáticamente
 3. Respuesta incluye `solicitud_activada: true` si fue exitoso
 
-### Citas ⭐ **ACTUALIZADO**
+### Citas ⭐ **ACTUALIZADO - Ene 2026**
 ```http
 GET /api/gestion-citas                         # Listar todas las citas
-POST /api/gestion-citas                        # Crear cita independiente
-POST /api/gestion-citas/desde-solicitud/:id    # Crear cita asociada a solicitud ⭐ NUEVO
-GET /api/gestion-citas/solicitud/:id           # Ver citas de una solicitud ⭐ NUEVO
+POST /api/gestion-citas                        # Crear cita independiente (acepta id_cliente o documento)
+GET /api/gestion-citas/buscar-usuario/:documento # Buscar usuario por documento ⭐ NUEVO
+POST /api/gestion-citas/desde-solicitud/:id    # Crear cita asociada a solicitud
+GET /api/gestion-citas/solicitud/:id           # Ver citas de una solicitud
 PUT /api/gestion-citas/:id/reprogramar         # Reprogramar cita
 PUT /api/gestion-citas/:id/anular              # Anular cita
 GET /api/gestion-citas/reporte/excel           # Reporte Excel (incluye ID Solicitud)
 ```
+
+**🔄 Normalización Automática de Tipos:**
+- Acepta variaciones con acentos: `"Certificación"` → `"Certificacion"`
+- Acepta texto completo: `"Búsqueda de Antecedentes"` → `"Busqueda"`
+- Funciona con valores exactos y variaciones
 
 ### Seguimiento ⭐ **ACTUALIZADO**
 ```http
@@ -1223,11 +1269,12 @@ GET /api/gestion-empleados/:id                  # Obtener empleado por ID
 PUT /api/gestion-empleados/:id                  # Actualizar empleado
 ```
 
-### Dashboard ⭐ **NUEVO - 30 Oct 2025**
+### Dashboard ⭐ **ACTUALIZADO - Ene 2026**
 ```http
-GET /api/dashboard/ingresos?periodo=6meses                    # Análisis de ingresos
-GET /api/dashboard/servicios?periodo=12meses                  # Resumen de servicios
-GET /api/dashboard/resumen?periodo=6meses                     # KPIs generales
+GET /api/dashboard/periodos                                   # Obtener períodos disponibles 📦 NUEVO
+GET /api/dashboard/ingresos?periodo=12meses                   # Análisis de ingresos (todos los períodos + custom)
+GET /api/dashboard/servicios?periodo=12meses                  # Resumen de servicios (estados reales - process_states) ✅ CORREGIDO
+GET /api/dashboard/resumen?periodo=12meses                    # KPIs generales (todos los períodos + custom)
 GET /api/dashboard/pendientes?format=json                     # Servicios pendientes (JSON)
 GET /api/dashboard/pendientes?format=excel                    # Servicios pendientes (Excel)
 GET /api/dashboard/inactivas?format=json                      # Solicitudes inactivas (JSON)
@@ -1236,6 +1283,15 @@ GET /api/dashboard/renovaciones-proximas?format=json          # Renovaciones pr�
 GET /api/dashboard/renovaciones-proximas?format=excel         # Renovaciones próximas (Excel)
 POST /api/dashboard/renovaciones-proximas/test-alertas        # Probar envío de alertas
 ```
+
+**Períodos Disponibles:**
+- `1mes`, `3meses`, `6meses`, `12meses` (por defecto), `18meses`, `2anos`, `3anos`, `5anos`, `todo`, `custom`
+
+**Estados Reales en Servicios:**
+- Los estados en `estado_distribucion` son **dinámicos** y provienen de los process_states reales de cada servicio
+- Se obtienen desde `detalles_ordenes_servicio` usando el estado más reciente de cada orden
+- "Anulado" se maneja por separado (estado de orden, no de proceso)
+- Ejemplos: "Solicitud Recibida", "Revisión de Documentos", "Publicación", "Certificado Emitido", "Finalizado", etc.
 
 ## 📋 Detalles de endpoints y validaciones
 
@@ -1502,9 +1558,24 @@ Content-Type: application/json
 
 **Tipos permitidos para `tipo`:** `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`
 
+**🔄 Normalización Automática de Tipos (Ene 2026):**
+El sistema acepta variaciones comunes y las normaliza automáticamente:
+- `"Certificación"` → `"Certificacion"` ✅
+- `"Búsqueda"` → `"Busqueda"` ✅
+- `"Búsqueda de Antecedentes"` → `"Busqueda"` ✅
+- `"Renovación"` → `"Renovacion"` ✅
+- `"Cesión"` → `"Cesion"` ✅
+- `"Oposición"` → `"Oposicion"` ✅
+- `"Respuesta de oposición"` → `"Respuesta de oposicion"` ✅
+
 **Modalidades permitidas:** `Virtual`, `Presencial`
 
 **Estados permitidos:** `Programada`, `Reprogramada`, `Anulada`
+
+**📋 Campos opcionales para crear cita:**
+- `id_cliente` (number) - ID del cliente (opcional si se envía `documento`)
+- `documento` (number) - Documento del cliente para búsqueda automática (opcional si se envía `id_cliente`)
+- `observacion` (string) - Observaciones adicionales
 
 **📧 Notificaciones automáticas:**
 - Al crear una cita directa: Email al cliente y al empleado asignado
@@ -2406,7 +2477,9 @@ curl -X GET "http://localhost:3000/api/gestion-citas" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### 21. Crear cita
+#### 21. Crear cita ⭐ **ACTUALIZADO - Ene 2026**
+
+**Opción 1: Con id_cliente**
 ```bash
 curl -X POST "http://localhost:3000/api/gestion-citas" \
   -H "Content-Type: application/json" \
@@ -2415,14 +2488,32 @@ curl -X POST "http://localhost:3000/api/gestion-citas" \
     "fecha": "2024-01-15",
     "hora_inicio": "09:00:00",
     "hora_fin": "10:00:00",
-    "tipo": "Consulta",
+    "tipo": "Certificacion",
     "modalidad": "Presencial",
     "id_cliente": 1,
     "id_empleado": 1,
-    "estado": "Programada",
     "observacion": "Consulta sobre registro de marca"
   }'
 ```
+
+**Opción 2: Con documento (búsqueda automática) ⭐ NUEVO**
+```bash
+curl -X POST "http://localhost:3000/api/gestion-citas" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "fecha": "2024-01-15",
+    "hora_inicio": "09:00:00",
+    "hora_fin": "10:00:00",
+    "tipo": "Certificación",
+    "modalidad": "Presencial",
+    "documento": 1234567890,
+    "id_empleado": 1,
+    "observacion": "Consulta sobre registro de marca"
+  }'
+```
+
+**Nota:** El tipo `"Certificación"` se normaliza automáticamente a `"Certificacion"`. El sistema acepta variaciones con acentos.
 
 #### 22. Reprogramar cita
 ```bash
@@ -2451,6 +2542,34 @@ curl -X PUT "http://localhost:3000/api/gestion-citas/1/anular" \
 curl -X GET "http://localhost:3000/api/gestion-citas/reporte/excel" \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -o reporte_citas.xlsx
+```
+
+#### 24.1. Buscar usuario por documento (autocompletar) ⭐ **NUEVO - Ene 2026**
+```bash
+curl -X GET "http://localhost:3000/api/gestion-citas/buscar-usuario/1234567890" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "success": true,
+  "usuario": {
+    "id_usuario": 1,
+    "documento": "1234567890",
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "correo": "juan@example.com",
+    "tipo_documento": "Cédula de Ciudadanía"
+  },
+  "es_cliente": true,
+  "cliente": {
+    "id_cliente": 1,
+    "marca": "Mi Marca",
+    "tipo_persona": "Natural"
+  },
+  "citas_activas": []
+}
 ```
 
 ### 📋 Solicitudes de Citas
@@ -2625,6 +2744,24 @@ curl -X PUT "http://localhost:3000/api/gestion-solicitud-cita/1/gestionar" \
 - **Cesion**: Cesión de derechos
 - **Oposicion**: Oposición de marca
 - **Respuesta de oposicion**: Respuesta a oposición
+
+**🔄 Normalización Automática (Ene 2026):**
+El sistema acepta variaciones con acentos y las normaliza automáticamente:
+- `"Certificación"` → `"Certificacion"` ✅
+- `"Búsqueda"` o `"Búsqueda de Antecedentes"` → `"Busqueda"` ✅
+- `"Renovación"` → `"Renovacion"` ✅
+- `"Cesión"` → `"Cesion"` ✅
+- `"Oposición"` → `"Oposicion"` ✅
+- `"Respuesta de oposición"` → `"Respuesta de oposicion"` ✅
+
+**Ejemplo de uso:**
+```json
+{
+  "tipo": "Certificación",  // Se normaliza automáticamente a "Certificacion"
+  "modalidad": "Presencial",
+  ...
+}
+```
 
 #### 📋 Modalidades disponibles:
 - **Presencial**: Cita física en oficina
@@ -8581,6 +8718,8 @@ graph TD
 - ✅ Asignación de empleados con notificaciones automáticas
 - ✅ Estados dinámicos basados en process_states del servicio
 - ✅ Historial completo de cambios
+- ✅ 📦 Descarga de archivos en ZIP (Ene 2026)
+- ✅ Campos de anulación en respuestas: motivo_anulacion, fecha_anulacion, anulado_por (Ene 2026)
 
 ### **Gestión de Empleados**
 - ✅ Creación en dos pasos (Usuario + Empleado)
@@ -8588,6 +8727,18 @@ graph TD
 - ✅ Asignación a solicitudes con notificaciones
 - ✅ Reportes Excel completos
 - ✅ Control de estados sincronizado
+
+### **Dashboard Administrativo**
+- ✅ Control de ingresos con análisis por mes y método de pago
+- ✅ Resumen de servicios con estadísticas de uso
+- ✅ KPIs generales (ingresos, solicitudes, tasa de finalización, clientes activos)
+- ✅ Servicios pendientes con filtros y exportación Excel
+- ✅ Solicitudes inactivas con detección automática
+- ✅ Renovaciones próximas a vencer con alertas
+- ✅ Reportes Excel con código de colores
+- ✅ **📊 Períodos mejorados**: 9 períodos disponibles (1mes, 3meses, 6meses, 12meses, 18meses, 2anos, 3anos, 5anos, todo, custom) (Ene 2026)
+- ✅ **🔧 Estados reales**: Distribución de estados basada en process_states reales de cada servicio, no estados fijos (Ene 2026)
+- ✅ Endpoint para obtener períodos disponibles (Ene 2026)
 
 ### **Sistema de Notificaciones**
 - ✅ Notificaciones automáticas por email

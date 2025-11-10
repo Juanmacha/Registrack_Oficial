@@ -43,12 +43,12 @@ const SideBarGeneral = () => {
 
   const iconClass = "text-gray-600 w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0";
   const baseLinkClasses =
-    "flex items-center space-x-1 lg:space-x-2 p-1.5 lg:p-2 rounded-md hover:bg-gray-200 transition-all text-xs lg:text-[0.95rem]";
+    "flex items-center space-x-1 lg:space-x-2 p-1 lg:p-1.5 rounded-md hover:bg-gray-200 transition-all text-xs lg:text-[0.95rem]";
   const activeLinkClasses = "bg-gray-100 border-l-2 lg:border-l-4 border-blue-500";
 
-  // ✅ Filtrar items del menú según el rol del usuario
-  const menuItems = useMemo(() => {
-    return getMenuItemsForRole(user).filter(item => !item.isDropdown);
+  // ✅ Obtener todos los items del menú (incluyendo el dropdown de Solicitudes) ordenados
+  const allMenuItems = useMemo(() => {
+    return getMenuItemsForRole(user);
   }, [user]);
 
   // ✅ Obtener items del dropdown de Solicitudes filtrados por rol
@@ -56,8 +56,18 @@ const SideBarGeneral = () => {
     return getSolicitudesDropdownItems(user);
   }, [user]);
 
+  // ✅ Separar items regulares del dropdown de Solicitudes
+  const menuItems = useMemo(() => {
+    return allMenuItems.filter(item => !item.isDropdown);
+  }, [allMenuItems]);
+
+  // ✅ Obtener el item de Solicitudes (dropdown) si existe
+  const solicitudesMenuItem = useMemo(() => {
+    return allMenuItems.find(item => item.isDropdown);
+  }, [allMenuItems]);
+
   // ✅ Verificar si el usuario puede ver el dropdown de Solicitudes
-  const showSolicitudesDropdown = solicitudesDropdownItems.length > 0;
+  const showSolicitudesDropdown = solicitudesDropdownItems.length > 0 && solicitudesMenuItem;
 
   const handleToggleDropdown = () => setIsDropdownOpen(prev => !prev);
   const handleSidebarEnter = () => setIsSidebarExpanded(true);
@@ -73,9 +83,9 @@ const SideBarGeneral = () => {
         onMouseEnter={handleSidebarEnter}
         onMouseLeave={handleSidebarLeave}
       >
-        <aside className="sidebar-responsive w-16 lg:w-20 group-hover:w-64 transition-all duration-300 ease-in-out text-gray-900 p-2 lg:p-3 h-full">
+        <aside className="sidebar-responsive w-16 lg:w-20 group-hover:w-64 transition-all duration-300 ease-in-out text-gray-900 p-2 lg:p-3 h-full flex flex-col">
           {/* Logo */}
-          <div className="flex justify-center items-center mb-4 lg:mb-8">
+          <div className="flex justify-center items-center mb-2 lg:mb-3 flex-shrink-0">
             <img
               src="/images/logo.png"
               alt="Logo"
@@ -83,60 +93,67 @@ const SideBarGeneral = () => {
             />
           </div>
           {/* Navegación */}
-          <nav className="space-y-2 h-full overflow-y-hidden group-hover:overflow-y-auto pr-1">
-            {/* Items principales del menú (filtrados por rol) */}
-            {menuItems.map((item) => {
-              const IconComponent = iconMap[item.icon];
-              if (!IconComponent) return null;
-
-              return (
-                <Link to={item.to} key={item.to} className="no-underline block">
-                  <div
-                    className={`${baseLinkClasses} ${location.pathname === item.to ? activeLinkClasses : ""}`}
-                  >
-                    <IconComponent className={iconClass} />
-                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{item.label}</span>
+          <nav className="space-y-1 flex-1 overflow-y-auto pr-1 pb-2" style={{ scrollbarWidth: 'thin' }}>
+            {/* Renderizar todos los items en orden, incluyendo el dropdown de Solicitudes en su posición correcta */}
+            {allMenuItems.map((item) => {
+              // Si es el dropdown de Solicitudes, renderizarlo
+              if (item.isDropdown && showSolicitudesDropdown) {
+                return (
+                  <div key="solicitudes-dropdown" className="relative">
+                    <div
+                      onClick={handleToggleDropdown}
+                      role="button"
+                      aria-expanded={isDropdownOpen}
+                      className={`${baseLinkClasses} cursor-pointer justify-between`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <TbListDetails className={iconClass} />
+                        <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes</span>
+                      </div>
+                      <FiChevronRight
+                        className={`text-gray-600 transition-transform duration-300 hidden group-hover:inline ${isDropdownOpen ? "rotate-90" : ""}`}
+                      />
+                    </div>
+                    <div
+                      className={`ml-4 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? "max-h-48 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
+                    >
+                      {solicitudesDropdownItems.map((dropdownItem) => {
+                        const DropdownIcon = iconMap[dropdownItem.icon] || TbListDetails;
+                        return (
+                          <Link to={dropdownItem.to} key={dropdownItem.to} className="no-underline block">
+                            <div
+                              className={`${baseLinkClasses} ${location.pathname === dropdownItem.to ? activeLinkClasses : ""}`}
+                            >
+                              <DropdownIcon className={iconClass} />
+                              <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{dropdownItem.label}</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
-                </Link>
-              );
+                );
+              }
+
+              // Items regulares del menú
+              if (!item.isDropdown) {
+                const IconComponent = iconMap[item.icon];
+                if (!IconComponent) return null;
+
+                return (
+                  <Link to={item.to} key={item.to} className="no-underline block">
+                    <div
+                      className={`${baseLinkClasses} ${location.pathname === item.to ? activeLinkClasses : ""}`}
+                    >
+                      <IconComponent className={iconClass} />
+                      <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              }
+
+              return null;
             })}
-
-            {/* Dropdown: Solicitudes (solo si el usuario tiene acceso) */}
-            {showSolicitudesDropdown && (
-              <div className="relative">
-                <div
-                  onClick={handleToggleDropdown}
-                  role="button"
-                  aria-expanded={isDropdownOpen}
-                  className={`${baseLinkClasses} cursor-pointer justify-between`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <TbListDetails className={iconClass} />
-                    <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes</span>
-                  </div>
-                  <FiChevronRight
-                    className={`text-gray-600 transition-transform duration-300 hidden group-hover:inline ${isDropdownOpen ? "rotate-90" : ""}`}
-                  />
-                </div>
-                <div
-                  className={`ml-4 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? "max-h-60 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
-                >
-                  {solicitudesDropdownItems.map((dropdownItem) => {
-                    const DropdownIcon = iconMap[dropdownItem.icon] || TbListDetails;
-                    return (
-                      <Link to={dropdownItem.to} key={dropdownItem.to} className="no-underline block">
-                        <div
-                          className={`${baseLinkClasses} ${location.pathname === dropdownItem.to ? activeLinkClasses : ""}`}
-                        >
-                          <DropdownIcon className={iconClass} />
-                          <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">{dropdownItem.label}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </nav>
         </aside>
       </div>

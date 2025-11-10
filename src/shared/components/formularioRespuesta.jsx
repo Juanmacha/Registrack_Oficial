@@ -203,7 +203,7 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
         style={{ animation: 'slideUp 0.4s ease-out' }}
       >
         {/* Encabezado moderno con gradiente */}
-        <div className="relative bg-gradient-to-br from-cyan-600 via-blue-500 to-cyan-600 px-8 py-6 shadow-xl">
+        <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 px-8 py-6 shadow-xl">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -214,7 +214,7 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white mb-1 tracking-tight">Solicitud de Respuesta a Oposición</h2>
-                <p className="text-sm text-cyan-100/90 font-medium">Complete la información requerida para continuar</p>
+                <p className="text-sm text-blue-100/90 font-medium">Complete la información requerida para continuar</p>
               </div>
             </div>
             <button
@@ -231,155 +231,189 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
         
         {/* Contenido del formulario con scroll */}
         <div className="overflow-y-auto max-h-[calc(96vh-140px)] px-8 py-8 bg-gradient-to-b from-gray-50/50 via-white to-gray-50/50">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
-            {/* Tipo de Solicitud (bloqueado) */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Tipo de Solicitud *</label>
-                <input
-                  type="text"
-                name="tipoSolicitud"
-                value={form.tipoSolicitud}
-                readOnly
-                className="w-full border rounded p-2 bg-gray-100 text-gray-500 cursor-not-allowed"
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Sección 1: Información General */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Información General
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitud *</label>
+                  <input
+                    type="text"
+                    name="tipoSolicitud"
+                    value={form.tipoSolicitud}
+                    readOnly
+                    className="w-full border-2 rounded-xl px-4 py-3 bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 2: Información del Solicitante */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Información del Solicitante
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
+                  <input type="text" name="nombres" value={form.nombres} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombres ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.nombres && <p className="text-xs text-red-600 mt-1">{errors.nombres}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Apellidos *</label>
+                  <input type="text" name="apellidos" value={form.apellidos} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.apellidos ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.apellidos && <p className="text-xs text-red-600 mt-1">{errors.apellidos}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Documento *</label>
+                  <select name="tipoDocumento" value={form.tipoDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.tipoDocumento ? 'border-red-400' : 'border-gray-300'}`}>
+                    <option value="">Seleccionar</option>
+                    {tiposDocumento.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  {errors.tipoDocumento && <p className="text-xs text-red-600 mt-1">{errors.tipoDocumento}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
+                  <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.numeroDocumento && <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico *</label>
+                  <input type="email" name="email" value={form.email} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.email ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
+                  <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Dirección *</label>
+                  <input type="text" name="direccion" value={form.direccion} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.direccion ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.direccion && <p className="text-xs text-red-600 mt-1">{errors.direccion}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
+                  <div className="flex items-center gap-2">
+                    <select name="pais" value={form.pais} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.pais ? 'border-red-400' : 'border-gray-300'}`}>
+                      <option value="">Seleccionar</option>
+                      {PAISES.map(p => (
+                        <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
+                      ))}
+                    </select>
+                    {form.pais && PAISES.find(p => p.nombre === form.pais) && (
+                      <img
+                        src={PAISES.find(p => p.nombre === form.pais).bandera}
+                        alt={form.pais}
+                        title={form.pais}
+                        className="w-7 h-5 rounded shadow border border-gray-300"
+                      />
+                    )}
+                  </div>
+                  {errors.pais && <p className="text-xs text-red-600 mt-1">{errors.pais}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                  <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3" placeholder="Ej: Bogotá" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Código Postal</label>
+                  <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3" placeholder="Ej: 110111" />
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 3: Información de la Empresa */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Información de la Empresa
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Razón Social *</label>
+                  <input type="text" name="razonSocial" value={form.razonSocial} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.razonSocial ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.razonSocial && <p className="text-xs text-red-600 mt-1">{errors.razonSocial}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa *</label>
+                  <input type="text" name="nit" value={form.nit} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nit ? 'border-red-400' : 'border-gray-300'}`} placeholder="10 dígitos (sin guión)" />
+                  {errors.nit && <p className="text-xs text-red-600 mt-1">{errors.nit}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Representante Legal *</label>
+                  <input type="text" name="representanteLegal" value={form.representanteLegal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.representanteLegal ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.representanteLegal && <p className="text-xs text-red-600 mt-1">{errors.representanteLegal}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 4: Información de las Marcas */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Información de las Marcas
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre de la Marca *</label>
+                  <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombreMarca ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.nombreMarca && <p className="text-xs text-red-600 mt-1">{errors.nombreMarca}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Expediente de la Marca *</label>
+                  <input type="text" name="numeroExpedienteMarca" value={form.numeroExpedienteMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroExpedienteMarca ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 2021-345678" />
+                  {errors.numeroExpedienteMarca && <p className="text-xs text-red-600 mt-1">{errors.numeroExpedienteMarca}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Marca Opositora *</label>
+                  <input type="text" name="marcaOpositora" value={form.marcaOpositora} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.marcaOpositora ? 'border-red-400' : 'border-gray-300'}`} />
+                  {errors.marcaOpositora && <p className="text-xs text-red-600 mt-1">{errors.marcaOpositora}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 5: Documentos Requeridos */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Documentos Requeridos
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FileUpload
+                  name="poderAutorizacion"
+                  value={form.poderAutorizacion}
+                  onChange={handleChange}
+                  label="Poder de Autorización *"
+                  required={true}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.poderAutorizacion}
                 />
               </div>
-            {/* ✅ Sección 1: Información del Solicitante (siempre requerida) */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Tipo de Documento * <span className="text-xs text-gray-500 font-normal">(tipo_documento)</span></label>
-              <select name="tipoDocumento" value={form.tipoDocumento} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.tipoDocumento ? 'border-red-500' : ''}`}>
-                <option value="">Seleccionar</option>
-                {tiposDocumento.map(t => <option key={t}>{t}</option>)}
-              </select>
-              {errors.tipoDocumento && <p className="text-xs text-red-600">{errors.tipoDocumento}</p>}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Número de Documento * <span className="text-xs text-gray-500 font-normal">(numero_documento)</span></label>
-              <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.numeroDocumento ? 'border-red-500' : ''}`} />
-              {errors.numeroDocumento && <p className="text-xs text-red-600">{errors.numeroDocumento}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Nombres * <span className="text-xs text-gray-500 font-normal">(nombres_apellidos)</span></label>
-              <input type="text" name="nombres" value={form.nombres} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nombres ? 'border-red-500' : ''}`} />
-              {errors.nombres && <p className="text-xs text-red-600">{errors.nombres}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Apellidos * <span className="text-xs text-gray-500 font-normal">(nombres_apellidos)</span></label>
-              <input type="text" name="apellidos" value={form.apellidos} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.apellidos ? 'border-red-500' : ''}`} />
-              {errors.apellidos && <p className="text-xs text-red-600">{errors.apellidos}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Correo Electrónico * <span className="text-xs text-gray-500 font-normal">(correo)</span></label>
-              <input type="email" name="email" value={form.email} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.email ? 'border-red-500' : ''}`} />
-              {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Teléfono * <span className="text-xs text-gray-500 font-normal">(telefono)</span></label>
-              <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.telefono ? 'border-red-500' : ''}`} />
-              {errors.telefono && <p className="text-xs text-red-600">{errors.telefono}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Dirección * <span className="text-xs text-gray-500 font-normal">(direccion)</span></label>
-              <input type="text" name="direccion" value={form.direccion} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.direccion ? 'border-red-500' : ''}`} />
-              {errors.direccion && <p className="text-xs text-red-600">{errors.direccion}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">País * <span className="text-xs text-gray-500 font-normal">(pais)</span></label>
-              <div className="flex items-center gap-2">
-                <select name="pais" value={form.pais} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.pais ? 'border-red-500' : ''}`}>
-                  <option value="">Seleccionar</option>
-                  {PAISES.map(p => (
-                    <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
-                  ))}
-                </select>
-                {form.pais && PAISES.find(p => p.nombre === form.pais) && (
-                  <img
-                    src={PAISES.find(p => p.nombre === form.pais).bandera}
-                    alt={form.pais}
-                    title={form.pais}
-                    className="w-7 h-5 rounded shadow border border-gray-300"
-                  />
-                )}
-              </div>
-              {errors.pais && <p className="text-xs text-red-600">{errors.pais}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Ciudad</label>
-              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.ciudad ? 'border-red-500' : ''}`} placeholder="Ej: Bogotá" />
-              {errors.ciudad && <p className="text-xs text-red-600">{errors.ciudad}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Código Postal</label>
-              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.codigoPostal ? 'border-red-500' : ''}`} placeholder="Ej: 110111" />
-              {errors.codigoPostal && <p className="text-xs text-red-600">{errors.codigoPostal}</p>}
-            </div>
-            {/* ✅ Sección 2: Información de la Empresa (siempre requerida) */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Razón Social * <span className="text-xs text-gray-500 font-normal">(razon_social)</span></label>
-              <input type="text" name="razonSocial" value={form.razonSocial} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.razonSocial ? 'border-red-500' : ''}`} />
-              {errors.razonSocial && <p className="text-xs text-red-600">{errors.razonSocial}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">NIT de la Empresa * <span className="text-xs text-gray-500 font-normal">(nit_empresa)</span></label>
-              <input type="text" name="nit" value={form.nit} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nit ? 'border-red-500' : ''}`} placeholder="10 dígitos (sin guión)" />
-              {errors.nit && <p className="text-xs text-red-600">{errors.nit}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Representante Legal * <span className="text-xs text-gray-500 font-normal">(representante_legal)</span></label>
-              <input type="text" name="representanteLegal" value={form.representanteLegal} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.representanteLegal ? 'border-red-500' : ''}`} />
-              {errors.representanteLegal && <p className="text-xs text-red-600">{errors.representanteLegal}</p>}
-            </div>
-            {/* ✅ Sección 3: Información de las Marcas */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Nombre de la Marca * <span className="text-xs text-gray-500 font-normal">(nombre_marca)</span></label>
-              <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.nombreMarca ? 'border-red-500' : ''}`} />
-              {errors.nombreMarca && <p className="text-xs text-red-600">{errors.nombreMarca}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Número de Expediente de la Marca * <span className="text-xs text-gray-500 font-normal">(numero_expediente_marca)</span></label>
-              <input type="text" name="numeroExpedienteMarca" value={form.numeroExpedienteMarca} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.numeroExpedienteMarca ? 'border-red-500' : ''}`} placeholder="Ej: 2021-345678" />
-              {errors.numeroExpedienteMarca && <p className="text-xs text-red-600">{errors.numeroExpedienteMarca}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Marca Opositora * <span className="text-xs text-gray-500 font-normal">(marca_opositora)</span></label>
-              <input type="text" name="marcaOpositora" value={form.marcaOpositora} onChange={handleChange} className={`w-full border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 ${errors.marcaOpositora ? 'border-red-500' : ''}`} />
-              {errors.marcaOpositora && <p className="text-xs text-red-600">{errors.marcaOpositora}</p>}
-            </div>
-          </div>
-          {/* ✅ Sección 4: Documentos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FileUpload
-              name="poderAutorizacion"
-              value={form.poderAutorizacion}
-              onChange={handleChange}
-              label="Poder de Autorización * (poder_autorizacion)"
-              required={true}
-              accept=".pdf,.jpg,.jpeg,.png"
-              error={errors.poderAutorizacion}
-            />
-          </div>
-          {/* Botones de acción modernos */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200/60 mt-8 bg-white/50 rounded-xl p-6 backdrop-blur-sm">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="px-8 py-3.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 active:scale-95"
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit" 
-              className="px-8 py-3.5 bg-gradient-to-r from-cyan-600 via-blue-500 to-cyan-600 text-white rounded-xl hover:from-cyan-700 hover:via-blue-600 hover:to-cyan-700 transition-all duration-200 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-2"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+
+            {/* Botones */}
+            <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+              >
                 Enviar Solicitud
-              </span>
-            </button>
-          </div>
-        </form>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

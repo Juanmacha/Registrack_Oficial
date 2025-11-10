@@ -79,6 +79,10 @@ export const AuthProvider = ({ children }) => {
         // Usar el servicio de autenticación real
         if (authApiService.isAuthenticated()) {
           const currentUser = authApiService.getCurrentUser();
+          console.log('🔍 [AuthContext] Usuario cargado desde localStorage:', currentUser);
+          if (currentUser) {
+            console.log('🔍 [AuthContext] Rol del usuario:', currentUser.rol || currentUser.role);
+          }
           setUser(currentUser);
         } else {
           // Limpiar datos si no está autenticado
@@ -135,12 +139,33 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      // Obtener el usuario actual antes de actualizar para preservar el rol
+      const currentUser = authApiService.getCurrentUser();
+      
       // Usar el servicio de usuarios real
       const result = await userApiService.updateProfile(updatedUserData);
       
       if (result.success) {
-        setUser(result.user);
-        return { success: true, user: result.user, message: result.message };
+        // Asegurar que el rol se preserve si no viene en la respuesta
+        const updatedUser = result.user || {};
+        if (currentUser && currentUser.rol && !updatedUser.rol) {
+          updatedUser.rol = currentUser.rol;
+        }
+        if (currentUser && currentUser.role && !updatedUser.role && !updatedUser.rol) {
+          updatedUser.role = currentUser.role;
+        }
+        
+        // Actualizar el usuario en el contexto
+        setUser(updatedUser);
+        
+        // También actualizar en localStorage para mantener consistencia
+        if (updatedUser) {
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+        
+        console.log('✅ [AuthContext] Usuario actualizado:', updatedUser);
+        
+        return { success: true, user: updatedUser, message: result.message };
       } else {
         return { success: false, message: result.message };
       }

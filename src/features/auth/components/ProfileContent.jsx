@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BiEditAlt, BiCheck, BiX, BiArrowBack } from "react-icons/bi";
 import { useAuth } from "../../../shared/contexts/authContext";
+import { isAdminOrEmployee } from "../../../shared/utils/roleUtils";
 import alertService from "../../../utils/alertService";
 
 const ProfileContent = () => {
-  const { user: usuario, updateUser } = useAuth();
+  const { user: usuario, updateUser, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -17,10 +19,18 @@ const ProfileContent = () => {
   });
   const [originalData, setOriginalData] = useState({});
   const [errors, setErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Determinar el rol del usuario
+  const userRole = usuario?.rol?.nombre || usuario?.role || 'cliente';
+  const isAdmin = userRole === 'administrador';
+  const isEmployee = userRole === 'empleado';
+  const isClient = userRole === 'cliente';
+  const showPhone = false; // Campo de teléfono deshabilitado para todos los roles
 
   // Inicializar datos del formulario cuando el usuario cambie
   useEffect(() => {
-    if (usuario) {
+    if (usuario && !isEditing) {
       const fullName = usuario.name || `${usuario.nombre || usuario.firstName || ''} ${usuario.apellido || usuario.lastName || ''}`.trim() || 'Usuario';
       const nameParts = fullName.split(' ');
       const firstName = nameParts[0] || '';
@@ -37,16 +47,10 @@ const ProfileContent = () => {
       setFormData(userData);
       setOriginalData(userData);
     }
-  }, [usuario]);
+  }, [usuario, isEditing]);
 
   const fullName = formData.name || `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Usuario';
-  const initials = fullName.split(' ').map(n => n.charAt(0)).join('').toUpperCase();
-  
-  // Determinar el rol del usuario
-  const userRole = usuario?.rol?.nombre || usuario?.role || 'cliente';
-  const isAdmin = userRole === 'administrador';
-  const isEmployee = userRole === 'empleado';
-  const isClient = userRole === 'cliente';
+  const initials = fullName.split(' ').map(n => n.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   // Función de validación
   const validateForm = (data) => {
@@ -66,10 +70,13 @@ const ProfileContent = () => {
       newErrors.email = 'El formato del correo electrónico no es válido';
     }
 
-    if (!data.phone.trim()) {
-      newErrors.phone = 'El teléfono es requerido';
-    } else if (!/^[0-9+\-\s()]+$/.test(data.phone)) {
-      newErrors.phone = 'El formato del teléfono no es válido';
+    // Solo validar teléfono si es admin o empleado
+    if (showPhone) {
+      if (!data.phone.trim()) {
+        newErrors.phone = 'El teléfono es requerido';
+      } else if (!/^[0-9+\-\s()]+$/.test(data.phone)) {
+        newErrors.phone = 'El formato del teléfono no es válido';
+      }
     }
 
     return newErrors;
@@ -110,19 +117,33 @@ const ProfileContent = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const updatedData = {
         nombre: formData.firstName,
         apellido: formData.lastName,
-        correo: formData.email,
-        telefono: formData.phone
+        correo: formData.email
       };
+
+      // Solo incluir teléfono si es admin o empleado
+      if (showPhone && formData.phone) {
+        updatedData.telefono = formData.phone;
+      }
 
       const result = await updateUser(updatedData);
       
       if (result.success) {
-        setOriginalData(formData);
+        // Salir del modo edición primero
         setIsEditing(false);
+        setErrors({});
+        
+        // El contexto ya actualizó el usuario, esperar un momento para que se propague
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // El useEffect se encargará de actualizar los datos cuando el usuario cambie
+        // Solo actualizamos originalData con los datos del formulario por ahora
+        setOriginalData(formData);
+        
         await alertService.success(
           "Perfil actualizado",
           "Tu perfil se ha actualizado correctamente.",
@@ -142,212 +163,247 @@ const ProfileContent = () => {
         "No se pudo actualizar el perfil. Inténtalo de nuevo.",
         { confirmButtonText: "Entendido" }
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleBackToLanding = () => {
-    navigate('/');
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-gray-600 text-sm">Cargando perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!usuario) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">No se pudo cargar la información del usuario</p>
+          <button 
+            onClick={() => navigate('/login')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Ir al Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleGoBack = () => {
+    // Para clientes, volver al landing principal, para admin/empleado, volver atrás en el historial
+    if (isClient) {
+      navigate('/');
+    } else {
+      navigate(-1);
+    }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
-      {/* Botón de regreso a landing */}
-      <div className="mb-6">
-        <button
-          onClick={handleBackToLanding}
-          className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
-        >
-          <BiArrowBack className="mr-2" />
-          <span className="text-sm font-medium">Volver al inicio</span>
-        </button>
-      </div>
-
-      {/* Header del perfil */}
-      <div className="flex items-center mb-8">
-        <div className={`w-20 h-20 rounded-full text-white font-bold text-2xl flex items-center justify-center border-4 border-white shadow-lg ${
-          isAdmin ? 'bg-red-600' : isEmployee ? 'bg-green-600' : 'bg-blue-600'
-        }`}>
-          {initials}
-        </div>
-        <div className="ml-6">
-          <h1 className="text-2xl font-bold text-gray-800">Mi Perfil</h1>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isAdmin ? 'bg-red-100 text-red-800' : 
-              isEmployee ? 'bg-green-100 text-green-800' : 
-              'bg-blue-100 text-blue-800'
-            }`}>
-              {isAdmin ? '👑 Administrador' : isEmployee ? '👨‍💼 Empleado' : '👤 Cliente'}
-            </span>
-          </div>
-          <p className="text-gray-500 text-sm">Último acceso {new Date().toLocaleDateString('es-ES', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}</p>
-          <p className="text-gray-500 text-sm">Registrack, Colombia</p>
-        </div>
-      </div>
-
-      {/* Sección específica por rol */}
-      {isAdmin && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">👑 Panel de Administración</h3>
-          <p className="text-red-700 text-sm mb-3">Como administrador, tienes acceso completo al sistema:</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <span className="bg-red-100 text-red-800 px-2 py-1 rounded">Gestión de Usuarios</span>
-            <span className="bg-red-100 text-red-800 px-2 py-1 rounded">Configuración</span>
-            <span className="bg-red-100 text-red-800 px-2 py-1 rounded">Reportes</span>
-            <span className="bg-red-100 text-red-800 px-2 py-1 rounded">Sistema</span>
-          </div>
-        </div>
-      )}
-
-      {isEmployee && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-800 mb-2">👨‍💼 Panel de Empleado</h3>
-          <p className="text-green-700 text-sm mb-3">Como empleado, puedes gestionar operaciones del día a día:</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded">Solicitudes</span>
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded">Citas</span>
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded">Clientes</span>
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded">Seguimiento</span>
-          </div>
-        </div>
-      )}
-
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Botón de volver atrás para clientes */}
       {isClient && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">👤 Panel de Cliente</h3>
-          <p className="text-blue-700 text-sm mb-3">Como cliente, puedes gestionar tus servicios y solicitudes:</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Mis Solicitudes</span>
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Mis Citas</span>
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Documentos</span>
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Seguimiento</span>
-          </div>
+        <div className="px-6 pt-4 pb-2">
+          <button
+            onClick={handleGoBack}
+            className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
+          >
+            <BiArrowBack className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm font-medium">Volver al inicio</span>
+          </button>
         </div>
       )}
 
-      {/* Información editable */}
-      <div className="space-y-6">
-        {/* Primera fila: Nombre y Apellido */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-            <input 
-              type="text" 
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleInputChange}
-              className={`w-full text-lg font-medium text-gray-800 p-3 rounded-lg transition-all duration-200 ${
-                isEditing 
-                  ? errors.firstName 
-                    ? 'bg-red-50 border-2 border-red-200 focus:border-red-500 focus:outline-none cursor-text'
-                    : 'bg-blue-50 border-2 border-blue-200 focus:border-blue-500 focus:outline-none cursor-text'
-                  : 'bg-gray-50 border border-gray-200 focus:border-gray-300 focus:outline-none cursor-text'
-              }`}
-              placeholder="Ingresa tu nombre"
-            />
-            {errors.firstName && (
-              <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
-            )}
+      {/* Header con información del perfil */}
+      <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center space-x-4">
+          <div className={`w-16 h-16 rounded-full text-white font-bold text-xl flex items-center justify-center shadow-md ${
+            isAdmin ? 'bg-red-600' : isEmployee ? 'bg-green-600' : 'bg-blue-600'
+          }`}>
+            {initials}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
-            <input 
-              type="text" 
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleInputChange}
-              className={`w-full text-lg font-medium text-gray-800 p-3 rounded-lg transition-all duration-200 ${
-                isEditing 
-                  ? errors.lastName 
-                    ? 'bg-red-50 border-2 border-red-200 focus:border-red-500 focus:outline-none cursor-text'
-                    : 'bg-blue-50 border-2 border-blue-200 focus:border-blue-500 focus:outline-none cursor-text'
-                  : 'bg-gray-50 border border-gray-200 focus:border-gray-300 focus:outline-none cursor-text'
-              }`}
-              placeholder="Ingresa tu apellido"
-            />
-            {errors.lastName && (
-              <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
-            )}
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-800">Mi Perfil</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                isAdmin ? 'bg-red-100 text-red-800' : 
+                isEmployee ? 'bg-green-100 text-green-800' : 
+                'bg-blue-100 text-blue-800'
+              }`}>
+                {isAdmin ? '👑 Administrador' : isEmployee ? '👨‍💼 Empleado' : '👤 Cliente'}
+              </span>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Segunda fila: Email y Teléfono */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
-            <input 
-              type="email" 
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`w-full text-lg font-medium text-gray-800 p-3 rounded-lg transition-all duration-200 ${
-                isEditing 
-                  ? errors.email 
-                    ? 'bg-red-50 border-2 border-red-200 focus:border-red-500 focus:outline-none cursor-text'
-                    : 'bg-blue-50 border-2 border-blue-200 focus:border-blue-500 focus:outline-none cursor-text'
-                  : 'bg-gray-50 border border-gray-200 focus:border-gray-300 focus:outline-none cursor-text'
-              }`}
-              placeholder="Ingresa tu correo"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-            )}
+      {/* Contenido del formulario */}
+      <div className="p-6">
+        {/* Sección de información personal */}
+        <div className="mb-6">
+          <div className="flex items-center mb-4">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <i className="bi bi-person text-blue-600 text-lg"></i>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">Información Personal</h3>
+              <p className="text-sm text-gray-500">Datos de tu cuenta</p>
+            </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-            <input 
-              type="tel" 
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              className={`w-full text-lg font-medium text-gray-800 p-3 rounded-lg transition-all duration-200 ${
-                isEditing 
-                  ? errors.phone 
-                    ? 'bg-red-50 border-2 border-red-200 focus:border-red-500 focus:outline-none cursor-text'
-                    : 'bg-blue-50 border-2 border-blue-200 focus:border-blue-500 focus:outline-none cursor-text'
-                  : 'bg-gray-50 border border-gray-200 focus:border-gray-300 focus:outline-none cursor-text'
-              }`}
-              placeholder="Ingresa tu teléfono"
-            />
-            {errors.phone && (
-              <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-            )}
+
+          <div className="space-y-4">
+            {/* Primera fila: Nombre y Apellido */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-person text-gray-400 mr-2"></i>
+                  Nombre <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                    isEditing
+                      ? errors.firstName 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                        : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  }`}
+                  placeholder="Ingresa tu nombre"
+                />
+                {errors.firstName && (
+                  <p className="text-red-600 text-xs mt-1">{errors.firstName}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-person text-gray-400 mr-2"></i>
+                  Apellido <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                    isEditing
+                      ? errors.lastName 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                        : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  }`}
+                  placeholder="Ingresa tu apellido"
+                />
+                {errors.lastName && (
+                  <p className="text-red-600 text-xs mt-1">{errors.lastName}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Segunda fila: Email */}
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-envelope text-gray-400 mr-2"></i>
+                  Correo electrónico <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="email" 
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                    isEditing
+                      ? errors.email 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                        : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  }`}
+                  placeholder="Ingresa tu correo"
+                />
+                {errors.email && (
+                  <p className="text-red-600 text-xs mt-1">{errors.email}</p>
+                )}
+              </div>
+              
+              {/* Campo de teléfono deshabilitado para todos los roles */}
+              {showPhone && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <i className="bi bi-telephone text-gray-400 mr-2"></i>
+                    Teléfono <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="tel" 
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                      isEditing
+                        ? errors.phone 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                          : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                    }`}
+                    placeholder="Ingresa tu teléfono"
+                  />
+                  {errors.phone && (
+                    <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Botones de acción */}
-        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           {!isEditing ? (
             <button
               onClick={handleEdit}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
               <BiEditAlt className="w-4 h-4" />
-              <span>Editar</span>
+              <span>Editar Perfil</span>
             </button>
           ) : (
             <>
               <button
                 onClick={handleCancel}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                disabled={isSaving}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <BiX className="w-4 h-4" />
                 <span>Cancelar</span>
               </button>
               <button
                 onClick={handleSave}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSaving}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <BiCheck className="w-4 h-4" />
-                <span>Guardar</span>
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <BiCheck className="w-4 h-4" />
+                    <span>Guardar Cambios</span>
+                  </>
+                )}
               </button>
             </>
           )}

@@ -26,6 +26,7 @@ export const getMenuItemsForRole = (user) => {
   const isUserAdminOrEmployee = isAdminOrEmployee(user);
 
   // Definir todos los items del menú con sus permisos
+  // Orden: Dashboard - Configuración - Usuarios - Servicios - Empleados - Solicitudes - Citas - Clientes - Pagos
   const allMenuItems = [
     {
       label: "Dashboard",
@@ -63,25 +64,25 @@ export const getMenuItemsForRole = (user) => {
       order: 5
     },
     {
+      label: "Citas",
+      icon: "TbCalendar",
+      to: "/admin/calendario",
+      roles: ['admin', 'empleado'], // Admin y Empleado
+      order: 7
+    },
+    {
       label: "Clientes",
       icon: "TbUserSquareRounded",
       to: "/admin/gestionClientes",
       roles: ['admin', 'empleado'], // Admin y Empleado
-      order: 6
+      order: 8
     },
     {
       label: "Pagos",
       icon: "TbCreditCard",
       to: "/admin/pagos",
       roles: ['admin', 'empleado'], // Admin y Empleado
-      order: 7
-    },
-    {
-      label: "Citas",
-      icon: "TbCalendar",
-      to: "/admin/calendario",
-      roles: ['admin', 'empleado'], // Admin y Empleado
-      order: 8
+      order: 9
     }
   ];
 
@@ -142,13 +143,14 @@ export const getMenuItemsForRole = (user) => {
   const result = [...filteredMainItems];
   
   // Si hay items en el dropdown, agregar el item "Solicitudes" como dropdown
+  // Orden: Dashboard - Configuración - Usuarios - Servicios - Empleados - Solicitudes - Citas - Clientes - Pagos
   if (filteredDropdownItems.length > 0) {
     result.push({
       label: "Solicitudes",
       icon: "TbListDetails",
       to: null, // No tiene ruta directa, es un dropdown
-      roles: ['admin', 'empleado'],
-      order: 9,
+      roles: ['administrador', 'empleado'],
+      order: 6, // Solicitudes va después de Empleados y antes de Citas
       isDropdown: true,
       dropdownItems: filteredDropdownItems
     });

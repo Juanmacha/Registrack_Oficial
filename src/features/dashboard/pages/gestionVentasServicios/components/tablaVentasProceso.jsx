@@ -23,6 +23,7 @@ import ActionDropdown from '../../../../../shared/components/ActionDropdown.jsx'
 import empleadosApiService from '../../../../dashboard/services/empleadosApiService';
 import solicitudesApiService from '../services/solicitudesApiService';
 import seguimientoApiService from '../services/seguimientoApiService';
+import archivosApiService from '../services/archivosApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
 
 const TablaVentasProceso = ({ adquirir }) => {
@@ -758,43 +759,67 @@ const TablaVentasProceso = ({ adquirir }) => {
                             label: "Descargar ZIP",
                             title: "Descargar documentos adjuntos",
                             onClick: async () => {
-                              const zip = new JSZip();
-                              // Archivos a incluir
-                              const files = [
-                                { file: item.certificadoCamara, label: "Certificado_Camara" },
-                                { file: item.logotipoMarca, label: "Logotipo_Marca" },
-                                { file: item.poderRepresentante, label: "Poder_Representante" },
-                                { file: item.poderAutorizacion, label: "Poder_Autorizacion" },
-                              ];
-                              let added = 0;
-                              for (const { file, label } of files) {
-                                if (file && typeof file !== "string" && file.name && file instanceof File) {
-                                  // Si es un File (input file)
-                                  zip.file(label + "_" + file.name, file);
-                                  added++;
-                                } else if (file && typeof file === "string" && file.startsWith("data:")) {
-                                  // Si es base64
-                                  const arr = file.split(",");
-                                  const mime = arr[0].match(/:(.*?);/)[1];
-                                  const bstr = atob(arr[1]);
-                                  let n = bstr.length;
-                                  const u8arr = new Uint8Array(n);
-                                  while (n--) u8arr[n] = bstr.charCodeAt(n);
-                                  zip.file(label + "." + mime.split("/")[1], u8arr);
-                                  added++;
-                                }
-                              }
-                              if (added === 0) {
+                              try {
+                                // Mostrar loading
                                 Swal.fire({
-                                  icon: "info",
-                                  title: "Sin archivos",
-                                  text: "No hay documentos adjuntos para descargar en esta venta.",
+                                  title: 'Descargando archivos...',
+                                  text: 'Por favor espera mientras se preparan los archivos',
+                                  allowOutsideClick: false,
+                                  didOpen: () => {
+                                    Swal.showLoading();
+                                  }
+                                });
+                                
+                                const token = getToken();
+                                if (!token) {
+                                  throw new Error('No hay token de autenticación. Por favor inicia sesión nuevamente.');
+                                }
+                                
+                                // Obtener id_orden_servicio del item
+                                const idOrdenServicio = item.id || item.id_orden_servicio;
+                                if (!idOrdenServicio) {
+                                  throw new Error('No se pudo obtener el ID de la solicitud');
+                                }
+                                
+                                // Llamar al servicio para descargar ZIP desde el backend
+                                const result = await archivosApiService.downloadArchivosSolicitudZip(idOrdenServicio, token);
+                                
+                                // Cerrar loading y mostrar éxito
+                                Swal.close();
+                                Swal.fire({
+                                  icon: 'success',
+                                  title: 'Descarga exitosa',
+                                  text: `Los archivos se han descargado correctamente${result.filename ? `: ${result.filename}` : ''}`,
+                                  timer: 2000,
+                                  showConfirmButton: false,
                                   customClass: { popup: "swal2-border-radius" }
                                 });
-                                return;
+                              } catch (error) {
+                                console.error('❌ [TablaVentasProceso] Error descargando ZIP:', error);
+                                Swal.close();
+                                
+                                // Mensaje de error personalizado según el tipo de error
+                                let errorMessage = 'No se pudieron descargar los archivos. Por favor intenta nuevamente.';
+                                
+                                if (error.message) {
+                                  if (error.message.includes('404')) {
+                                    errorMessage = 'No se encontraron archivos asociados a esta solicitud.';
+                                  } else if (error.message.includes('403') || error.message.includes('401')) {
+                                    errorMessage = 'No tienes permisos para descargar estos archivos.';
+                                  } else if (error.message.includes('token')) {
+                                    errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+                                  } else {
+                                    errorMessage = error.message;
+                                  }
+                                }
+                                
+                                Swal.fire({
+                                  icon: 'error',
+                                  title: 'Error al descargar',
+                                  text: errorMessage,
+                                  customClass: { popup: "swal2-border-radius" }
+                                });
                               }
-                              const content = await zip.generateAsync({ type: "blob" });
-                              saveAs(content, `Documentos_Venta_${item.id || item.expediente || ""}.zip`);
                             }
                           },
                           {

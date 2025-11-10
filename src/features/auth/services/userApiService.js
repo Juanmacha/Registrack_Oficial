@@ -260,7 +260,43 @@ const userApiService = {
 
       if (response.success || response.mensaje) {
         // Actualizar datos del usuario en localStorage
-        const updatedUser = response.data?.usuario || response.usuario || response.data;
+        let updatedUser = response.data?.usuario || response.usuario || response.data;
+        
+        // Si la respuesta no incluye el usuario completo, combinar con el usuario actual
+        if (updatedUser && currentUser) {
+          // Preservar el rol si no viene en la respuesta
+          if (!updatedUser.rol && currentUser.rol) {
+            updatedUser.rol = currentUser.rol;
+          }
+          if (!updatedUser.role && currentUser.role && !updatedUser.rol) {
+            updatedUser.role = currentUser.role;
+          }
+          // Preservar otros campos importantes que puedan no venir en la respuesta
+          if (!updatedUser.id_usuario && currentUser.id_usuario) {
+            updatedUser.id_usuario = currentUser.id_usuario;
+          }
+          if (!updatedUser.documento && currentUser.documento) {
+            updatedUser.documento = currentUser.documento;
+          }
+          if (!updatedUser.tipo_documento && currentUser.tipo_documento) {
+            updatedUser.tipo_documento = currentUser.tipo_documento;
+          }
+        }
+        
+        // Si no hay usuario en la respuesta, crear uno basado en el usuario actual y los datos actualizados
+        if (!updatedUser && currentUser) {
+          updatedUser = {
+            ...currentUser,
+            nombre: profileData.nombre || currentUser.nombre,
+            apellido: profileData.apellido || currentUser.apellido,
+            correo: profileData.correo || currentUser.correo,
+            telefono: profileData.telefono || currentUser.telefono
+          };
+        }
+        
+        console.log('✅ [UserApiService] Usuario actualizado:', updatedUser);
+        console.log('✅ [UserApiService] Rol del usuario:', updatedUser?.rol || updatedUser?.role);
+        
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
 
         return {

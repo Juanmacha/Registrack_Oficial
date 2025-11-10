@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from "../../../shared/contexts/authContext";
+import { isAdminOrEmployee } from "../../../shared/utils/roleUtils";
 import alertService from "../../../utils/alertService.js";
 
 const NavBar = () => {
@@ -9,13 +10,21 @@ const NavBar = () => {
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const toggleMenu = () => setMenuAbierto(!menuAbierto);
 
   const handleVerPerfil = () => {
     setMenuAbierto(false);
-    navigate("/profile");
+    
+    // Navegar según el rol del usuario
+    if (user && isAdminOrEmployee(user)) {
+      // Admin o empleado → perfil de admin
+      navigate("/admin/profile");
+    } else {
+      // Cliente → perfil de cliente
+      navigate("/cliente/profile");
+    }
   };
 
   const handleCerrarSesion = async () => {
@@ -57,6 +66,8 @@ const NavBar = () => {
     "/admin/gestionClientes": "Gestión de Clientes",
     "/admin/roles": "Configuración",
     "/admin/servicios": "Gestión de Servicios",
+    "/admin/profile": "Mi Perfil",
+    "/cliente/profile": "Mi Perfil",
     "/profile": "Mi Perfil",
   };
 

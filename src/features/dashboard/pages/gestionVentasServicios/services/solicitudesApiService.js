@@ -90,17 +90,223 @@ class SolicitudesApiService {
                            errorText || 
                            `Error ${response.status}: ${response.statusText}`;
         
-        // Para errores 500, agregar más contexto
+        // Para errores 500, agregar más contexto (backend ya implementó mejoras)
         if (response.status === 500) {
           errorMessage = errorMessage || 'Error interno del servidor';
+          
+          // ✅ Backend mejorado: ahora devuelve detalles estructurados
           if (errorData.error?.details) {
-            errorMessage += `\nDetalles: ${JSON.stringify(errorData.error.details)}`;
+            const detalles = errorData.error.details;
+            if (typeof detalles === 'object') {
+              // Si hay un mensaje específico en los detalles, usarlo
+              if (detalles.message || detalles.error) {
+                errorMessage += `\n\nDetalles: ${detalles.message || detalles.error}`;
+              }
+              // Si hay información sobre el tipo de error
+              if (detalles.tipo) {
+                errorMessage += `\n\nTipo de error: ${detalles.tipo}`;
+              }
+              // Si hay información sobre el payload
+              if (detalles.payloadSize) {
+                errorMessage += `\n\nTamaño del payload: ${detalles.payloadSize}`;
+              }
+            } else {
+              errorMessage += `\n\nDetalles: ${JSON.stringify(detalles, null, 2)}`;
+            }
           }
+          
+          // Información adicional del error del backend mejorado
+          if (errorData.error?.message && errorData.error.message !== 'Error interno del servidor') {
+            errorMessage = `${errorData.error.message}\n\n${errorMessage}`;
+          }
+          
+          // ✅ Detectar errores de base de datos relacionados con columnas pequeñas
+          if (errorData.error?.message && errorData.error.message.includes('Data too long for column')) {
+            const columnMatch = errorData.error.message.match(/column '([^']+)'/);
+            if (columnMatch) {
+              const columnName = columnMatch[1];
+              // Determinar si es un archivo Base64 o un campo de texto
+              const esCampoTexto = columnName.includes('tipo_documento') || 
+                                  columnName.includes('nombre') || 
+                                  columnName.includes('razon_social') ||
+                                  columnName.includes('representante_legal') ||
+                                  columnName.includes('direccion') ||
+                                  columnName.includes('correo');
+              
+              if (esCampoTexto) {
+                errorMessage += `\n\n⚠️ PROBLEMA DE BASE DE DATOS:`;
+                errorMessage += `\nLa columna '${columnName}' en la base de datos es demasiado pequeña para almacenar el valor.`;
+                errorMessage += `\n\n📊 INFORMACIÓN DEL CAMPO:`;
+              } else {
+                errorMessage += `\n\n⚠️ PROBLEMA DE BASE DE DATOS:`;
+                errorMessage += `\nLa columna '${columnName}' en la base de datos es demasiado pequeña para almacenar el archivo.`;
+                errorMessage += `\n\n📊 INFORMACIÓN DEL ARCHIVO:`;
+              }
+              
+              // Intentar obtener información del tamaño del campo/archivo del payload
+              try {
+                if (options.body) {
+                  const payloadData = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+                  
+                  // Buscar el campo que corresponde a esta columna
+                  let campoArchivo = '';
+                  let tamanioArchivo = 0;
+                  let valorCampo = '';
+                  
+                  if (columnName.includes('poderparaelregistrodelamarca') || columnName.includes('poder_autorizacion')) {
+                    campoArchivo = 'poder_autorizacion';
+                    if (payloadData.poder_autorizacion) {
+                      tamanioArchivo = payloadData.poder_autorizacion.length;
+                    }
+                  } else if (columnName.includes('logotipo')) {
+                    campoArchivo = 'logotipo';
+                    if (payloadData.logotipo) {
+                      tamanioArchivo = payloadData.logotipo.length;
+                    }
+                  } else if (columnName.includes('documento_cesion')) {
+                    campoArchivo = 'documento_cesion';
+                    if (payloadData.documento_cesion) {
+                      tamanioArchivo = payloadData.documento_cesion.length;
+                    }
+                  } else if (columnName.includes('certificado_renovacion')) {
+                    campoArchivo = 'certificado_renovacion';
+                    if (payloadData.certificado_renovacion) {
+                      tamanioArchivo = payloadData.certificado_renovacion.length;
+                    }
+                  } else if (columnName.includes('soportes')) {
+                    campoArchivo = 'soportes';
+                    if (payloadData.soportes) {
+                      tamanioArchivo = payloadData.soportes.length;
+                    }
+                  } else if (columnName.includes('certificado')) {
+                    campoArchivo = 'certificado_camara_comercio';
+                    if (payloadData.certificado_camara_comercio) {
+                      tamanioArchivo = payloadData.certificado_camara_comercio.length;
+                    }
+                  } else if (columnName.includes('tipo_documento_cesionario')) {
+                    campoArchivo = 'tipo_documento_cesionario';
+                    if (payloadData.tipo_documento_cesionario) {
+                      valorCampo = payloadData.tipo_documento_cesionario;
+                      tamanioArchivo = payloadData.tipo_documento_cesionario.length;
+                    }
+                  } else if (columnName.includes('numero_documento_cesionario')) {
+                    campoArchivo = 'numero_documento_cesionario';
+                    if (payloadData.numero_documento_cesionario) {
+                      valorCampo = payloadData.numero_documento_cesionario;
+                      tamanioArchivo = payloadData.numero_documento_cesionario.length;
+                    }
+                  } else if (columnName.includes('nombre_razon_social_cesionario')) {
+                    campoArchivo = 'nombre_razon_social_cesionario';
+                    if (payloadData.nombre_razon_social_cesionario) {
+                      valorCampo = payloadData.nombre_razon_social_cesionario;
+                      tamanioArchivo = payloadData.nombre_razon_social_cesionario.length;
+                    }
+                  } else if (columnName.includes('representante_legal_cesionario')) {
+                    campoArchivo = 'representante_legal_cesionario';
+                    if (payloadData.representante_legal_cesionario) {
+                      valorCampo = payloadData.representante_legal_cesionario;
+                      tamanioArchivo = payloadData.representante_legal_cesionario.length;
+                    }
+                  }
+                  
+                  if (tamanioArchivo > 0) {
+                    errorMessage += `\n- Campo: ${campoArchivo}`;
+                    if (esCampoTexto && valorCampo) {
+                      errorMessage += `\n- Valor enviado: "${valorCampo}"`;
+                      errorMessage += `\n- Longitud: ${tamanioArchivo} caracteres`;
+                      errorMessage += `\n- Tipo de columna actual: Probablemente VARCHAR(20) o menor`;
+                      errorMessage += `\n- Tamaño necesario: ${tamanioArchivo} caracteres`;
+                    } else {
+                      const tamanioKB = (tamanioArchivo / 1024).toFixed(2);
+                      const tamanioMB = (tamanioArchivo / (1024 * 1024)).toFixed(2);
+                      errorMessage += `\n- Tamaño del archivo: ${tamanioKB}KB (${tamanioMB}MB)`;
+                      errorMessage += `\n- Tipo de columna actual: Probablemente VARCHAR(255) o similar (máximo ~255 caracteres)`;
+                      errorMessage += `\n- Tamaño necesario: ${tamanioKB}KB (${tamanioArchivo} caracteres)`;
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignorar errores al parsear
+              }
+              
+              errorMessage += `\n\n🔧 SOLUCIÓN BACKEND (URGENTE - REQUERIDA INMEDIATAMENTE):`;
+              errorMessage += `\n\n⚠️ ESTE ES UN ERROR CRÍTICO DE BASE DE DATOS ⚠️`;
+              
+              if (esCampoTexto) {
+                errorMessage += `\n\nLa columna '${columnName}' es demasiado pequeña para almacenar el valor de texto.`;
+                errorMessage += `\n\n📋 PASOS PARA SOLUCIONAR (2 minutos):`;
+                errorMessage += `\n\n1. Conectar a la base de datos MySQL/MariaDB:`;
+                errorMessage += `\n   mysql -u [usuario] -p [nombre_base_datos]`;
+                errorMessage += `\n\n2. Ejecutar este comando SQL:`;
+                if (columnName.includes('tipo_documento_cesionario')) {
+                  errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} VARCHAR(50);`;
+                } else if (columnName.includes('numero_documento_cesionario')) {
+                  errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} VARCHAR(20);`;
+                } else if (columnName.includes('nombre_razon_social_cesionario')) {
+                  errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} VARCHAR(100);`;
+                } else if (columnName.includes('representante_legal_cesionario')) {
+                  errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} VARCHAR(100);`;
+                } else {
+                  errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} VARCHAR(100);`;
+                }
+                errorMessage += `\n\n3. Verificar cambios:`;
+                errorMessage += `\n   SHOW COLUMNS FROM orden_servicios WHERE Field = '${columnName}';`;
+                errorMessage += `\n\n💡 NOTA: Para campos de texto, usar VARCHAR con tamaño apropiado (no LONGTEXT)`;
+                errorMessage += `\n\n📄 Ver archivo: PROMPT_BACKEND_CESION_COLUMNA_PEQUENA.md para más detalles`;
+              } else {
+                errorMessage += `\n\nLa columna '${columnName}' es demasiado pequeña para almacenar archivos Base64.`;
+                errorMessage += `\n\n📋 PASOS PARA SOLUCIONAR (5 minutos):`;
+                errorMessage += `\n\n1. Conectar a la base de datos MySQL/MariaDB:`;
+                errorMessage += `\n   mysql -u [usuario] -p [nombre_base_datos]`;
+                errorMessage += `\n\n2. Ejecutar este comando SQL:`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN ${columnName} LONGTEXT;`;
+                errorMessage += `\n\n3. ⚠️ IMPORTANTE: Cambiar TODAS las columnas de archivos a LONGTEXT:`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN logotipo LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN poder_autorizacion LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN certificado_camara_comercio LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN poderparaelregistrodelamarca LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN poderdelrepresentanteautorizado LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN certificado_renovacion LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN documento_cesion LONGTEXT;`;
+                errorMessage += `\n   ALTER TABLE orden_servicios MODIFY COLUMN soportes LONGTEXT;`;
+                errorMessage += `\n\n4. Verificar cambios:`;
+                errorMessage += `\n   SHOW COLUMNS FROM orden_servicios WHERE Field = '${columnName}';`;
+                errorMessage += `\n   (Debe mostrar: Type: longtext)`;
+                errorMessage += `\n\n💡 NOTA: LONGTEXT puede almacenar hasta 4GB de datos (suficiente para cualquier archivo Base64)`;
+                errorMessage += `\n\n📄 Ver archivo: INSTRUCCIONES_BACKEND_COLUMNAS_ARCHIVOS.md para más detalles`;
+              }
+            }
+          }
+          
+          if (errorData.detalles) {
+            errorMessage += `\n\nDetalles adicionales: ${JSON.stringify(errorData.detalles, null, 2)}`;
+          }
+          
+          // Campos faltantes o requeridos (si el backend los proporciona)
           if (errorData.camposFaltantes && errorData.camposFaltantes.length > 0) {
-            errorMessage += `\nCampos faltantes: ${errorData.camposFaltantes.join(', ')}`;
+            errorMessage += `\n\n❌ Campos faltantes: ${errorData.camposFaltantes.join(', ')}`;
           }
           if (errorData.camposRequeridos && errorData.camposRequeridos.length > 0) {
-            errorMessage += `\nCampos requeridos: ${errorData.camposRequeridos.join(', ')}`;
+            errorMessage += `\n\n📋 Campos requeridos: ${errorData.camposRequeridos.join(', ')}`;
+          }
+          
+          // Información del payload enviado (para debugging)
+          if (options.body) {
+            try {
+              const payloadData = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+              const payloadSize = JSON.stringify(payloadData).length;
+              const payloadSizeMB = (payloadSize / (1024 * 1024)).toFixed(2);
+              
+              // Solo mostrar si el payload es grande (para debugging)
+              if (payloadSize > 1024 * 1024) { // > 1MB
+                errorMessage += `\n\n📊 Información del payload:`;
+                errorMessage += `\n- Tamaño: ${payloadSizeMB}MB (${payloadSize} caracteres)`;
+                errorMessage += `\n- Campos enviados: ${Object.keys(payloadData).length}`;
+                errorMessage += `\n- Tipo solicitante: ${payloadData.tipo_solicitante || 'N/A'}`;
+              }
+            } catch (e) {
+              // Ignorar error de parsing
+            }
           }
         }
         
@@ -142,15 +348,61 @@ class SolicitudesApiService {
   async getMisSolicitudes(token) {
     try {
       console.log('🔧 [SolicitudesApiService] Obteniendo mis solicitudes...');
-      const solicitudes = await this.makeRequest('/api/gestion-solicitudes/mias', {
+      console.log('🔧 [SolicitudesApiService] Token:', token ? `${token.substring(0, 20)}...` : 'NO HAY TOKEN');
+      
+      const respuesta = await this.makeRequest('/api/gestion-solicitudes/mias', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+      
+      console.log('🔍 [SolicitudesApiService] Respuesta raw:', respuesta);
+      console.log('🔍 [SolicitudesApiService] Tipo de respuesta:', typeof respuesta);
+      console.log('🔍 [SolicitudesApiService] Es array?', Array.isArray(respuesta));
+      
+      // Extraer el array de solicitudes de la respuesta
+      let solicitudes = null;
+      
+      if (Array.isArray(respuesta)) {
+        // ✅ La respuesta es directamente un array
+        solicitudes = respuesta;
+        console.log('✅ [SolicitudesApiService] Respuesta es array directo con', solicitudes.length, 'elementos');
+      } else if (respuesta && typeof respuesta === 'object') {
+        // Intentar extraer el array de diferentes propiedades comunes
+        if (Array.isArray(respuesta.data)) {
+          solicitudes = respuesta.data;
+          console.log('✅ [SolicitudesApiService] Array encontrado en .data:', solicitudes.length, 'elementos');
+        } else if (Array.isArray(respuesta.solicitudes)) {
+          solicitudes = respuesta.solicitudes;
+          console.log('✅ [SolicitudesApiService] Array encontrado en .solicitudes:', solicitudes.length, 'elementos');
+        } else if (Array.isArray(respuesta.result)) {
+          solicitudes = respuesta.result;
+          console.log('✅ [SolicitudesApiService] Array encontrado en .result:', solicitudes.length, 'elementos');
+        } else {
+          // Si no encontramos un array, loggear la estructura para debugging
+          console.warn('⚠️ [SolicitudesApiService] No se encontró array en la respuesta. Estructura:', Object.keys(respuesta));
+          console.warn('⚠️ [SolicitudesApiService] Respuesta completa:', JSON.stringify(respuesta, null, 2).substring(0, 500));
+          solicitudes = []; // Devolver array vacío en lugar de lanzar error
+        }
+      } else {
+        console.warn('⚠️ [SolicitudesApiService] Respuesta no es array ni objeto:', respuesta);
+        solicitudes = [];
+      }
+      
+      if (!Array.isArray(solicitudes)) {
+        console.error('❌ [SolicitudesApiService] No se pudo extraer un array válido de la respuesta');
+        solicitudes = [];
+      }
+      
       console.log('✅ [SolicitudesApiService] Mis solicitudes obtenidas:', solicitudes.length);
+      if (solicitudes.length > 0) {
+        console.log('📊 [SolicitudesApiService] Primera solicitud:', solicitudes[0]);
+      }
+      
       return solicitudes;
     } catch (error) {
       console.error('❌ [SolicitudesApiService] Error obteniendo mis solicitudes:', error);
+      console.error('❌ [SolicitudesApiService] Stack:', error.stack);
       throw error;
     }
   }
@@ -220,12 +472,28 @@ class SolicitudesApiService {
       console.log('🔍 [SolicitudesApiService] Número total de campos:', Object.keys(datos).length);
       console.log('🔍 [SolicitudesApiService] Campos presentes:', Object.keys(datos).join(', '));
       
+      // ✅ Validar tamaño del payload antes de enviar
+      const payloadString = JSON.stringify(datos);
+      const payloadSize = payloadString.length;
+      const payloadSizeMB = (payloadSize / (1024 * 1024)).toFixed(2);
+      const payloadSizeKB = (payloadSize / 1024).toFixed(2);
+      
+      console.log(`📊 [SolicitudesApiService] Tamaño del payload: ${payloadSizeKB}KB (${payloadSizeMB}MB)`);
+      
+      // ✅ Backend ya implementó el límite de 10MB, solo informar si es muy grande
+      if (payloadSize > 9 * 1024 * 1024) { // > 9MB (cerca del límite de 10MB)
+        console.warn(`⚠️ [SolicitudesApiService] ADVERTENCIA: El payload (${payloadSizeKB}KB) está cerca del límite del backend (10MB)`);
+        console.warn(`⚠️ [SolicitudesApiService] Si el payload excede 10MB, la solicitud fallará`);
+      } else if (payloadSize > 1024 * 1024) { // > 1MB (solo informativo)
+        console.log(`ℹ️ [SolicitudesApiService] Payload de ${payloadSizeKB}KB (dentro del límite de 10MB)`);
+      }
+      
       const solicitudCreada = await this.makeRequest(`/api/gestion-solicitudes/crear/${idServicio}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(datos)
+        body: payloadString
       });
       
       console.log('✅ [SolicitudesApiService] Solicitud creada:', solicitudCreada);
@@ -576,8 +844,12 @@ class SolicitudesApiService {
         const logotipoBase64Cert = await this.convertirArchivoABase64(
           datosFrontend.logotipoMarca || datosFrontend.logotipo || null
         );
+        // ✅ Para Certificación de Marca:
+        // - poderAutorizacion: siempre requerido (poder para el registro de la marca)
+        // - poderRepresentante: solo para Jurídica (poder del representante legal)
+        // NO confundir: poderAutorizacion NO es poderRepresentante
         const poderAutorizacionBase64 = await this.convertirArchivoABase64(
-          datosFrontend.poderAutorizacion || datosFrontend.poderRepresentante || null
+          datosFrontend.poderAutorizacion || null
         );
         
         // Validar archivos requeridos según tipo de solicitante
@@ -659,10 +931,9 @@ class SolicitudesApiService {
         } else {
           // Natural: numero_nit_cedula puede ser opcional, si no se proporciona usar numero_documento
           datosAPI.numero_nit_cedula = (datosFrontend.numeroNitCedula || datosFrontend.nitMarca || datosFrontend.numeroDocumento || '').trim();
-          // Para Natural: certificado_camara_comercio es opcional, solo incluir si está presente
-          if (certificadoCamaraBase64 && certificadoCamaraBase64.startsWith('data:')) {
-            datosAPI.certificado_camara_comercio = certificadoCamaraBase64;
-          }
+          // ✅ Para Natural: certificado_camara_comercio NO debe incluirse (personas naturales no tienen cámara de comercio)
+          // Asegurar que NO se incluya, incluso si el usuario lo subió
+          delete datosAPI.certificado_camara_comercio;
           // NO incluir campos de jurídica (tipo_entidad, razon_social, nit_empresa, representante_legal, direccion_domicilio)
         }
         
@@ -702,6 +973,51 @@ class SolicitudesApiService {
         if (datosAPI.certificado_camara_comercio) {
           console.log('🔍 [SolicitudesApiService] Tamaño certificado:', datosAPI.certificado_camara_comercio.length, 'caracteres');
         }
+        
+        // ✅ Verificar que NO se incluyan campos de jurídica para Natural
+        if (!esJuridicaCert) {
+          // Remover certificado_camara_comercio si está presente (no debe incluirse para Natural)
+          if (datosAPI.certificado_camara_comercio) {
+            console.warn('⚠️ [SolicitudesApiService] ADVERTENCIA: certificado_camara_comercio incluido para Natural, removiendo...');
+            delete datosAPI.certificado_camara_comercio;
+          }
+          
+          // ✅ CRÍTICO: Remover TODOS los campos relacionados con representante legal para Natural
+          // El backend tiene problemas con poderdelrepresentanteautorizado - NO debe enviarse para Natural
+          const camposJuridica = [
+            'tipo_entidad', 
+            'razon_social', 
+            'nit_empresa', 
+            'representante_legal', 
+            'direccion_domicilio',
+            'poder_representante',
+            'poderRepresentante',
+            'poderdelrepresentanteautorizado', // Campo de BD que causa error
+            'poder_del_representante_autorizado'
+          ];
+          
+          const camposIncluidos = camposJuridica.filter(campo => datosAPI.hasOwnProperty(campo));
+          if (camposIncluidos.length > 0) {
+            console.warn('⚠️ [SolicitudesApiService] ADVERTENCIA: Campos de jurídica incluidos para Natural:', camposIncluidos);
+            // Remover campos de jurídica para Natural
+            camposIncluidos.forEach(campo => delete datosAPI[campo]);
+            console.log('✅ [SolicitudesApiService] Campos de jurídica removidos para Natural');
+          }
+          
+          // ✅ Verificar que solo tenemos poder_autorizacion (NO poder_representante)
+          if (datosAPI.poder_representante || datosAPI.poderRepresentante) {
+            console.warn('⚠️ [SolicitudesApiService] ADVERTENCIA: poder_representante incluido para Natural, removiendo...');
+            delete datosAPI.poder_representante;
+            delete datosAPI.poderRepresentante;
+            console.log('✅ [SolicitudesApiService] poder_representante removido - solo se usa poder_autorizacion para Natural');
+          }
+          
+          // ✅ Log final para verificar que solo tenemos los campos correctos
+          console.log('🔍 [SolicitudesApiService] Campos finales para Natural:', Object.keys(datosAPI));
+          console.log('🔍 [SolicitudesApiService] Verificando que NO hay campos de representante:', 
+            !datosAPI.poder_representante && !datosAPI.poderRepresentante && !datosAPI.representante_legal);
+        }
+        
         break;
 
       case 'Renovación de marca':
@@ -709,14 +1025,15 @@ class SolicitudesApiService {
         // numero_documento, direccion, telefono, correo, pais, nombre_marca, numero_expediente_marca, 
         // poder_autorizacion, certificado_renovacion, logotipo
         // Campos condicionales (si es Jurídica): tipo_entidad, razon_social, nit_empresa, representante_legal
-        const esJuridicaRen = datosFrontend.tipoPersona === 'Jurídica' || datosFrontend.tipoSolicitante === 'Jurídica';
+        // ✅ Simplificado: tipo_solicitante debe ser directamente "Natural" o "Jurídica"
+        const esJuridicaRen = datosFrontend.tipoSolicitante === 'Jurídica';
+        const tipoSolicitanteFinalRen = datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' 
+          ? datosFrontend.tipoSolicitante 
+          : 'Natural'; // Default a Natural si no se especifica
+        
         datosAPI = {
           // Campos requeridos
-          tipo_solicitante: datosFrontend.tipoSolicitante === 'Titular' ? 
-            (datosFrontend.tipoPersona || 'Natural') : 
-            (datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' ? 
-              datosFrontend.tipoSolicitante : 
-              (datosFrontend.tipoPersona || 'Natural')),
+          tipo_solicitante: tipoSolicitanteFinalRen,
           nombres_apellidos: obtenerNombresApellidos(),
           tipo_documento: datosFrontend.tipoDocumento || '',
           numero_documento: datosFrontend.numeroDocumento || '',
@@ -728,18 +1045,30 @@ class SolicitudesApiService {
           numero_expediente_marca: datosFrontend.numeroExpedienteMarca || datosFrontend.expediente || '',
           certificado_renovacion: await this.convertirArchivoABase64(datosFrontend.certificadoRenovacion || ''),
           logotipo: await this.convertirArchivoABase64(datosFrontend.logotipoMarca || datosFrontend.logotipo || ''),
-          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || datosFrontend.poderRepresentante || ''),
-          // Campos condicionales (si es Jurídica)
-          ...(esJuridicaRen ? {
-            tipo_entidad: datosFrontend.tipoEntidad || '',
-            razon_social: datosFrontend.razonSocial || datosFrontend.nombreEmpresa || '',
-            nit_empresa: datosFrontend.nit ? parseInt(datosFrontend.nit) : null,
-            representante_legal: datosFrontend.representanteLegal || datosFrontend.nombreRepresentante || ''
-          } : {}),
+          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || ''),
           // Campos opcionales
           ...(datosFrontend.ciudad ? { ciudad: datosFrontend.ciudad.trim() } : {}),
           ...(obtenerClaseNiza() ? { clase_niza: obtenerClaseNiza() } : {})
         };
+        
+        // ✅ Para Jurídica: agregar campos de empresa
+        if (esJuridicaRen) {
+          datosAPI.tipo_entidad = datosFrontend.tipoEntidad || '';
+          datosAPI.razon_social = datosFrontend.razonSocial || datosFrontend.nombreEmpresa || '';
+          datosAPI.nit_empresa = datosFrontend.nit ? parseInt(datosFrontend.nit) : null;
+          datosAPI.representante_legal = datosFrontend.representanteLegal || datosFrontend.nombreRepresentante || '';
+        } else {
+          // ✅ Para Natural: NO incluir campos de jurídica (el backend ya valida condicionalmente)
+          // Asegurar que NO se incluyan campos de jurídica
+          delete datosAPI.tipo_entidad;
+          delete datosAPI.razon_social;
+          delete datosAPI.nit_empresa;
+          delete datosAPI.representante_legal;
+          delete datosAPI.poder_representante;
+          delete datosAPI.poderRepresentante;
+          delete datosAPI.poderdelrepresentanteautorizado;
+        }
+        
         break;
 
       case 'Cesión de marca':
@@ -748,13 +1077,15 @@ class SolicitudesApiService {
         // documento_cesion, poder_autorizacion, nombre_razon_social_cesionario, nit_cesionario, 
         // representante_legal_cesionario, tipo_documento_cesionario, numero_documento_cesionario, 
         // correo_cesionario, telefono_cesionario, direccion_cesionario
+        // ✅ Simplificado: tipo_solicitante debe ser directamente "Natural" o "Jurídica"
+        const esJuridicaCes = datosFrontend.tipoSolicitante === 'Jurídica';
+        const tipoSolicitanteFinalCes = datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' 
+          ? datosFrontend.tipoSolicitante 
+          : 'Natural'; // Default a Natural si no se especifica
+        
         datosAPI = {
           // Campos requeridos del cedente
-          tipo_solicitante: datosFrontend.tipoSolicitante === 'Titular' ? 
-            (datosFrontend.tipoPersona || 'Natural') : 
-            (datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' ? 
-              datosFrontend.tipoSolicitante : 
-              (datosFrontend.tipoPersona || 'Natural')),
+          tipo_solicitante: tipoSolicitanteFinalCes,
           nombres_apellidos: obtenerNombresApellidos(),
           tipo_documento: datosFrontend.tipoDocumento || '',
           numero_documento: datosFrontend.numeroDocumento || '',
@@ -765,7 +1096,7 @@ class SolicitudesApiService {
           nombre_marca: datosFrontend.nombreMarca || '',
           numero_expediente_marca: datosFrontend.numeroExpedienteMarca || datosFrontend.expediente || '',
           documento_cesion: await this.convertirArchivoABase64(datosFrontend.documentoCesion || ''),
-          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || datosFrontend.poderRepresentante || ''),
+          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || ''),
           // Campos requeridos del cesionario
           nombre_razon_social_cesionario: datosFrontend.nombreRazonSocialCesionario || datosFrontend.nombreCesionario || '',
           nit_cesionario: datosFrontend.nitCesionario || '',
@@ -778,6 +1109,30 @@ class SolicitudesApiService {
           // Campos opcionales
           ...(datosFrontend.ciudad ? { ciudad: datosFrontend.ciudad.trim() } : {})
         };
+        
+        // ✅ Para Jurídica: agregar campos de empresa del cedente (si aplica)
+        if (esJuridicaCes) {
+          // Para Cesión, el cedente puede ser jurídica pero no necesariamente requiere campos adicionales
+          // según la documentación, pero si el formulario los incluye, los agregamos
+          if (datosFrontend.tipoEntidad) datosAPI.tipo_entidad = datosFrontend.tipoEntidad;
+          if (datosFrontend.razonSocial || datosFrontend.nombreEmpresa) {
+            datosAPI.razon_social = datosFrontend.razonSocial || datosFrontend.nombreEmpresa;
+          }
+          if (datosFrontend.nit) datosAPI.nit_empresa = parseInt(datosFrontend.nit);
+          if (datosFrontend.representanteLegal || datosFrontend.nombreRepresentante) {
+            datosAPI.representante_legal = datosFrontend.representanteLegal || datosFrontend.nombreRepresentante;
+          }
+        } else {
+          // ✅ Para Natural: asegurar que NO se incluyan campos de jurídica
+          delete datosAPI.tipo_entidad;
+          delete datosAPI.razon_social;
+          delete datosAPI.nit_empresa;
+          delete datosAPI.representante_legal;
+          delete datosAPI.poder_representante;
+          delete datosAPI.poderRepresentante;
+          delete datosAPI.poderdelrepresentanteautorizado;
+        }
+        
         break;
 
       case 'Presentación de oposición':
@@ -785,14 +1140,15 @@ class SolicitudesApiService {
         // numero_documento, direccion, telefono, correo, pais, nit_empresa (SIEMPRE requerido), nombre_marca, 
         // marca_a_oponerse, poder_autorizacion, argumentos_respuesta, documentos_oposicion
         // Campos condicionales (si es Jurídica): tipo_entidad, razon_social, representante_legal
-        const esJuridicaOpo = datosFrontend.tipoPersona === 'Jurídica' || datosFrontend.tipoSolicitante === 'Jurídica';
+        // ✅ Simplificado: tipo_solicitante debe ser directamente "Natural" o "Jurídica"
+        const esJuridicaOpo = datosFrontend.tipoSolicitante === 'Jurídica';
+        const tipoSolicitanteFinalOpo = datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' 
+          ? datosFrontend.tipoSolicitante 
+          : 'Natural'; // Default a Natural si no se especifica
+        
         datosAPI = {
           // Campos requeridos
-          tipo_solicitante: datosFrontend.tipoSolicitante === 'Titular' ? 
-            (datosFrontend.tipoPersona || 'Natural') : 
-            (datosFrontend.tipoSolicitante === 'Natural' || datosFrontend.tipoSolicitante === 'Jurídica' ? 
-              datosFrontend.tipoSolicitante : 
-              (datosFrontend.tipoPersona || 'Natural')),
+          tipo_solicitante: tipoSolicitanteFinalOpo,
           nombres_apellidos: obtenerNombresApellidos(),
           tipo_documento: datosFrontend.tipoDocumento || '',
           numero_documento: datosFrontend.numeroDocumento || '',
@@ -800,21 +1156,32 @@ class SolicitudesApiService {
           telefono: datosFrontend.telefono || '',
           correo: datosFrontend.email || datosFrontend.correo || '',
           pais: datosFrontend.pais || 'Colombia',
-          nit_empresa: datosFrontend.nit ? parseInt(datosFrontend.nit) : null,
+          nit_empresa: datosFrontend.nit ? parseInt(datosFrontend.nit) : null, // ✅ SIEMPRE requerido
           nombre_marca: datosFrontend.nombreMarca || '',
           marca_a_oponerse: datosFrontend.marcaAOponerse || '',
           argumentos_respuesta: datosFrontend.argumentosRespuesta || '',
           documentos_oposicion: await this.convertirArchivoABase64(datosFrontend.documentosOposicion || ''),
-          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || datosFrontend.poderRepresentante || ''),
-          // Campos condicionales (si es Jurídica)
-          ...(esJuridicaOpo ? {
-            tipo_entidad: datosFrontend.tipoEntidad || '',
-            razon_social: datosFrontend.razonSocial || datosFrontend.nombreEmpresa || '',
-            representante_legal: datosFrontend.representanteLegal || datosFrontend.nombreRepresentante || ''
-          } : {}),
+          poder_autorizacion: await this.convertirArchivoABase64(datosFrontend.poderAutorizacion || ''),
           // Campos opcionales
           ...(datosFrontend.ciudad ? { ciudad: datosFrontend.ciudad.trim() } : {})
         };
+        
+        // ✅ Para Jurídica: agregar campos de empresa
+        if (esJuridicaOpo) {
+          datosAPI.tipo_entidad = datosFrontend.tipoEntidad || '';
+          datosAPI.razon_social = datosFrontend.razonSocial || datosFrontend.nombreEmpresa || '';
+          datosAPI.representante_legal = datosFrontend.representanteLegal || datosFrontend.nombreRepresentante || '';
+        } else {
+          // ✅ Para Natural: asegurar que NO se incluyan campos de jurídica
+          delete datosAPI.tipo_entidad;
+          delete datosAPI.razon_social;
+          delete datosAPI.representante_legal;
+          delete datosAPI.poder_representante;
+          delete datosAPI.poderRepresentante;
+          delete datosAPI.poderdelrepresentanteautorizado;
+          // NOTA: nit_empresa se mantiene porque es SIEMPRE requerido para Oposición
+        }
+        
         break;
 
       case 'Respuesta a oposición':
@@ -1023,11 +1390,128 @@ class SolicitudesApiService {
                           respuestaAPI.fechaCreacion || 
                           new Date().toISOString();
     
-    const fechaFin = respuestaAPI.fecha_finalizacion ||
-                     respuestaAPI.updatedAt ||
-                     respuestaAPI.updated_at ||
-                     respuestaAPI.fechaFin || 
-                     null;
+    // fechaSolicitud se usa para mostrar "Última actualización" en ProcesosActivos
+    const fechaSolicitud = respuestaAPI.fecha_solicitud || 
+                           respuestaAPI.updatedAt ||
+                           respuestaAPI.updated_at ||
+                           respuestaAPI.fechaSolicitud ||
+                           fechaCreacion;
+    
+    // Determinar si el proceso está finalizado o anulado para usar fechaSolicitud como fechaFin
+    const estadoAPI = respuestaAPI.estado || '';
+    const esAnulado = estadoAPI === 'Anulado' || 
+                     estadoAPI === 'Anulada' ||
+                     (estadoAPI && estadoAPI.toLowerCase().includes('anulado'));
+    const esFinalizado = estadoAPI === 'Finalizado' || 
+                        estadoAPI === 'Finalizada' ||
+                        (estadoAPI && estadoAPI.toLowerCase().includes('finalizado'));
+    const esFinalizadoOAnulado = esAnulado || esFinalizado;
+    
+    // ✅ Log para debugging - ver qué campos tiene el backend
+    if (esAnulado || esFinalizado) {
+      const camposMotivo = Object.keys(respuestaAPI).filter(k => 
+        k.toLowerCase().includes('motivo') || 
+        k.toLowerCase().includes('observ') ||
+        k.toLowerCase().includes('anul')
+      );
+      
+      console.log(`🔍 [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} (${estadoAPI}) - Campos disponibles:`, {
+        fecha_anulacion: respuestaAPI.fecha_anulacion,
+        fecha_finalizacion: respuestaAPI.fecha_finalizacion,
+        fecha_fin: respuestaAPI.fecha_fin,
+        updatedAt: respuestaAPI.updatedAt,
+        updated_at: respuestaAPI.updated_at,
+        motivo_anulacion: respuestaAPI.motivo_anulacion,
+        motivoAnulacion: respuestaAPI.motivoAnulacion,
+        motivo: respuestaAPI.motivo,
+        observaciones: respuestaAPI.observaciones,
+        camposMotivo: camposMotivo,
+        valoresMotivo: camposMotivo.reduce((acc, key) => {
+          acc[key] = respuestaAPI[key];
+          return acc;
+        }, {}),
+        todosLosCampos: Object.keys(respuestaAPI).filter(k => 
+          k.toLowerCase().includes('fecha') || 
+          k.toLowerCase().includes('motivo') ||
+          k.toLowerCase().includes('anul') ||
+          k.toLowerCase().includes('observ')
+        )
+      });
+    }
+    
+    // fechaFin: Priorizar fecha_anulacion para procesos anulados, luego fecha_finalizacion
+    let fechaFin = null;
+    
+    if (esAnulado) {
+      // Para procesos anulados, priorizar fecha_anulacion
+      fechaFin = respuestaAPI.fecha_anulacion ||
+                 respuestaAPI.fecha_finalizacion ||
+                 respuestaAPI.fecha_fin ||
+                 respuestaAPI.fechaFin ||
+                 null;
+    } else if (esFinalizado) {
+      // Para procesos finalizados, usar fecha_finalizacion
+      fechaFin = respuestaAPI.fecha_finalizacion ||
+                 respuestaAPI.fecha_fin ||
+                 respuestaAPI.fechaFin ||
+                 null;
+    }
+    
+    // Si no hay fecha de finalización específica pero el proceso está finalizado/anulado,
+    // usar la fecha de última actualización (updatedAt) como fecha de fin
+    if ((!fechaFin || fechaFin === null) && esFinalizadoOAnulado) {
+      fechaFin = respuestaAPI.updatedAt || 
+                 respuestaAPI.updated_at || 
+                 fechaSolicitud; // Usar última actualización como fecha de fin
+      console.log(`ℹ️ [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} - Usando fecha de última actualización como fechaFin:`, fechaFin);
+    }
+    
+    // ✅ Extraer motivo de anulación si existe (con múltiples variantes)
+    // IMPORTANTE: El backend debe incluir motivo_anulacion en la respuesta
+    let motivoAnulacion = respuestaAPI.motivo_anulacion ||
+                         respuestaAPI.motivoAnulacion ||
+                         respuestaAPI.motivo ||
+                         respuestaAPI.motivo_anulacion_solicitud ||
+                         respuestaAPI.observaciones ||
+                         null;
+    
+    // Si no está en los campos directos, buscar en comentarios/seguimientos
+    if (esAnulado && !motivoAnulacion && respuestaAPI.comentarios && Array.isArray(respuestaAPI.comentarios)) {
+      // Buscar en comentarios si hay alguno relacionado con anulación
+      const comentarioAnulacion = respuestaAPI.comentarios.find(c => 
+        c && (
+          (typeof c === 'string' && c.toLowerCase().includes('anul')) ||
+          (typeof c === 'object' && c.texto && c.texto.toLowerCase().includes('anul')) ||
+          (typeof c === 'object' && c.descripcion && c.descripcion.toLowerCase().includes('anul'))
+        )
+      );
+      if (comentarioAnulacion) {
+        motivoAnulacion = typeof comentarioAnulacion === 'string' 
+          ? comentarioAnulacion 
+          : (comentarioAnulacion.texto || comentarioAnulacion.descripcion || comentarioAnulacion.motivo);
+        console.log(`ℹ️ [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} - Motivo encontrado en comentarios:`, motivoAnulacion);
+      }
+    }
+    
+    if (esAnulado && motivoAnulacion) {
+      console.log(`✅ [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} - Motivo de anulación encontrado:`, motivoAnulacion);
+      console.log(`✅ [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} - Fecha de anulación:`, respuestaAPI.fecha_anulacion || 'No disponible');
+      console.log(`✅ [transformarRespuestaDelAPI] Proceso ${respuestaAPI.id} - Anulado por (ID):`, respuestaAPI.anulado_por || 'No disponible');
+    } else if (esAnulado && !motivoAnulacion) {
+      console.warn(`⚠️ [transformarRespuestaDelAPI] ⚠️⚠️⚠️ Proceso ${respuestaAPI.id} - Proceso anulado pero SIN motivo en la respuesta del backend.`);
+      console.warn(`⚠️ [transformarRespuestaDelAPI] Verificando campos disponibles...`);
+      console.warn(`⚠️ [transformarRespuestaDelAPI] motivo_anulacion:`, respuestaAPI.motivo_anulacion);
+      console.warn(`⚠️ [transformarRespuestaDelAPI] fecha_anulacion:`, respuestaAPI.fecha_anulacion);
+      console.warn(`⚠️ [transformarRespuestaDelAPI] anulado_por:`, respuestaAPI.anulado_por);
+      console.warn(`⚠️ [transformarRespuestaDelAPI] Campos relacionados disponibles:`, 
+        Object.keys(respuestaAPI).filter(k => 
+          k.toLowerCase().includes('motivo') || 
+          k.toLowerCase().includes('observ') ||
+          k.toLowerCase().includes('anul') ||
+          k.toLowerCase().includes('coment')
+        )
+      );
+    }
     
     const respuestaFrontend = {
       id: respuestaAPI.id?.toString() || respuestaAPI.id_orden_servicio?.toString(),
@@ -1041,7 +1525,14 @@ class SolicitudesApiService {
       telefono,
       comentarios: respuestaAPI.comentarios || [],
       fechaCreacion,
-      fechaFin,
+      fechaSolicitud, // Para mostrar "Última actualización"
+      fechaFin, // Fecha de finalización (o última actualización si está finalizado/anulado)
+      motivoAnulacion, // Para mostrar motivo en historial
+      // ✅ Campos adicionales de fecha (para fallback en obtenerFechaFin)
+      fecha_anulacion: respuestaAPI.fecha_anulacion || null, // Fecha específica de anulación del backend
+      anulado_por: respuestaAPI.anulado_por || null, // ID del usuario que anuló
+      updatedAt: respuestaAPI.updatedAt || respuestaAPI.updated_at || null,
+      updated_at: respuestaAPI.updated_at || respuestaAPI.updatedAt || null,
       
       // ✅ Campos para la tabla (con múltiples fuentes)
       pais: respuestaAPI.pais || respuestaAPI.pais_titular || '',

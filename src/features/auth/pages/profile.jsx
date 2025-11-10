@@ -1,15 +1,13 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../../shared/contexts/authContext";
-import SideBarGeneral from "../../dashboard/components/sideBarGeneral";
-import NavBar from "../../dashboard/components/navBarGeneral";
 import ClientNavbar from "../components/ClientNavbar";
 import ProfileContent from "../components/ProfileContent";
-import { SidebarProvider } from "../../../shared/contexts/SidebarContext";
 
 const ViewProfile = () => {
   const { user: usuario, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center">
@@ -39,6 +37,9 @@ const ViewProfile = () => {
   // Determinar el rol del usuario
   const userRole = usuario?.rol?.nombre || usuario?.role || 'cliente';
   const isClient = userRole === 'cliente';
+  
+  // Verificar si estamos en la ruta de admin (que ya tiene el layout)
+  const isAdminRoute = location.pathname === '/admin/profile';
 
   // Renderizar layout según el rol
   if (isClient) {
@@ -53,23 +54,24 @@ const ViewProfile = () => {
     );
   }
 
-  // Layout para administradores y empleados (con sidebar)
-  return (
-    <SidebarProvider>
-      <div className="bg-[#eceded] flex h-screen w-screen overflow-hidden">
-        <SideBarGeneral />
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <NavBar titulo="Mi Perfil" />
-          <div className="flex-1 mt-10 px-1">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-              <div className="max-w-4xl mx-auto">
-                <ProfileContent />
-              </div>
-            </div>
-          </div>
-        </div>
+  // Para administradores y empleados, si estamos en /admin/profile,
+  // el AdminLayout ya maneja el sidebar, solo renderizamos el contenido
+  if (isAdminRoute) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <ProfileContent />
       </div>
-    </SidebarProvider>
+    );
+  }
+
+  // Fallback: si no es cliente ni está en /admin/profile, renderizar layout completo
+  // (esto no debería ocurrir, pero por si acaso)
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <ProfileContent />
+      </div>
+    </div>
   );
 };
 

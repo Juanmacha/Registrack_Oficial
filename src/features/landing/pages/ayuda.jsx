@@ -43,14 +43,14 @@ const Ayuda = () => {
           step: 2,
           title: 'Completar información personal',
           description: 'Llena todos los campos requeridos: nombre, email, contraseña',
-          image: '/images/formularioregistro.png',
+          image: '/images/Registrousuarionuevo.png',
           tip: 'Usa una contraseña segura con al menos 8 caracteres, Puede incluir mayúsculas, minúsculas y números.'
         },
         {
           step: 3,
           title: 'Confirmación de registro',
           description: 'Haz clic en el botón "Registrarse". Verás una alerta de éxito y serás redirigido al inicio de sesión.',
-          image: '/images/formulariolleno.png',
+          image: '/images/Registrousuarionuevolleno.png',
           tip: 'Espera unos segundos después de registrarte para que se complete la redirección automáticamente.'
         }
 
@@ -107,14 +107,13 @@ const Ayuda = () => {
           step: 3,
           title: 'Completar formulario',
           description: 'Llena el formulario con los datos de tu marca o solicitud',
-          image: '/images/formulariodeservicios.PNG',
+          image: '/images/formularionuevo.png',
           tip: 'Ten preparados los documentos de tu marca (logo, descripción, etc.) antes de comenzar.'
         },
         {
           step: 4,
           title: 'Revisar y confirmar',
           description: 'Verifica toda la información ingresada antes de enviar la solicitud. Al confirmar, serás redirigido automáticamente a la pasarela de pago.',
-          image: '/images/services-step4.png',
           tip: 'Asegúrate de tener un método de pago disponible para completar el proceso sin interrupciones.'
         }
 

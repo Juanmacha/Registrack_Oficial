@@ -15,7 +15,7 @@ const ClientNavbar = ({ title = "Mi Perfil", showBackButton = false }) => {
 
   const handleVerPerfil = () => {
     setMenuAbierto(false);
-    navigate("/profile");
+    navigate("/cliente/profile");
   };
 
   const handleCerrarSesion = async () => {
