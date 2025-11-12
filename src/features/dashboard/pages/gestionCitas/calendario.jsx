@@ -338,19 +338,34 @@ const Calendario = () => {
 
   const generarIdUnico = (cedula, fecha, hora) => `${cedula}_${fecha}_${hora}`;
 
-  const handleDateSelect = (selectInfo) => {
+  const handleDateSelect = async (selectInfo) => {
     console.log('🔧 [Calendario] handleDateSelect llamado:', selectInfo);
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const fechaSeleccionada = new Date(selectInfo.startStr);
-    fechaSeleccionada.setHours(0, 0, 0, 0);
-    console.log('🔧 [Calendario] Fecha seleccionada:', fechaSeleccionada);
-    console.log('🔧 [Calendario] Fecha de hoy:', hoy);
-    if (fechaSeleccionada < hoy) {
-      AlertService.warning("Fecha inválida", "No puedes agendar citas en días anteriores a hoy.");
-      return;
+    try {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaSeleccionada = new Date(selectInfo.startStr);
+      fechaSeleccionada.setHours(0, 0, 0, 0);
+      console.log('🔧 [Calendario] Fecha seleccionada:', fechaSeleccionada);
+      console.log('🔧 [Calendario] Fecha de hoy:', hoy);
+      
+      if (fechaSeleccionada < hoy) {
+        await alertService.warning("Fecha inválida", "No puedes agendar citas en días anteriores a hoy.");
+        return;
+      }
+      
+      // Asegurar que modoReprogramar esté desactivado cuando se selecciona una fecha nueva
+      setModoReprogramar(false);
+      setCitaAReprogramar(null);
+      
+      // Abrir el modal con la información de la fecha seleccionada
+      abrirModal(selectInfo);
+    } catch (error) {
+      console.error('❌ [Calendario] Error en handleDateSelect:', error);
+      // Aún así, intentar abrir el modal si hay un error
+      setModoReprogramar(false);
+      setCitaAReprogramar(null);
+      abrirModal(selectInfo);
     }
-    abrirModal(selectInfo);
   };
 
   // Función para asignar colores según el estado del evento
@@ -845,13 +860,39 @@ const Calendario = () => {
 
   function abrirModal(dateInfo = null) {
     console.log('🔧 [Calendario] abrirModal llamado con dateInfo:', dateInfo);
+    console.log('🔧 [Calendario] dateInfo.startStr:', dateInfo?.startStr);
+    console.log('🔧 [Calendario] dateInfo.start:', dateInfo?.start);
+    
+    // Deseleccionar cualquier selección activa en el calendario
+    if (calendarRef.current) {
+      try {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.unselect();
+      } catch (error) {
+        console.warn('⚠️ [Calendario] No se pudo deseleccionar el calendario:', error);
+      }
+    }
+    
     setShowModal(true);
     setModalDate(dateInfo);
     
     // Recargar empleados al abrir el modal para asegurar datos actualizados
     cargarEmpleadosDesdeAPI();
     
-    // Resetear formulario
+    // Resetear formulario y modo reprogramar
+    setModoReprogramar(false);
+    setCitaAReprogramar(null);
+    
+    // Determinar hora inicial basada en la fecha seleccionada
+    let horaInicioInicial = "";
+    if (dateInfo?.startStr) {
+      // Si viene con hora (vista de semana/día), usar esa hora
+      const partes = dateInfo.startStr.split('T');
+      if (partes.length > 1 && partes[1]) {
+        horaInicioInicial = partes[1].slice(0, 5);
+      }
+    }
+    
     setFormData({
       nombre: "",
       apellido: "",
@@ -859,7 +900,7 @@ const Calendario = () => {
       tipoDocumento: "",
       telefono: "",
       tipoCita: "",
-      horaInicio: dateInfo?.startStr ? dateInfo.startStr.split('T')[1]?.slice(0,5) : "",
+      horaInicio: horaInicioInicial,
       horaFin: "",
       asesor: "",
       detalle: "",
@@ -867,6 +908,8 @@ const Calendario = () => {
     
     setErrores({});
     setTouched({});
+    
+    console.log('✅ [Calendario] Modal abierto, showModal:', true);
   }
 
   function cerrarModal() {
@@ -996,7 +1039,7 @@ const Calendario = () => {
   };
 
   // Función para exportar a Excel las citas del mes visible
-  const exportarExcelMesActual = () => {
+  const exportarExcelMesActual = async () => {
     if (!calendarRef.current) return;
     const calendarApi = calendarRef.current.getApi();
     const start = calendarApi.view.currentStart;
@@ -1007,7 +1050,7 @@ const Calendario = () => {
       return fecha >= start && fecha < end;
     });
     if (eventosMes.length === 0) {
-      AlertService.info("Sin datos", "No hay citas en el mes actual.");
+      await alertService.info("Sin datos", "No hay citas en el mes actual.");
       return;
     }
     // Preparar datos para Excel
@@ -1177,6 +1220,7 @@ const Calendario = () => {
           dayMaxEvents={1}
           dayMaxEventRows={false}
           eventDisplay="block"
+          selectOverlap={false}
           eventClassNames={arg => {
             let base = "custom-event";
             if (arg.view.type === "timeGridWeek" || arg.view.type === "timeGridDay") {
@@ -1208,6 +1252,10 @@ const Calendario = () => {
           slotMaxTime="19:00:00"
           height="auto"
           select={handleDateSelect}
+          selectAllow={(selectInfo) => {
+            // Permitir selección en todas las vistas, pero validar fecha en handleDateSelect
+            return true;
+          }}
         />
         {events.length === 0 && (
           <div className="flex flex-col items-center justify-center h-96 text-gray-300">
