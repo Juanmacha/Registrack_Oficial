@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { BiEnvelope, BiLock, BiShow, BiHide, BiLeftArrowAlt } from "react-icons/bi";
 import { useAuth } from "../../../shared/contexts/authContext";
 import alertService from "../../../utils/alertService";
+import { sanitizeLoginData } from "../../../shared/utils/sanitizer.js";
+import { manejarErrorAPI, obtenerMensajeErrorUsuario } from "../../../shared/utils/errorHandler.js";
+import { tieneRolAdministrativo } from "../../../shared/utils/roleUtils.js";
 
 const validateEmail = (email) => {
   // Expresión regular básica para validar email
@@ -61,8 +64,14 @@ const Login = () => {
       return;
     }
     try {
+      // Sanitizar datos antes de enviar
+      const sanitizedData = sanitizeLoginData({
+        email: formData.email,
+        password: formData.password
+      });
+
       // Autenticar usuario usando AuthContext
-      const result = await login(formData.email, formData.password);
+      const result = await login(sanitizedData.correo || formData.email, formData.password);
       
       if (result.success) {
         // Mostrar alerta de login exitoso
@@ -92,38 +101,74 @@ const Login = () => {
           return;
         }
         
-        // Redirigir según el rol
-        const userRole = result.user.rol || result.user.role;
-        console.log('🎯 Rol detectado para redirección:', userRole);
+        // Redirigir según el rol - Usar lógica inteligente basada en permisos
+        const user = result.user;
+        console.log('🎯 [Login] Usuario para redirección:', user);
+        console.log('🎯 [Login] Rol del usuario:', user.rol);
+        console.log('🎯 [Login] Tipo de rol:', typeof user.rol);
         
-        // Extraer el nombre del rol si es un objeto
-        let roleName = '';
-        if (typeof userRole === 'object' && userRole !== null) {
-          roleName = userRole.nombre || userRole.name || userRole.role || '';
-        } else {
-          roleName = userRole || '';
-        }
+        // Verificar si el rol tiene permisos administrativos (dashboard o gestión)
+        const esAdministrativo = tieneRolAdministrativo(user);
+        console.log('🎯 [Login] ¿Es administrativo?', esAdministrativo);
         
-        console.log('🎯 Nombre del rol extraído:', roleName);
-        
-        // Esperar un momento para que el contexto se actualice antes de redirigir
+        // Esperar un momento para que el contexto se actualice completamente
+        // Luego redirigir usando navigate para mantener el estado de React
         setTimeout(() => {
-          if (roleName === "administrador" || roleName === "Administrador" || roleName === "admin") {
-            console.log('✅ Redirigiendo a dashboard de administrador');
-            navigate("/admin/dashboard");
-          } else if (roleName === "empleado" || roleName === "Empleado" || roleName === "employee") {
-            console.log('✅ Redirigiendo a dashboard de empleado');
-            navigate("/admin/dashboard");
+          if (esAdministrativo) {
+            console.log('✅ [Login] Rol administrativo detectado, redirigiendo a dashboard');
+            navigate("/admin/dashboard", { replace: true });
           } else {
-            console.log('✅ Redirigiendo a landing (cliente)');
-            navigate("/"); // Clientes van al landing normal
+            console.log('✅ [Login] Rol de cliente detectado, redirigiendo a landing');
+            navigate("/", { replace: true });
           }
-        }, 500); // Aumentar el delay para asegurar que el contexto se actualice
+        }, 200);
       } else {
-        setError("Credenciales incorrectas. Intenta de nuevo.");
+        // El mensaje de error ya viene procesado desde authApiService
+        // Si es rate limit, el mensaje ya incluye el tiempo de espera
+        const errorMessage = result.message || "Credenciales incorrectas. Intenta de nuevo.";
+        setError(errorMessage);
+        
+        // Si hay información adicional del error (como rate limit), podemos usarla
+        if (result.errorType === 'RATE_LIMIT' && result.errorInfo?.waitTimeMinutes) {
+          // El mensaje ya debería incluir el tiempo, pero por si acaso lo verificamos
+          if (!errorMessage.includes('Espera')) {
+            setError(`${errorMessage} (Espera ${result.errorInfo.waitTimeMinutes} ${result.errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`);
+          }
+        }
       }
     } catch (error) {
-      setError("Error al iniciar sesión. Por favor, intenta de nuevo.");
+      console.error("Error en login:", error);
+      
+      // Asegurar que el error tenga la estructura correcta
+      let errorResponse = error.response;
+      if (!errorResponse && error.status) {
+        // Si el error tiene status pero no response, crear la estructura
+        errorResponse = {
+          status: error.status,
+          data: error.data || { error: error.message || 'Error desconocido' },
+          headers: error.headers
+        };
+      }
+      
+      // Manejar errores de la API
+      const errorInfo = manejarErrorAPI(error, errorResponse);
+      const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
+      
+      // Asegurar que errorMessage sea siempre un string
+      const finalErrorMessage = typeof errorMessage === 'string' 
+        ? errorMessage 
+        : (errorInfo.mensaje || 'Error al iniciar sesión. Por favor, intenta de nuevo.');
+      
+      // Si es rate limit, mostrar mensaje específico
+      if (errorInfo.tipo === 'RATE_LIMIT') {
+        if (errorInfo.waitTimeMinutes) {
+          setError(`${finalErrorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`);
+        } else {
+          setError(finalErrorMessage);
+        }
+      } else {
+        setError(finalErrorMessage);
+      }
     }
   };
 
@@ -151,8 +196,18 @@ const Login = () => {
 
             {/* Error Message */}
             {error && (
-              <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600 text-sm text-center">{error}</p>
+              <div className={`mb-6 p-3 border rounded-lg ${
+                (typeof error === 'string' && (error.includes('Demasiados intentos') || error.includes('espera')))
+                  ? 'bg-yellow-50 border-yellow-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className={`text-sm text-center ${
+                  (typeof error === 'string' && (error.includes('Demasiados intentos') || error.includes('espera')))
+                    ? 'text-yellow-800' 
+                    : 'text-red-600'
+                }`}>
+                  {typeof error === 'string' ? error : String(error)}
+                </p>
               </div>
             )}
 

@@ -3,7 +3,7 @@ import { PAISES } from '../../shared/utils/paises.js';
 import Swal from 'sweetalert2';
 import FileUpload from './FileUpload.jsx';
 
-const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ampliación de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors }) => {
+const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ampliación de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true }) => {
   // Estado local como fallback
   const [localForm, setLocalForm] = useState({
     // ✅ Sección 1: Información del Titular
@@ -195,7 +195,14 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
         
         {/* Contenido del formulario con scroll */}
         <div className="overflow-y-auto max-h-[calc(96vh-140px)] px-8 py-8 bg-gradient-to-b from-gray-50/50 via-white to-gray-50/50">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {(() => {
+            const FormWrapper = renderForm ? 'form' : 'div';
+            const wrapperProps = renderForm 
+              ? { onSubmit: handleSubmit, className: "space-y-6" }
+              : { className: "space-y-6" };
+            
+            return (
+              <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -336,23 +343,27 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
               </div>
             </div>
 
-            {/* Botones */}
-            <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-              <button 
-                type="button" 
-                onClick={onClose} 
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
-              >
-                Enviar Solicitud
-              </button>
-            </div>
-          </form>
+            {/* Botones - Solo mostrar si renderForm es true */}
+            {renderForm && (
+              <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+                >
+                  Enviar Solicitud
+                </button>
+              </div>
+            )}
+              </FormWrapper>
+            );
+          })()}
         </div>
       </div>
     </div>

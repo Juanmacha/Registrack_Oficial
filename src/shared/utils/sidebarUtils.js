@@ -9,23 +9,17 @@
 import { isAdmin, isEmployee, isAdminOrEmployee, getUserRole } from './roleUtils';
 
 /**
- * Obtiene los items del menú filtrados según el rol del usuario
- * @param {object} user - Usuario actual
- * @returns {array} Array de items del menú disponibles para el usuario
+ * Obtiene TODOS los items del menú sin filtrar por rol
+ * Los permisos se validan en las rutas con PermissionGuard
+ * @param {object} user - Usuario actual (no se usa para filtrar, solo para compatibilidad)
+ * @returns {array} Array con TODOS los items del menú
  * 
  * @example
  * const menuItems = getMenuItemsForRole(user);
- * // Retorna solo los items que el usuario puede ver según su rol
+ * // Retorna TODOS los items del menú, sin importar el rol
  */
 export const getMenuItemsForRole = (user) => {
-  // Si no hay usuario, retornar array vacío
-  if (!user) return [];
-
-  const isUserAdmin = isAdmin(user);
-  const isUserEmployee = isEmployee(user);
-  const isUserAdminOrEmployee = isAdminOrEmployee(user);
-
-  // Definir todos los items del menú con sus permisos
+  // Definir todos los items del menú
   // Orden: Dashboard - Configuración - Usuarios - Servicios - Empleados - Solicitudes - Citas - Clientes - Pagos
   const allMenuItems = [
     {
@@ -86,75 +80,41 @@ export const getMenuItemsForRole = (user) => {
     }
   ];
 
-  // Items del dropdown de Solicitudes
+  // Items del dropdown de Solicitudes (siempre se muestran todos)
   const solicitudesDropdownItems = [
     {
       label: "En proceso",
       icon: "TbListDetails",
       to: "/admin/ventasServiciosProceso",
-      roles: ['admin', 'empleado'], // Admin y Empleado
       isDropdownItem: true
     },
     {
       label: "Terminadas",
       icon: "TbCircleCheck",
       to: "/admin/ventasServiciosFin",
-      roles: ['admin', 'empleado'], // Admin y Empleado
       isDropdownItem: true
     },
     {
       label: "Solicitudes de citas",
       icon: "TbCalendarEvent",
       to: "/admin/solicitudesCitas",
-      roles: ['admin', 'empleado'], // Admin y Empleado
       isDropdownItem: true
     }
   ];
 
-  // Filtrar items principales según rol
-  const filteredMainItems = allMenuItems.filter(item => {
-    if (item.roles.includes('admin') && item.roles.includes('empleado')) {
-      return isUserAdminOrEmployee;
-    }
-    if (item.roles.includes('admin')) {
-      return isUserAdmin;
-    }
-    if (item.roles.includes('empleado')) {
-      return isUserEmployee;
-    }
-    return false;
-  });
-
-  // Filtrar items del dropdown según rol
-  const filteredDropdownItems = solicitudesDropdownItems.filter(item => {
-    if (item.roles.includes('admin') && item.roles.includes('empleado')) {
-      return isUserAdminOrEmployee;
-    }
-    if (item.roles.includes('admin')) {
-      return isUserAdmin;
-    }
-    if (item.roles.includes('empleado')) {
-      return isUserEmployee;
-    }
-    return false;
-  });
-
-  // Retornar items principales y el dropdown si tiene items
-  const result = [...filteredMainItems];
+  // Retornar TODOS los items principales sin filtrar
+  const result = [...allMenuItems];
   
-  // Si hay items en el dropdown, agregar el item "Solicitudes" como dropdown
+  // Agregar el item "Solicitudes" como dropdown (siempre visible)
   // Orden: Dashboard - Configuración - Usuarios - Servicios - Empleados - Solicitudes - Citas - Clientes - Pagos
-  if (filteredDropdownItems.length > 0) {
-    result.push({
-      label: "Solicitudes",
-      icon: "TbListDetails",
-      to: null, // No tiene ruta directa, es un dropdown
-      roles: ['administrador', 'empleado'],
-      order: 6, // Solicitudes va después de Empleados y antes de Citas
-      isDropdown: true,
-      dropdownItems: filteredDropdownItems
-    });
-  }
+  result.push({
+    label: "Solicitudes",
+    icon: "TbListDetails",
+    to: null, // No tiene ruta directa, es un dropdown
+    order: 6, // Solicitudes va después de Empleados y antes de Citas
+    isDropdown: true,
+    dropdownItems: solicitudesDropdownItems
+  });
 
   // Ordenar por order
   return result.sort((a, b) => a.order - b.order);
@@ -187,17 +147,13 @@ export const isMenuItemVisible = (item, user) => {
 };
 
 /**
- * Obtiene los items del dropdown de Solicitudes filtrados por rol
- * @param {object} user - Usuario actual
- * @returns {array} Array de items del dropdown disponibles
+ * Obtiene TODOS los items del dropdown de Solicitudes sin filtrar
+ * Los permisos se validan en las rutas con PermissionGuard
+ * @param {object} user - Usuario actual (no se usa para filtrar, solo para compatibilidad)
+ * @returns {array} Array con TODOS los items del dropdown
  */
 export const getSolicitudesDropdownItems = (user) => {
-  if (!user) return [];
-
-  const isUserAdminOrEmployee = isAdminOrEmployee(user);
-  
-  if (!isUserAdminOrEmployee) return [];
-
+  // Retornar TODOS los items del dropdown sin filtrar
   return [
     {
       label: "En proceso",

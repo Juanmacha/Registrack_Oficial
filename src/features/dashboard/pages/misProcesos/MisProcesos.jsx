@@ -3,6 +3,7 @@ import NavBarLanding from '../../../landing/components/landingNavbar.jsx';
 import { useAuth } from '../../../../shared/contexts/authContext';
 import ProcesosActivos from './components/ProcesosActivos.jsx';
 import HistorialProcesos from './components/HistorialProcesos.jsx';
+import { PagosPendientesSection } from './components/PagosPendientesCard.jsx';
 import { getSolicitudesUsuario, filtrarProcesos, obtenerServicios } from './services/procesosService.js';
 import { useSalesSync } from '../../../../utils/hooks/useAsyncDataSync.js';
 
@@ -201,6 +202,13 @@ const MisProcesos = () => {
           />
         ) : (
           <>
+            {/* ✅ NUEVO: Sección de Pagos Pendientes */}
+            <PagosPendientesSection 
+              procesos={procesos} 
+              servicios={servicios}
+              onRefresh={refreshProcesos}
+            />
+
             <div className="mb-6 flex flex-col md:flex-row md:items-center gap-3 w-full">
               {/* Buscador */}
               <div className="relative w-full md:w-80 flex-shrink-0">

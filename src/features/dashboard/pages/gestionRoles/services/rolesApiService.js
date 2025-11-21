@@ -32,8 +32,20 @@ class RolesApiService {
    */
   async handleResponse(response) {
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+      let errorData = {};
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // Si no se puede parsear el JSON, usar el texto de la respuesta
+        const text = await response.text().catch(() => '');
+        errorData = { message: text || `Error ${response.status}: ${response.statusText}` };
+      }
+      
+      // Crear un error con más información
+      const error = new Error(errorData.message || errorData.error || `Error ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
     }
     return await response.json();
   }

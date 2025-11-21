@@ -85,7 +85,7 @@ const ModalAgendarDesdeSolicitud = ({
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       if (fechaSeleccionada < hoy) {
-        errors.fecha = 'No puedes seleccionar fechas pasadas';
+        errors.fecha = 'No se pueden seleccionar fechas pasadas';
       }
     }
     
@@ -102,7 +102,7 @@ const ModalAgendarDesdeSolicitud = ({
     }
     
     if (!formData.asesor) {
-      errors.asesor = 'Debes seleccionar un asesor';
+      errors.asesor = 'Debe seleccionar un asesor';
     }
     
     // Validar cruce de horarios
@@ -248,7 +248,7 @@ const ModalAgendarDesdeSolicitud = ({
           onSuccess();
         }
         
-        errorMessage += '\n\n💡 Se han recargado las citas del calendario. Revisa las citas existentes del empleado y selecciona otro horario disponible.';
+        errorMessage += '\n\n💡 Se han recargado las citas del calendario. Revise las citas existentes del empleado y seleccione otro horario disponible.';
       }
       
       await alertService.error('Error al agendar cita', errorMessage);
@@ -435,7 +435,7 @@ const ModalAgendarDesdeSolicitud = ({
               onBlur={handleBlur}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500"
-              placeholder="Agregar detalles adicionales sobre la cita..."
+              placeholder="Ingresa detalles adicionales sobre la cita..."
             />
           </div>
           

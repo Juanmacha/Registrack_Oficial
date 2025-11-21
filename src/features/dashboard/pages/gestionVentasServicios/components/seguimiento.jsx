@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { AlertService } from '../../../../../shared/styles/alertStandards.js';
 import seguimientoApiService from '../services/seguimientoApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
+import FileUpload from '../../../../../shared/components/FileUpload.jsx';
 
 const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
   const { getToken } = useAuth();
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [observaciones, setObservaciones] = useState("");
-  const [documentosAdjuntos, setDocumentosAdjuntos] = useState("");
+  const [documentosAdjuntos, setDocumentosAdjuntos] = useState(null); // Cambiar a File o null
   const [cambiarEstado, setCambiarEstado] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
@@ -22,7 +23,7 @@ const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
       setTitulo("");
       setDescripcion("");
       setObservaciones("");
-      setDocumentosAdjuntos("");
+      setDocumentosAdjuntos(null);
       setCambiarEstado(false);
       setEstadoSeleccionado("");
       cargarEstadosDisponibles(); // También carga estado actual
@@ -90,7 +91,7 @@ const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
   };
 
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     // Validaciones
     if (!titulo.trim()) {
       AlertService.error("Título requerido", "Por favor, ingresa un título para el seguimiento.");
@@ -123,8 +124,23 @@ const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
       datos.observaciones = observaciones.trim();
     }
 
-    if (documentosAdjuntos.trim()) {
-      datos.documentos_adjuntos = documentosAdjuntos.trim();
+    // Convertir archivo a base64 y estructurar como objeto JSON (formato esperado por el backend)
+    if (documentosAdjuntos && documentosAdjuntos instanceof File) {
+      try {
+        console.log('🔧 [Seguimiento] Convirtiendo archivo a base64...');
+        const archivoBase64 = await fileToBase64(documentosAdjuntos);
+        // ✅ El backend espera un objeto JSON donde la clave es el nombre del archivo
+        // y el valor es el base64 con prefijo data:
+        const nombreArchivo = documentosAdjuntos.name.replace(/\.[^/.]+$/, ""); // Remover extensión
+        datos.documentos_adjuntos = {
+          [nombreArchivo]: archivoBase64 // Formato: {"nombre_archivo": "data:application/pdf;base64,..."}
+        };
+        console.log('✅ [Seguimiento] Archivo convertido a base64 y estructurado como objeto JSON');
+      } catch (error) {
+        console.error('❌ [Seguimiento] Error convirtiendo archivo:', error);
+        AlertService.error('Error', `Error al procesar el archivo: ${error.message}`);
+        return;
+      }
     }
 
     // Si hay cambio de estado, agregar nuevo_proceso (nombre exacto del estado)
@@ -136,9 +152,52 @@ const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
     setTitulo("");
     setDescripcion("");
     setObservaciones("");
-    setDocumentosAdjuntos("");
+    setDocumentosAdjuntos(null);
     setCambiarEstado(false);
     setEstadoSeleccionado("");
+  };
+
+  // Función para convertir archivo a base64 con prefijo data: (formato esperado por el backend)
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      // Validar tamaño (máx 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB en bytes
+      if (file.size > maxSize) {
+        reject(new Error(`El archivo ${file.name} excede el tamaño máximo de 5MB`));
+        return;
+      }
+
+      // Validar formato (PDF, JPG, PNG)
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        reject(new Error(`El archivo ${file.name} debe ser PDF, JPG o PNG`));
+        return;
+      }
+
+      const reader = new FileReader();
+      // ✅ Usar readAsDataURL para obtener automáticamente el prefijo data:[mime-type];base64,
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        try {
+          // reader.result ya incluye el prefijo: "data:application/pdf;base64,JVBERi0x..."
+          const base64WithPrefix = reader.result;
+          resolve(base64WithPrefix);
+        } catch (error) {
+          reject(new Error(`Error al convertir el archivo a base64: ${error.message}`));
+        }
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Handler para cambios en el campo de archivo
+  const handleFileChange = (e) => {
+    const { files } = e.target;
+    if (files && files.length > 0) {
+      setDocumentosAdjuntos(files[0]);
+    } else {
+      setDocumentosAdjuntos(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -287,18 +346,17 @@ const Seguimiento = ({ isOpen, onClose, solicitudId, onGuardar }) => {
 
           {/* Documentos Adjuntos */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Documentos Adjuntos <span className="text-gray-500 text-xs">(Opcional)</span>
-            </label>
-            <input
-              type="text"
+            <FileUpload
+              name="documentosAdjuntos"
               value={documentosAdjuntos}
-              onChange={(e) => setDocumentosAdjuntos(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              placeholder="URLs separadas por comas: https://ejemplo.com/doc1.pdf,https://ejemplo.com/doc2.pdf"
+              onChange={handleFileChange}
+              label="Documentos Adjuntos"
+              required={false}
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/jpg,image/png"
+              error={null}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Ingresa las URLs de los documentos separadas por comas
+              Puedes adjuntar un documento PDF, JPG o PNG (máximo 5MB)
             </p>
           </div>
 

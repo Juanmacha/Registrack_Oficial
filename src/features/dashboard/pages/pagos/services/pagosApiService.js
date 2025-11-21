@@ -95,17 +95,69 @@ class PagosApiService {
         }
       });
       
-      // El backend puede devolver { success: true, data: [...] } o directamente un array
+      console.log('📥 [PagosApiService] Respuesta completa:', response);
+      console.log('📥 [PagosApiService] Tipo de respuesta:', typeof response);
+      console.log('📥 [PagosApiService] Es array?:', Array.isArray(response));
+      console.log('📥 [PagosApiService] Tiene success?:', response?.success);
+      console.log('📥 [PagosApiService] Tiene data?:', response?.data !== undefined);
+      
+      // El backend puede devolver diferentes estructuras:
+      // 1. { success: true, data: [...] } - Array de pagos
+      // 2. { success: true, data: { pagos: [...] } } - Objeto con array de pagos
+      // 3. { success: true, data: [...] } donde cada elemento es un objeto con { pago: {...}, solicitud: {...}, ... }
+      // 4. Array directo [...]
+      
+      let pagosArray = [];
+      
       if (response.success && response.data) {
-        console.log('✅ [PagosApiService] Pagos obtenidos:', response.data.length);
-        return response.data;
-      } else if (Array.isArray(response)) {
-        console.log('✅ [PagosApiService] Pagos obtenidos (array directo):', response.length);
-        return response;
-      } else {
-        console.warn('⚠️ [PagosApiService] Formato de respuesta inesperado:', response);
-        return [];
+        // Caso 1: data es un array
+        if (Array.isArray(response.data)) {
+          console.log('✅ [PagosApiService] Formato: { success: true, data: [...] }');
+          pagosArray = response.data;
+        }
+        // Caso 2: data es un objeto con propiedad pagos
+        else if (response.data.pagos && Array.isArray(response.data.pagos)) {
+          console.log('✅ [PagosApiService] Formato: { success: true, data: { pagos: [...] } }');
+          pagosArray = response.data.pagos;
+        }
+        // Caso 3: data es un objeto con otras propiedades que contienen arrays
+        else if (typeof response.data === 'object') {
+          console.log('⚠️ [PagosApiService] Formato: { success: true, data: {...} } - Buscando array...');
+          // Buscar cualquier propiedad que sea un array
+          for (const key in response.data) {
+            if (Array.isArray(response.data[key])) {
+              console.log(`✅ [PagosApiService] Array encontrado en propiedad: ${key}`);
+              pagosArray = response.data[key];
+              break;
+            }
+          }
+        }
+      } 
+      // Caso 4: Array directo
+      else if (Array.isArray(response)) {
+        console.log('✅ [PagosApiService] Formato: Array directo');
+        pagosArray = response;
       }
+      
+      // Si los elementos del array tienen estructura { pago: {...}, solicitud: {...}, ... }
+      // Extraer solo el objeto pago
+      if (pagosArray.length > 0 && pagosArray[0].pago) {
+        console.log('🔄 [PagosApiService] Extrayendo objetos pago de estructura completa...');
+        pagosArray = pagosArray.map(item => ({
+          ...item.pago,
+          // Mantener información adicional si es necesaria
+          solicitud: item.solicitud,
+          servicio: item.servicio,
+          usuario: item.usuario,
+          cliente: item.cliente,
+          empresa: item.empresa
+        }));
+      }
+      
+      console.log('✅ [PagosApiService] Pagos procesados:', pagosArray.length);
+      console.log('📋 [PagosApiService] Primer pago (ejemplo):', pagosArray[0] || 'No hay pagos');
+      
+      return pagosArray;
     } catch (error) {
       console.error('❌ [PagosApiService] Error obteniendo pagos:', error);
       throw error;

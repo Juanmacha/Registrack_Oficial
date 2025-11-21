@@ -3,7 +3,7 @@ import TablaClientes from "./components/tablaClientes";
 import VerDetalleCliente from "./components/verDetalleCliente";
 import FormularioCliente from "./components/FormularioCliente";
 import clientesApiService from "../../services/clientesApiService";
-import { useNotification } from "../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../shared/services/NotificationService.js";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -29,7 +29,6 @@ const GestionClientes = () => {
   const [cargando, setCargando] = useState(false);
   const rolUsuario = "administrador"; // Cambia a "empleado" para probar restricción
   const clientesPorPagina = 5;
-  const { createSuccess, updateSuccess, createError, updateError } = useNotification();
 
   useEffect(() => {
     cargarClientes();
@@ -47,7 +46,7 @@ const GestionClientes = () => {
       console.log('✅ [GestionClientes] Clientes cargados:', clientesData);
     } catch (error) {
       console.error('❌ [GestionClientes] Error al cargar clientes:', error);
-      createError('Error al cargar clientes: ' + error.message);
+      notificationService.createError('Error al cargar clientes: ' + error.message);
     } finally {
       setCargando(false);
     }
@@ -88,14 +87,14 @@ const GestionClientes = () => {
       await clientesApiService.changeClienteEstado(cliente.id, nuevoEstado);
       
       console.log('✅ [GestionClientes] Estado cambiado en API');
-      updateSuccess('Estado del cliente actualizado correctamente');
+      notificationService.updateSuccess('Estado del cliente actualizado correctamente');
       
       // Recargar datos
       await cargarClientes();
       
     } catch (error) {
       console.error('❌ [GestionClientes] Error al cambiar estado:', error);
-      updateError('Error al cambiar estado: ' + error.message);
+      notificationService.updateError('Error al cambiar estado: ' + error.message);
     }
   };
 
@@ -173,12 +172,12 @@ const GestionClientes = () => {
         clienteGuardado = await clientesApiService.updateCliente(nuevoCliente.id, clienteData);
         console.log('✅ [GestionClientes] Cliente actualizado en API:', clienteGuardado);
         
-        updateSuccess('Cliente, usuario y empresa actualizados correctamente');
+        notificationService.updateSuccess('Cliente, usuario y empresa actualizados correctamente');
         } else {
         // Crear nuevo cliente
         clienteGuardado = await clientesApiService.createCliente(nuevoCliente);
         console.log('✅ [GestionClientes] Cliente creado en API');
-        createSuccess('Cliente creado correctamente');
+        notificationService.createSuccess('Cliente creado correctamente');
       }
       
       // Cerrar modal
@@ -190,9 +189,9 @@ const GestionClientes = () => {
     } catch (error) {
       console.error("❌ [GestionClientes] Error al guardar cliente:", error);
       if (modoEdicion) {
-        updateError('Error al actualizar cliente: ' + error.message);
+        notificationService.updateError('Error al actualizar cliente: ' + error.message);
       } else {
-        createError('Error al crear cliente: ' + error.message);
+        notificationService.createError('Error al crear cliente: ' + error.message);
       }
     }
   };
@@ -204,11 +203,11 @@ const GestionClientes = () => {
       await clientesApiService.downloadReporteExcel();
       
       console.log('✅ [GestionClientes] Reporte Excel descargado');
-      createSuccess('Reporte Excel descargado exitosamente');
+      notificationService.createSuccess('Reporte Excel descargado exitosamente');
       
     } catch (error) {
       console.error('❌ [GestionClientes] Error al descargar reporte Excel:', error);
-      createError('Error al descargar reporte: ' + error.message);
+      notificationService.createError('Error al descargar reporte: ' + error.message);
     }
   };
 

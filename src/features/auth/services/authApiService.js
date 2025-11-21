@@ -1,6 +1,7 @@
 import apiService from '../../../shared/services/apiService.js';
 import { clearAllAuthData } from '../../../shared/utils/authCleanup.js';
 import API_CONFIG from '../../../shared/config/apiConfig.js';
+import { manejarErrorAPI, obtenerMensajeErrorUsuario } from '../../../shared/utils/errorHandler.js';
 
 // Servicio de autenticación que consume la API real
 const authApiService = {
@@ -78,25 +79,25 @@ const authApiService = {
         stack: error.stack
       });
       
-      let errorMessage = 'Error de conexión con el servidor';
+      // Usar el manejador de errores para procesar el error correctamente
+      const errorInfo = manejarErrorAPI(error, error.response);
+      const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
       
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.mensaje) {
-        errorMessage = error.response.data.mensaje;
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Credenciales incorrectas';
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Usuario no encontrado';
-      } else if (error.response?.status >= 500) {
-        errorMessage = 'Error interno del servidor';
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+      // Asegurar que el mensaje sea siempre un string
+      let finalMessage = typeof errorMessage === 'string' 
+        ? errorMessage 
+        : (errorInfo.mensaje || 'Error al iniciar sesión. Por favor, intenta de nuevo.');
+      
+      // Si es rate limit, agregar información de tiempo de espera
+      if (errorInfo.tipo === 'RATE_LIMIT' && errorInfo.waitTimeMinutes) {
+        finalMessage = `${finalMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`;
       }
 
       return {
         success: false,
-        message: errorMessage
+        message: finalMessage,
+        errorType: errorInfo.tipo, // Incluir el tipo de error para manejo específico
+        errorInfo: errorInfo // Incluir información completa del error
       };
     }
   },
@@ -104,7 +105,7 @@ const authApiService = {
   // Registrar usuario
   register: async (userData) => {
     try {
-      const response = await apiService.post(API_CONFIG.ENDPOINTS.REGISTER, {
+      const requestData = {
         tipo_documento: userData.tipoDocumento || 'CC',
         documento: userData.documento,
         nombre: userData.nombre,
@@ -112,7 +113,14 @@ const authApiService = {
         correo: userData.email,
         contrasena: userData.password,
         id_rol: userData.roleId || 3 // Por defecto cliente
-      });
+      };
+
+      // Agregar teléfono si está presente
+      if (userData.telefono) {
+        requestData.telefono = userData.telefono;
+      }
+
+      const response = await apiService.post(API_CONFIG.ENDPOINTS.REGISTER, requestData);
 
       if (response.success || response.mensaje) {
         return {
@@ -284,57 +292,38 @@ const authApiService = {
     return localStorage.getItem('authToken');
   },
 
-  // Verificar permisos (basado en el rol del usuario)
+  // Verificar permisos (basado en los permisos que vienen del backend)
+  // El backend ahora envía los permisos en usuario.rol.permisos
   hasPermission: (resource, action) => {
     const user = authApiService.getCurrentUser();
     if (!user) return false;
 
-    // Mapeo de roles a permisos (basado en la documentación de la API)
-    const rolePermissions = {
-      'administrador': {
-        usuarios: { crear: true, leer: true, actualizar: true, eliminar: true },
-        empleados: { crear: true, leer: true, actualizar: true, eliminar: true },
-        clientes: { crear: true, leer: true, actualizar: true, eliminar: true },
-        ventas: { crear: true, leer: true, actualizar: true, eliminar: true },
-        pagos: { crear: true, leer: true, actualizar: true, eliminar: true },
-        citas: { crear: true, leer: true, actualizar: true, eliminar: true },
-        roles: { crear: true, leer: true, actualizar: true, eliminar: true },
-        reportes: { crear: true, leer: true, actualizar: true, eliminar: true },
-        configuracion: { crear: true, leer: true, actualizar: true, eliminar: true }
-      },
-      'empleado': {
-        usuarios: { crear: false, leer: true, actualizar: false, eliminar: false },
-        empleados: { crear: false, leer: true, actualizar: false, eliminar: false },
-        clientes: { crear: true, leer: true, actualizar: true, eliminar: false },
-        ventas: { crear: true, leer: true, actualizar: true, eliminar: false },
-        pagos: { crear: true, leer: true, actualizar: true, eliminar: false },
-        citas: { crear: true, leer: true, actualizar: true, eliminar: false },
-        roles: { crear: false, leer: false, actualizar: false, eliminar: false },
-        reportes: { crear: false, leer: true, actualizar: false, eliminar: false },
-        configuracion: { crear: false, leer: false, actualizar: false, eliminar: false }
-      },
-      'cliente': {
-        usuarios: { crear: false, leer: false, actualizar: false, eliminar: false },
-        empleados: { crear: false, leer: false, actualizar: false, eliminar: false },
-        clientes: { crear: false, leer: false, actualizar: false, eliminar: false },
-        ventas: { crear: false, leer: true, actualizar: false, eliminar: false },
-        pagos: { crear: false, leer: true, actualizar: false, eliminar: false },
-        citas: { crear: true, leer: true, actualizar: false, eliminar: false },
-        roles: { crear: false, leer: false, actualizar: false, eliminar: false },
-        reportes: { crear: false, leer: false, actualizar: false, eliminar: false },
-        configuracion: { crear: false, leer: false, actualizar: false, eliminar: false }
-      }
-    };
-
+    // Si es administrador, tiene acceso total
     const userRole = user.rol?.nombre || user.rol || user.role;
-    console.log('🔍 [AuthApiService] Verificando permisos:', { userRole, user });
-    const userPermissions = rolePermissions[userRole];
-    if (!userPermissions) return false;
+    if (userRole === 'administrador' || userRole === 'Administrador' || userRole === 'admin') {
+      return true;
+    }
 
-    const resourcePermissions = userPermissions[resource];
-    if (!resourcePermissions) return false;
+    // Usar los permisos que vienen del backend en usuario.rol.permisos
+    const permisos = user.rol?.permisos;
+    if (!permisos || typeof permisos !== 'object') {
+      console.warn('⚠️ [AuthApiService] No se encontraron permisos en usuario.rol.permisos');
+      return false;
+    }
 
-    return resourcePermissions[action] || false;
+    // El backend envía los módulos sin el prefijo "gestion_"
+    // Ejemplo: "usuarios" en lugar de "gestion_usuarios"
+    const moduloKey = resource.replace('gestion_', '').toLowerCase();
+    const moduloPermisos = permisos[moduloKey];
+    
+    if (!moduloPermisos || typeof moduloPermisos !== 'object') {
+      return false;
+    }
+
+    // Normalizar acción: "editar" -> "actualizar" (el backend usa "actualizar")
+    const accionNormalizada = action === 'editar' ? 'actualizar' : action;
+    
+    return moduloPermisos[accionNormalizada] === true;
   },
 
   // Verificar si es administrador
@@ -342,10 +331,16 @@ const authApiService = {
     const user = authApiService.getCurrentUser();
     if (!user) return false;
     
-    // Verificar tanto el formato antiguo como el nuevo
+    // Verificar por id_rol (1 = administrador)
+    const userRoleId = user.rol?.id || user.id_rol || user.idRol;
+    if (userRoleId === 1 || userRoleId === '1') {
+      return true;
+    }
+    
+    // Verificar por nombre del rol (formato antiguo y nuevo)
     const userRole = user.rol?.nombre || user.rol || user.role;
-    console.log('🔍 [AuthApiService] Verificando si es admin:', { userRole, user });
-    return userRole === 'administrador';
+    console.log('🔍 [AuthApiService] Verificando si es admin:', { userRole, userRoleId, user });
+    return userRole === 'administrador' || userRole === 'Administrador' || userRole === 'admin';
   },
 
   // Verificar si es empleado
@@ -353,10 +348,19 @@ const authApiService = {
     const user = authApiService.getCurrentUser();
     if (!user) return false;
     
-    // Verificar tanto el formato antiguo como el nuevo
+    // Si es admin, también es empleado (tiene más permisos)
+    if (authApiService.isAdmin()) return true;
+    
+    // Verificar por id_rol (3 = empleado)
+    const userRoleId = user.rol?.id || user.id_rol || user.idRol;
+    if (userRoleId === 3 || userRoleId === '3') {
+      return true;
+    }
+    
+    // Verificar por nombre del rol (formato antiguo y nuevo)
     const userRole = user.rol?.nombre || user.rol || user.role;
-    console.log('🔍 [AuthApiService] Verificando si es empleado:', { userRole, user });
-    return userRole === 'empleado' || authApiService.isAdmin();
+    console.log('🔍 [AuthApiService] Verificando si es empleado:', { userRole, userRoleId, user });
+    return userRole === 'empleado' || userRole === 'Empleado' || userRole === 'employee';
   },
 
   // Verificar si es cliente

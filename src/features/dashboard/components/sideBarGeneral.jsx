@@ -66,8 +66,8 @@ const SideBarGeneral = () => {
     return allMenuItems.find(item => item.isDropdown);
   }, [allMenuItems]);
 
-  // ✅ Verificar si el usuario puede ver el dropdown de Solicitudes
-  const showSolicitudesDropdown = solicitudesDropdownItems.length > 0 && solicitudesMenuItem;
+  // ✅ Siempre mostrar el dropdown de Solicitudes si existe (ya no se filtra por rol)
+  const showSolicitudesDropdown = solicitudesMenuItem && solicitudesMenuItem.dropdownItems && solicitudesMenuItem.dropdownItems.length > 0;
 
   const handleToggleDropdown = () => setIsDropdownOpen(prev => !prev);
   const handleSidebarEnter = () => setIsSidebarExpanded(true);

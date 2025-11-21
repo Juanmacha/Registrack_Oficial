@@ -12,7 +12,7 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
 import { AlertService } from '../../../../../shared/styles/alertStandards.js';
 import getEstadoBadge from "../services/getEstadoBadge";
-import CrearSolicitud from "./CrearSolicitud";
+import CrearSolicitudAdmin from "./CrearSolicitudAdmin";
 import Swal from 'sweetalert2';
 import StandardAvatar from "../../../../../shared/components/StandardAvatar";
 import * as xlsx from "xlsx";
@@ -52,6 +52,9 @@ const TablaVentasProceso = ({ adquirir }) => {
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState("");
   const [empleadosAPI, setEmpleadosAPI] = useState([]);
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
+  const [modalSeguimientosDescargarOpen, setModalSeguimientosDescargarOpen] = useState(false);
+  const [seguimientosDisponibles, setSeguimientosDisponibles] = useState([]);
+  const [cargandoSeguimientos, setCargandoSeguimientos] = useState(false);
 
   // ✅ NUEVO: Usar API real para ventas en proceso
   const [ventasEnProceso, refreshVentas, loading, lastUpdate, error] = useSalesSync(
@@ -102,7 +105,13 @@ const TablaVentasProceso = ({ adquirir }) => {
     const coincideTexto =
       !texto ||
       (item.titular && item.titular.toLowerCase().includes(texto)) ||
-      (item.marca && item.marca.toLowerCase().includes(texto));
+      (item.marca && item.marca.toLowerCase().includes(texto)) ||
+      (item.email && item.email.toLowerCase().includes(texto)) ||
+      (item.numeroDocumento && item.numeroDocumento.toString().toLowerCase().includes(texto)) ||
+      (item.documento && item.documento.toString().toLowerCase().includes(texto)) ||
+      (item.tipoDocumento && item.tipoDocumento.toLowerCase().includes(texto)) ||
+      (item.encargado && item.encargado.toLowerCase().includes(texto)) ||
+      (item.expediente && item.expediente.toLowerCase().includes(texto));
     return coincideServicio && coincideEstado && coincideTexto;
   });
 
@@ -149,6 +158,106 @@ const TablaVentasProceso = ({ adquirir }) => {
       cargarEmpleadosAPI();
     }
   }, [modalAsignarEncargadoOpen]);
+
+  const cargarSeguimientosParaDescarga = async (idOrdenServicio) => {
+    if (!idOrdenServicio) {
+      AlertService.error('Error', 'No se pudo identificar la orden de servicio');
+      return;
+    }
+
+    setCargandoSeguimientos(true);
+    try {
+      const token = getToken();
+      if (!token) {
+        AlertService.error('Error', 'No se encontró token de autenticación');
+        return;
+      }
+
+      console.log('🔧 [TablaVentasProceso] Cargando seguimientos para orden:', idOrdenServicio);
+      const historial = await seguimientoApiService.getHistorial(idOrdenServicio, token);
+      
+      // Filtrar solo seguimientos que tienen documentos adjuntos
+      const seguimientosConArchivos = historial.filter(s => {
+        const docs = s.documentos_adjuntos;
+        return docs && docs !== null && docs !== '' && docs !== 'null';
+      });
+      
+      console.log('✅ [TablaVentasProceso] Seguimientos con archivos:', seguimientosConArchivos.length);
+      setSeguimientosDisponibles(seguimientosConArchivos);
+    } catch (error) {
+      console.error('❌ [TablaVentasProceso] Error cargando seguimientos:', error);
+      AlertService.error('Error', 'No se pudieron cargar los seguimientos');
+      setSeguimientosDisponibles([]);
+    } finally {
+      setCargandoSeguimientos(false);
+    }
+  };
+
+  const descargarArchivosSeguimiento = async (idSeguimiento) => {
+    try {
+      Swal.fire({
+        title: 'Descargando archivos...',
+        text: 'Por favor espera mientras se preparan los archivos',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const token = getToken();
+      if (!token) {
+        throw new Error('No hay token de autenticación. Por favor inicia sesión nuevamente.');
+      }
+
+      const result = await seguimientoApiService.descargarArchivosSeguimiento(idSeguimiento, token);
+      
+      // Descargar el archivo
+      const url = window.URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Descarga exitosa',
+        text: `Los archivos se han descargado correctamente${result.filename ? `: ${result.filename}` : ''}`,
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: { popup: "swal2-border-radius" }
+      });
+
+      // Cerrar modal
+      setModalSeguimientosDescargarOpen(false);
+    } catch (error) {
+      console.error('❌ [TablaVentasProceso] Error descargando archivos de seguimiento:', error);
+      Swal.close();
+      
+      let errorMessage = 'No se pudieron descargar los archivos. Por favor, intente nuevamente.';
+      if (error.message) {
+        if (error.message.includes('404')) {
+          errorMessage = 'No se encontraron archivos asociados a este seguimiento.';
+        } else if (error.message.includes('403') || error.message.includes('401')) {
+          errorMessage = 'No tiene permisos para descargar estos archivos.';
+        } else if (error.message.includes('token')) {
+          errorMessage = 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al descargar',
+        text: errorMessage,
+        customClass: { popup: "swal2-border-radius" }
+      });
+    }
+  };
 
   const cargarEmpleadosAPI = async () => {
     setLoadingEmpleados(true);
@@ -224,7 +333,7 @@ const TablaVentasProceso = ({ adquirir }) => {
       
     } catch (error) {
       console.error('❌ [handleGuardarEdicion] Error actualizando solicitud:', error);
-      AlertService.error('Error', 'No se pudo actualizar la solicitud. Intenta de nuevo.');
+      AlertService.error('Error', 'No se pudo actualizar la solicitud. Intente nuevamente.');
     }
   };
 
@@ -240,24 +349,31 @@ const TablaVentasProceso = ({ adquirir }) => {
     setModalCrearOpen(true);
   };
 
-  const handleGuardarNuevaVenta = async (nuevaVenta) => {
-    console.log("🔧 [handleGuardarNuevaVenta] Iniciando creación de venta:", nuevaVenta);
+  const handleGuardarNuevaVenta = async (resultado) => {
+    console.log("🔧 [handleGuardarNuevaVenta] Recibido resultado:", resultado);
     try {
-      const resultado = await crearVenta(nuevaVenta); // Guardar la venta en el almacenamiento
-      console.log("🔧 [handleGuardarNuevaVenta] Venta creada exitosamente:", resultado);
+      // ✅ La solicitud ya fue creada por CrearSolicitudAdmin en la API
+      // Solo necesitamos refrescar los datos y cerrar el modal
       
       setModalCrearOpen(false);
+      setTipoSeleccionado("");
       setModoCrear(false);
       setPaginaActual(1); // Forzar a la primera página
       
       // Refrescar inmediatamente después de crear
-      console.log("🔧 [handleGuardarNuevaVenta] Refrescando datos...");
-      refreshVentas();
+      console.log("🔧 [handleGuardarNuevaVenta] Refrescando datos desde la API...");
       
-      AlertService.success("Solicitud creada", "La solicitud se ha creado correctamente.");
+      // Esperar un poco para que el backend procese la solicitud
+      setTimeout(async () => {
+        await refreshVentas();
+        console.log("✅ [handleGuardarNuevaVenta] Datos refrescados");
+      }, 500);
+      
+      // No mostrar alerta aquí porque CrearSolicitudAdmin ya la mostró
+      // AlertService.success("Solicitud creada", "La solicitud se ha creado correctamente.");
     } catch (error) {
-      console.error("🔧 [handleGuardarNuevaVenta] Error al crear la venta:", error);
-      AlertService.error("Error al crear", "No se pudo crear la solicitud. Inténtalo de nuevo.");
+      console.error("🔧 [handleGuardarNuevaVenta] Error al refrescar datos:", error);
+      // No mostrar error aquí porque CrearSolicitudAdmin ya manejó el error
     }
   };
 
@@ -316,8 +432,75 @@ const TablaVentasProceso = ({ adquirir }) => {
         datosSeguimiento.observaciones = datos.observaciones.trim();
       }
 
-      if (datos.documentos_adjuntos && datos.documentos_adjuntos.trim()) {
-        datosSeguimiento.documentos_adjuntos = datos.documentos_adjuntos.trim();
+      // Manejar documentos adjuntos
+      // ✅ Según la documentación del backend, documentos_adjuntos DEBE ser un objeto JSON
+      // donde cada clave es el nombre del archivo y cada valor es el base64 con prefijo data:
+      // Formato esperado: {"nombre_archivo": "data:application/pdf;base64,JVBERi0x..."}
+      if (datos.documentos_adjuntos) {
+        if (typeof datos.documentos_adjuntos === 'object' && datos.documentos_adjuntos !== null) {
+          // ✅ Si ya es un objeto (formato correcto), validar y enviar
+          // Validar que todos los valores sean strings con prefijo data:
+          let objetoValido = true;
+          for (const [clave, valor] of Object.entries(datos.documentos_adjuntos)) {
+            if (typeof valor !== 'string' || !valor.startsWith('data:')) {
+              console.warn(`⚠️ [handleGuardarComentario] El archivo "${clave}" no tiene el formato correcto (debe ser base64 con prefijo data:)`);
+              objetoValido = false;
+              break;
+            }
+            // Validar tamaño del string base64 (aproximadamente 1.33x el tamaño del archivo original)
+            const maxBase64Size = 6 * 1024 * 1024; // 6MB
+            if (valor.length > maxBase64Size) {
+              AlertService.error(
+                'Error', 
+                `El archivo "${clave}" es demasiado grande. Por favor, use un archivo más pequeño (máximo 4.5MB).`
+              );
+              return;
+            }
+          }
+          
+          if (objetoValido) {
+            datosSeguimiento.documentos_adjuntos = datos.documentos_adjuntos;
+            console.log('✅ [handleGuardarComentario] Enviando documentos_adjuntos como objeto JSON (formato correcto)');
+          } else {
+            AlertService.error(
+              'Error',
+              'El formato de los archivos adjuntos no es válido. Por favor, intente nuevamente.'
+            );
+            return;
+          }
+        } else if (typeof datos.documentos_adjuntos === 'string') {
+          // Si viene como string (compatibilidad con código antiguo), intentar convertirlo a objeto
+          const documentosTrimmed = datos.documentos_adjuntos.trim();
+          if (documentosTrimmed) {
+            // Validar tamaño
+            const maxBase64Size = 6 * 1024 * 1024; // 6MB
+            if (documentosTrimmed.length > maxBase64Size) {
+              AlertService.error(
+                'Error', 
+                'El archivo adjunto es demasiado grande. Por favor, use un archivo más pequeño (máximo 4.5MB).'
+              );
+              return;
+            }
+            
+            // Si tiene prefijo data:, convertirlo a objeto
+            if (documentosTrimmed.startsWith('data:')) {
+              // Crear objeto con una clave genérica "archivo"
+              datosSeguimiento.documentos_adjuntos = {
+                "archivo": documentosTrimmed
+              };
+              console.log('📝 [handleGuardarComentario] Convertido string a objeto JSON (compatibilidad)');
+            } else {
+              // Si no tiene prefijo, agregarlo y crear objeto
+              // Intentar detectar el tipo MIME (por defecto PDF)
+              datosSeguimiento.documentos_adjuntos = {
+                "archivo": `data:application/pdf;base64,${documentosTrimmed}`
+              };
+              console.log('📝 [handleGuardarComentario] Agregado prefijo data: y convertido a objeto JSON');
+            }
+          }
+        } else {
+          console.warn('⚠️ [handleGuardarComentario] documentos_adjuntos tiene un tipo no soportado:', typeof datos.documentos_adjuntos);
+        }
       }
 
       // Si hay cambio de estado, agregar nuevo_proceso (nombre exacto del estado según backend)
@@ -369,7 +552,7 @@ const TablaVentasProceso = ({ adquirir }) => {
       });
       
       // Manejar diferentes tipos de errores según documentación del backend
-      let errorMessage = 'No se pudo agregar el seguimiento. Intenta de nuevo.';
+      let errorMessage = 'No se pudo agregar el seguimiento. Intente nuevamente.';
       
       if (error.message) {
         // Mensajes específicos del backend según documentación
@@ -383,8 +566,8 @@ const TablaVentasProceso = ({ adquirir }) => {
           errorMessage = 'La orden de servicio no existe o no es válida.';
         } else if (error.message.includes('No autorizado') || error.message.includes('autenticado')) {
           errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-        } else if (error.message.includes('Error interno del servidor')) {
-          errorMessage = 'Error del servidor. Por favor, verifica que la orden existe y vuelve a intentar. Si el problema persiste, contacta al administrador.';
+        } else if (error.message.includes('Error interno del servidor') || error.message.includes('500')) {
+          errorMessage = 'Error interno del servidor. Esto puede deberse a que el archivo adjunto es demasiado grande o hay un problema con el servidor. Por favor, intente con un archivo más pequeño (máximo 4.5MB) o contacte al administrador.';
         } else {
           errorMessage = error.message;
         }
@@ -455,7 +638,31 @@ const TablaVentasProceso = ({ adquirir }) => {
       }, 800);
     } catch (err) {
       console.error("❌ [TablaVentasProceso] Error al anular:", err);
-      AlertService.error("Error al anular", err.message || "No se pudo anular la solicitud");
+      
+      // ✅ MEJORADO: Detectar caso específico de solicitud ya anulada
+      const errorMessage = err.message || "";
+      const isAlreadyCancelled = 
+        err.isAlreadyCancelled || // ✅ Flag del servicio
+        errorMessage.toLowerCase().includes("ya está anulada") ||
+        errorMessage.toLowerCase().includes("ya ha sido anulada") ||
+        errorMessage.toLowerCase().includes("already cancelled") ||
+        errorMessage.toLowerCase().includes("already canceled");
+      
+      if (isAlreadyCancelled) {
+        // Mostrar mensaje informativo en lugar de error
+        AlertService.info(
+          "Solicitud ya anulada",
+          "Esta solicitud ya ha sido anulada previamente. No es necesario anularla nuevamente."
+        );
+        
+        // Cerrar modal y refrescar datos para mostrar el estado actualizado
+        setModalAnularOpen(false);
+        setMotivoAnular("");
+        await refreshVentas();
+      } else {
+        // Para otros errores, mostrar mensaje de error normal
+        AlertService.error("Error al anular", err.message || "No se pudo anular la solicitud");
+      }
     }
   };
 
@@ -596,7 +803,7 @@ const TablaVentasProceso = ({ adquirir }) => {
         onClose={() => setModalTipoOpen(false)}
         onSeleccionar={handleSeleccionarTipo}
       />
-      <CrearSolicitud
+      <CrearSolicitudAdmin
         isOpen={modalCrearOpen && !!tipoSeleccionado}
         onClose={() => {
           setModalCrearOpen(false);
@@ -669,7 +876,7 @@ const TablaVentasProceso = ({ adquirir }) => {
               <tr>
                 <th className="px-6 py-4 font-bold text-center">Titular</th>
                 <th className="px-6 py-4 font-bold text-center">Email</th>
-                <th className="px-6 py-4 font-bold text-center">Teléfono</th>
+                <th className="px-6 py-4 font-bold text-center">Documento del Titular</th>
                 <th className="px-6 py-4 font-bold text-center">Marca</th>
                 <th className="px-6 py-4 font-bold text-center">Tipo de Solicitud</th>
                 <th className="px-6 py-4 font-bold text-center">Proceso</th>
@@ -690,7 +897,7 @@ const TablaVentasProceso = ({ adquirir }) => {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center">{item.email || 'N/A'}</td>
-                  <td className="px-4 py-3 text-center">{item.telefono || 'N/A'}</td>
+                  <td className="px-4 py-3 text-center">{item.numeroDocumento || item.documento || 'N/A'}</td>
                   <td className="px-4 py-3 text-center">{item.marca || item.nombreMarca || 'N/A'}</td>
                   <td className="px-4 py-3 text-center">{item.tipoSolicitud || ''}</td>
                   <td className="px-4 py-3 text-center">{item.estado || ''}</td>
@@ -755,6 +962,16 @@ const TablaVentasProceso = ({ adquirir }) => {
                             }
                           },
                           {
+                            icon: "bi bi-file-earmark-arrow-down",
+                            label: "Descargar archivos de seguimiento",
+                            title: "Descargar archivos adjuntos de seguimientos",
+                            onClick: async () => {
+                              setDatoSeleccionado(item);
+                              setModalSeguimientosDescargarOpen(true);
+                              await cargarSeguimientosParaDescarga(item.id || item.id_orden_servicio);
+                            }
+                          },
+                          {
                             icon: "bi bi-file-earmark-zip",
                             label: "Descargar ZIP",
                             title: "Descargar documentos adjuntos",
@@ -799,15 +1016,15 @@ const TablaVentasProceso = ({ adquirir }) => {
                                 Swal.close();
                                 
                                 // Mensaje de error personalizado según el tipo de error
-                                let errorMessage = 'No se pudieron descargar los archivos. Por favor intenta nuevamente.';
+                                let errorMessage = 'No se pudieron descargar los archivos. Por favor, intente nuevamente.';
                                 
                                 if (error.message) {
                                   if (error.message.includes('404')) {
                                     errorMessage = 'No se encontraron archivos asociados a esta solicitud.';
                                   } else if (error.message.includes('403') || error.message.includes('401')) {
-                                    errorMessage = 'No tienes permisos para descargar estos archivos.';
+                                    errorMessage = 'No tiene permisos para descargar estos archivos.';
                                   } else if (error.message.includes('token')) {
-                                    errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+                                    errorMessage = 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.';
                                   } else {
                                     errorMessage = error.message;
                                   }
@@ -1045,6 +1262,109 @@ const TablaVentasProceso = ({ adquirir }) => {
               >
                 Asignar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal para seleccionar seguimiento y descargar archivos */}
+      {modalSeguimientosDescargarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-0 overflow-y-auto max-h-[90vh] relative border border-gray-200">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <span className="bg-blue-100 p-2 rounded-full">
+                  <i className="bi bi-file-earmark-arrow-down text-blue-600 text-2xl"></i>
+                </span>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">Descargar Archivos de Seguimiento</h2>
+                  <p className="text-sm text-gray-500">Selecciona un seguimiento para descargar sus archivos adjuntos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalSeguimientosDescargarOpen(false);
+                  setSeguimientosDisponibles([]);
+                }}
+                className="text-gray-500 hover:text-red-600 transition-colors"
+              >
+                <i className="bi bi-x-lg text-2xl"></i>
+              </button>
+            </div>
+            {/* Content */}
+            <div className="p-6">
+              {cargandoSeguimientos ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-gray-500 mt-4">Cargando seguimientos...</p>
+                </div>
+              ) : seguimientosDisponibles.length === 0 ? (
+                <div className="text-center py-8">
+                  <i className="bi bi-inbox text-4xl text-gray-400 mb-4"></i>
+                  <p className="text-gray-600 font-medium">No hay seguimientos con archivos adjuntos</p>
+                  <p className="text-sm text-gray-500 mt-2">Esta solicitud no tiene seguimientos con documentos adjuntos disponibles para descargar.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {seguimientosDisponibles.map((seguimiento) => {
+                    const fecha = seguimiento.fecha_registro || seguimiento.fecha_creacion || seguimiento.fecha;
+                    const formatearFecha = (fecha) => {
+                      if (!fecha) return '-';
+                      try {
+                        const fechaObj = new Date(fecha);
+                        return fechaObj.toLocaleDateString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      } catch {
+                        return fecha;
+                      }
+                    };
+                    
+                    return (
+                      <div
+                        key={seguimiento.id_seguimiento || seguimiento.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-800 mb-1">
+                              {seguimiento.titulo || seguimiento.título || 'Sin título'}
+                            </h3>
+                            {seguimiento.descripcion && (
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                {seguimiento.descripcion}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <i className="bi bi-calendar3"></i>
+                                {formatearFecha(fecha)}
+                              </span>
+                              {seguimiento.usuario_registro && (
+                                <span className="flex items-center gap-1">
+                                  <i className="bi bi-person"></i>
+                                  {seguimiento.usuario_registro.nombre} {seguimiento.usuario_registro.apellido}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => descargarArchivosSeguimiento(seguimiento.id_seguimiento || seguimiento.id)}
+                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <i className="bi bi-download"></i>
+                            Descargar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

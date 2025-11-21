@@ -35,11 +35,24 @@ class SolicitudesApiService {
       console.log('🌐 [SolicitudesApiService] Endpoint:', endpoint);
       console.log('🌐 [SolicitudesApiService] URL completa:', url);
       console.log('🌐 [SolicitudesApiService] Method:', config.method);
-      const response = await fetch(url, config);
-      console.log('📡 [SolicitudesApiService] Response status:', response.status);
       
-      if (!response.ok) {
-        // Obtener información completa del error
+      // ✅ MEJORADO: Agregar timeout a la petición (1 minuto y 15 segundos para creación de solicitudes)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 75000); // 1 minuto y 15 segundos (75 segundos)
+      
+      try {
+        const response = await fetch(url, {
+          ...config,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        console.log('📡 [SolicitudesApiService] Response status:', response.status);
+        console.log('📡 [SolicitudesApiService] Response ok:', response.ok);
+        console.log('📡 [SolicitudesApiService] Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (!response.ok) {
+          // Obtener información completa del error
         let errorData = {};
         let errorText = '';
         try {
@@ -315,14 +328,47 @@ class SolicitudesApiService {
           errorMessage += `\nCampos faltantes: ${errorData.camposFaltantes.join(', ')}`;
         }
         
-        throw new Error(errorMessage);
+        // ✅ MEJORADO: Crear error con información adicional para mejor manejo
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        error.data = errorData;
+        
+        // Detectar caso específico de solicitud ya anulada
+        const errorMessageLower = errorMessage.toLowerCase();
+        if (errorMessageLower.includes("ya está anulada") || 
+            errorMessageLower.includes("ya ha sido anulada") ||
+            errorMessageLower.includes("already cancelled") ||
+            errorMessageLower.includes("already canceled")) {
+          error.isAlreadyCancelled = true;
+        }
+        
+        throw error;
       }
 
-      const data = await response.json();
-      console.log('✅ [SolicitudesApiService] Response data:', data);
-      return data;
+        const data = await response.json();
+        console.log('✅ [SolicitudesApiService] Response data:', data);
+        console.log('✅ [SolicitudesApiService] Response data type:', typeof data);
+        console.log('✅ [SolicitudesApiService] Response data keys:', data ? Object.keys(data) : 'null');
+        return data;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        // Si es un error de abort (timeout), lanzar error específico
+        if (fetchError.name === 'AbortError') {
+          console.error('⏱️ [SolicitudesApiService] Timeout: La petición tardó más de 1 minuto y 15 segundos');
+          const timeoutError = new Error('La petición tardó demasiado tiempo. Por favor, verifica tu conexión o intenta nuevamente.');
+          timeoutError.isTimeout = true;
+          throw timeoutError;
+        }
+        
+        // Re-lanzar otros errores de fetch
+        throw fetchError;
+      }
     } catch (error) {
       console.error(`❌ [SolicitudesApiService] Error en petición API:`, error);
+      console.error(`❌ [SolicitudesApiService] Error name:`, error.name);
+      console.error(`❌ [SolicitudesApiService] Error message:`, error.message);
+      console.error(`❌ [SolicitudesApiService] Error stack:`, error.stack);
       throw error;
     }
   }
@@ -554,6 +600,19 @@ class SolicitudesApiService {
       return solicitudAnulada;
     } catch (error) {
       console.error(`❌ [SolicitudesApiService] Error anulando solicitud ${id}:`, error);
+      
+      // ✅ MEJORADO: Agregar información adicional al error para mejor manejo en el componente
+      if (error.message) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes("ya está anulada") || 
+            errorMessage.includes("ya ha sido anulada") ||
+            errorMessage.includes("already cancelled") ||
+            errorMessage.includes("already canceled")) {
+          // Marcar el error como "ya anulada" para manejo especial
+          error.isAlreadyCancelled = true;
+        }
+      }
+      
       throw error;
     }
   }
@@ -764,15 +823,23 @@ class SolicitudesApiService {
     switch (servicioAPI) {
       case 'Búsqueda de antecedentes':
         // ✅ Validar campos requeridos antes de construir el objeto
+        // Función auxiliar para convertir a string y hacer trim
+        const toStringAndTrim = (value) => {
+          if (value === null || value === undefined) return '';
+          if (typeof value === 'number') return String(value);
+          if (typeof value === 'string') return value.trim();
+          return String(value).trim();
+        };
+        
         const nombresApellidos = obtenerNombresApellidos();
-        const tipoDocumento = datosFrontend.tipoDocumento || '';
-        const numeroDocumento = datosFrontend.numeroDocumento || '';
-        const direccion = datosFrontend.direccion || '';
-        const telefono = datosFrontend.telefono || '';
-        const correo = datosFrontend.email || datosFrontend.correo || '';
-        const pais = datosFrontend.pais || 'Colombia';
-        const nombreABuscar = datosFrontend.nombreMarca || datosFrontend.nombreABuscar || '';
-        const tipoProductoServicio = datosFrontend.tipoProductoServicio || datosFrontend.categoria || '';
+        const tipoDocumento = toStringAndTrim(datosFrontend.tipoDocumento);
+        const numeroDocumento = toStringAndTrim(datosFrontend.numeroDocumento);
+        const direccion = toStringAndTrim(datosFrontend.direccion);
+        const telefono = toStringAndTrim(datosFrontend.telefono);
+        const correo = toStringAndTrim(datosFrontend.email || datosFrontend.correo);
+        const pais = toStringAndTrim(datosFrontend.pais || 'Colombia');
+        const nombreABuscar = toStringAndTrim(datosFrontend.nombreMarca || datosFrontend.nombreABuscar);
+        const tipoProductoServicio = toStringAndTrim(datosFrontend.tipoProductoServicio || datosFrontend.categoria);
         const logotipoBase64 = await this.convertirArchivoABase64(datosFrontend.logotipoMarca || datosFrontend.logotipo || '');
         
         // ✅ Logging detallado para debugging
@@ -791,14 +858,14 @@ class SolicitudesApiService {
         // ✅ Validar campos requeridos
         const camposFaltantes = [];
         if (!nombresApellidos || nombresApellidos.trim() === '') camposFaltantes.push('nombres_apellidos');
-        if (!tipoDocumento || tipoDocumento.trim() === '') camposFaltantes.push('tipo_documento');
-        if (!numeroDocumento || numeroDocumento.trim() === '') camposFaltantes.push('numero_documento');
-        if (!direccion || direccion.trim() === '') camposFaltantes.push('direccion');
-        if (!telefono || telefono.trim() === '') camposFaltantes.push('telefono');
-        if (!correo || correo.trim() === '') camposFaltantes.push('correo');
-        if (!pais || pais.trim() === '') camposFaltantes.push('pais');
-        if (!nombreABuscar || nombreABuscar.trim() === '') camposFaltantes.push('nombre_a_buscar');
-        if (!tipoProductoServicio || tipoProductoServicio.trim() === '') camposFaltantes.push('tipo_producto_servicio');
+        if (!tipoDocumento) camposFaltantes.push('tipo_documento');
+        if (!numeroDocumento) camposFaltantes.push('numero_documento');
+        if (!direccion) camposFaltantes.push('direccion');
+        if (!telefono) camposFaltantes.push('telefono');
+        if (!correo) camposFaltantes.push('correo');
+        if (!pais) camposFaltantes.push('pais');
+        if (!nombreABuscar) camposFaltantes.push('nombre_a_buscar');
+        if (!tipoProductoServicio) camposFaltantes.push('tipo_producto_servicio');
         if (!logotipoBase64 || logotipoBase64.trim() === '') camposFaltantes.push('logotipo');
         
         if (camposFaltantes.length > 0) {
@@ -813,19 +880,19 @@ class SolicitudesApiService {
         datosAPI = {
           // Campos requeridos (formato nuevo según documentación)
           nombres_apellidos: nombresApellidos.trim(),
-          tipo_documento: tipoDocumento.trim(),
-          numero_documento: numeroDocumento.trim(),
-          direccion: direccion.trim(),
-          telefono: telefono.trim(),
-          correo: correo.trim(),
-          pais: pais.trim(),
-          nombre_a_buscar: nombreABuscar.trim(),
-          tipo_producto_servicio: tipoProductoServicio.trim(),
+          tipo_documento: tipoDocumento,
+          numero_documento: numeroDocumento,
+          direccion: direccion,
+          telefono: telefono,
+          correo: correo,
+          pais: pais,
+          nombre_a_buscar: nombreABuscar,
+          tipo_producto_servicio: tipoProductoServicio,
           logotipo: logotipoBase64,
           
           // Campos opcionales (si están presentes)
-          ...(datosFrontend.ciudad ? { ciudad: datosFrontend.ciudad.trim() } : {}),
-          ...(datosFrontend.codigoPostal ? { codigo_postal: datosFrontend.codigoPostal.trim() } : {}),
+          ...(datosFrontend.ciudad ? { ciudad: toStringAndTrim(datosFrontend.ciudad) } : {}),
+          ...(datosFrontend.codigoPostal ? { codigo_postal: toStringAndTrim(datosFrontend.codigoPostal) } : {}),
           ...(obtenerClaseNiza() ? { clase_niza: obtenerClaseNiza() } : {})
         };
         break;
@@ -835,6 +902,15 @@ class SolicitudesApiService {
         // numero_documento, direccion, telefono, correo, pais, numero_nit_cedula, nombre_marca, 
         // tipo_producto_servicio, certificado_camara_comercio, logotipo, poder_autorizacion
         // Campos condicionales (si es Jurídica): tipo_entidad, razon_social, nit_empresa, representante_legal, direccion_domicilio
+        
+        // Función auxiliar para convertir a string y hacer trim
+        const toStringAndTrimCert = (value) => {
+          if (value === null || value === undefined) return '';
+          if (typeof value === 'number') return String(value);
+          if (typeof value === 'string') return value.trim();
+          return String(value).trim();
+        };
+        
         const esJuridicaCert = datosFrontend.tipoPersona === 'Jurídica' || datosFrontend.tipoSolicitante === 'Jurídica';
         
         // Convertir archivos a base64 (pueden retornar null si no existen)
@@ -876,10 +952,10 @@ class SolicitudesApiService {
         
         // Validar otros campos requeridos
         if (!obtenerNombresApellidos() || obtenerNombresApellidos().trim() === '') camposFaltantesCert.push('nombres_apellidos');
-        if (!datosFrontend.tipoDocumento || datosFrontend.tipoDocumento.trim() === '') camposFaltantesCert.push('tipo_documento');
-        if (!datosFrontend.numeroDocumento || datosFrontend.numeroDocumento.trim() === '') camposFaltantesCert.push('numero_documento');
-        if (!datosFrontend.direccion || datosFrontend.direccion.trim() === '') camposFaltantesCert.push('direccion');
-        if (!datosFrontend.telefono || datosFrontend.telefono.trim() === '') camposFaltantesCert.push('telefono');
+        if (!datosFrontend.tipoDocumento || toStringAndTrimCert(datosFrontend.tipoDocumento) === '') camposFaltantesCert.push('tipo_documento');
+        if (!datosFrontend.numeroDocumento || toStringAndTrimCert(datosFrontend.numeroDocumento) === '') camposFaltantesCert.push('numero_documento');
+        if (!datosFrontend.direccion || toStringAndTrimCert(datosFrontend.direccion) === '') camposFaltantesCert.push('direccion');
+        if (!datosFrontend.telefono || toStringAndTrimCert(datosFrontend.telefono) === '') camposFaltantesCert.push('telefono');
         if (!datosFrontend.email && !datosFrontend.correo) camposFaltantesCert.push('correo');
         if (!datosFrontend.nombreMarca || datosFrontend.nombreMarca.trim() === '') camposFaltantesCert.push('nombre_marca');
         if (!datosFrontend.tipoProductoServicio && !datosFrontend.categoria) camposFaltantesCert.push('tipo_producto_servicio');
@@ -901,10 +977,10 @@ class SolicitudesApiService {
           // Campos siempre requeridos
           tipo_solicitante: tipoSolicitanteFinal,
           nombres_apellidos: obtenerNombresApellidos().trim(),
-          tipo_documento: datosFrontend.tipoDocumento.trim(),
-          numero_documento: datosFrontend.numeroDocumento.trim(),
-          direccion: datosFrontend.direccion.trim(),
-          telefono: datosFrontend.telefono.trim(),
+          tipo_documento: toStringAndTrimCert(datosFrontend.tipoDocumento),
+          numero_documento: toStringAndTrimCert(datosFrontend.numeroDocumento),
+          direccion: toStringAndTrimCert(datosFrontend.direccion),
+          telefono: toStringAndTrimCert(datosFrontend.telefono),
           correo: (datosFrontend.email || datosFrontend.correo || '').trim(),
           pais: (datosFrontend.pais || 'Colombia').trim(),
           nombre_marca: datosFrontend.nombreMarca.trim(),
@@ -930,7 +1006,7 @@ class SolicitudesApiService {
           datosAPI.direccion_domicilio = (datosFrontend.direccionDomicilio || datosFrontend.direccion || '').trim();
         } else {
           // Natural: numero_nit_cedula puede ser opcional, si no se proporciona usar numero_documento
-          datosAPI.numero_nit_cedula = (datosFrontend.numeroNitCedula || datosFrontend.nitMarca || datosFrontend.numeroDocumento || '').trim();
+          datosAPI.numero_nit_cedula = toStringAndTrimCert(datosFrontend.numeroNitCedula || datosFrontend.nitMarca || datosFrontend.numeroDocumento || '');
           // ✅ Para Natural: certificado_camara_comercio NO debe incluirse (personas naturales no tienen cámara de comercio)
           // Asegurar que NO se incluya, incluso si el usuario lo subió
           delete datosAPI.certificado_camara_comercio;
@@ -1250,7 +1326,20 @@ class SolicitudesApiService {
     // 🔥 NUEVO: Lógica de id_cliente según rol (Enero 2026)
     // Clientes: NO enviar id_cliente (se toma del token)
     // Admin/Empleado: DEBE enviar id_cliente (obligatorio)
-    if (userRole === 'cliente') {
+    
+    // Normalizar userRole (puede ser string o objeto)
+    let rolNormalizado = '';
+    if (typeof userRole === 'string') {
+      rolNormalizado = userRole.toLowerCase();
+    } else if (userRole && typeof userRole === 'object') {
+      // Si es objeto, extraer el nombre del rol
+      rolNormalizado = (userRole.nombre || userRole.name || userRole.rol || '').toLowerCase();
+    }
+    
+    console.log('🔧 [SolicitudesApiService] Rol normalizado:', rolNormalizado);
+    console.log('🔧 [SolicitudesApiService] id_cliente en datosFrontend:', datosFrontend.id_cliente);
+    
+    if (rolNormalizado === 'cliente') {
       // Cliente: NO incluir id_cliente (se toma automáticamente del token)
       if (datosFrontend.id_cliente) {
         console.warn('⚠️ [SolicitudesApiService] Cliente no debe enviar id_cliente, se removerá del body');
@@ -1258,17 +1347,22 @@ class SolicitudesApiService {
       }
       // Asegurar que no esté en datosAPI
       delete datosAPI.id_cliente;
-    } else if (userRole === 'administrador' || userRole === 'empleado') {
+    } else if (rolNormalizado === 'administrador' || rolNormalizado === 'empleado' || 
+               (userRole && typeof userRole === 'object' && (userRole.id === '2' || userRole.id === 2 || userRole.id === '3' || userRole.id === 3))) {
       // Admin/Empleado: Validar que id_cliente esté presente (obligatorio)
       if (!datosFrontend.id_cliente) {
         throw new Error('El campo id_cliente es obligatorio para administradores y empleados');
       }
-      datosAPI.id_cliente = datosFrontend.id_cliente;
+      // Asegurar que id_cliente sea un número
+      datosAPI.id_cliente = typeof datosFrontend.id_cliente === 'number' 
+        ? datosFrontend.id_cliente 
+        : parseInt(datosFrontend.id_cliente);
       console.log('✅ [SolicitudesApiService] Admin/Empleado - id_cliente incluido:', datosAPI.id_cliente);
     } else {
       // Si no se especifica rol, asumir cliente (no enviar id_cliente)
       delete datosAPI.id_cliente;
-      console.warn('⚠️ [SolicitudesApiService] Rol no especificado, asumiendo cliente (no se envía id_cliente)');
+      console.warn('⚠️ [SolicitudesApiService] Rol no especificado o no reconocido, asumiendo cliente (no se envía id_cliente)');
+      console.warn('⚠️ [SolicitudesApiService] userRole recibido:', userRole);
     }
     
     // Los datos ya fueron limpiados en cada caso del switch
@@ -1538,8 +1632,28 @@ class SolicitudesApiService {
       pais: respuestaAPI.pais || respuestaAPI.pais_titular || '',
       ciudad: respuestaAPI.ciudad || respuestaAPI.ciudad_titular || '',
       direccion: respuestaAPI.direccion || respuestaAPI.direccion_titular || '',
-      tipoDocumento: respuestaAPI.tipo_documento || respuestaAPI.tipodedocumento || '',
-      numeroDocumento: respuestaAPI.numero_documento || respuestaAPI.numerodedocumento || '',
+      tipoDocumento: respuestaAPI.tipo_documento || 
+                     respuestaAPI.tipodedocumento || 
+                     respuestaAPI.tipoDocumento ||
+                     respuestaAPI.cliente?.tipo_documento ||
+                     respuestaAPI.cliente?.tipoDocumento ||
+                     '',
+      numeroDocumento: respuestaAPI.numero_documento || 
+                       respuestaAPI.numerodedocumento || 
+                       respuestaAPI.numeroDocumento ||
+                       respuestaAPI.documento ||
+                       respuestaAPI.cliente?.numero_documento ||
+                       respuestaAPI.cliente?.numeroDocumento ||
+                       respuestaAPI.cliente?.documento ||
+                       '',
+      documento: respuestaAPI.numero_documento || 
+                 respuestaAPI.numerodedocumento || 
+                 respuestaAPI.numeroDocumento ||
+                 respuestaAPI.documento ||
+                 respuestaAPI.cliente?.numero_documento ||
+                 respuestaAPI.cliente?.numeroDocumento ||
+                 respuestaAPI.cliente?.documento ||
+                 '',
       tipoPersona: respuestaAPI.tipo_persona || respuestaAPI.tipodepersona || '',
       
       // ✅ Campos adicionales para la tabla y ver detalle

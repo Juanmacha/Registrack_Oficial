@@ -38,32 +38,60 @@ const ProfileModal = ({ isOpen, onClose, user, onEdit }) => {
     );
   };
 
-  const getRolBadge = (rol) => {
-    const rolLower = (rol || "").toLowerCase();
-    if (rolLower.includes("admin") || rolLower.includes("administrador")) {
+  const getRolBadge = (rol, user) => {
+    // Si el rol es un objeto, extraer el nombre
+    let rolNombre = '';
+    let rolId = null;
+    
+    if (typeof rol === 'object' && rol !== null) {
+      rolNombre = rol.nombre || rol.name || '';
+      rolId = rol.id || rol.id_rol;
+    } else {
+      rolNombre = rol || '';
+    }
+    
+    // También intentar obtener del objeto user si está disponible
+    if (user) {
+      if (user.rol) {
+        if (typeof user.rol === 'object') {
+          rolNombre = user.rol.nombre || user.rol.name || rolNombre;
+          rolId = user.rol.id || user.rol.id_rol || rolId;
+        } else {
+          rolNombre = user.rol || rolNombre;
+        }
+      }
+      rolId = user.id_rol || user.idRol || rolId;
+    }
+    
+    const rolLower = (rolNombre || "").toLowerCase().trim();
+    
+    // Verificar por ID primero (más confiable)
+    if (rolId === 2 || rolId === '2' || rolLower.includes("admin") || rolLower.includes("administrador")) {
       return (
         <span className="px-3 py-1 text-blue-700 bg-blue-100 rounded-full text-xs font-semibold">
           Administrador
         </span>
       );
     }
-    if (rolLower.includes("empleado") || rolLower.includes("employee")) {
+    if (rolId === 3 || rolId === '3' || rolLower.includes("empleado") || rolLower.includes("employee")) {
       return (
         <span className="px-3 py-1 text-green-700 bg-green-100 rounded-full text-xs font-semibold">
           Empleado
         </span>
       );
     }
-    if (rolLower.includes("cliente") || rolLower.includes("client")) {
+    if (rolId === 1 || rolId === '1' || rolLower.includes("cliente") || rolLower.includes("client")) {
       return (
         <span className="px-3 py-1 text-purple-700 bg-purple-100 rounded-full text-xs font-semibold">
           Cliente
         </span>
       );
     }
+    
+    // Si no coincide con los roles estándar, mostrar el nombre del rol tal cual
     return (
       <span className="px-3 py-1 text-gray-700 bg-gray-100 rounded-full text-xs font-semibold">
-        {rol || 'Usuario'}
+        {rolNombre || rol || 'Usuario'}
       </span>
     );
   };
@@ -111,7 +139,7 @@ const ProfileModal = ({ isOpen, onClose, user, onEdit }) => {
                     <div className="flex items-center space-x-2 text-sm">
                       <i className="bi bi-person-badge text-blue-500"></i>
                       <span className="text-gray-600">Rol:</span>
-                      {getRolBadge(user.rol || user.role)}
+                      {getRolBadge(user.rol || user.role, user)}
                     </div>
                     {(user.tipoDocumento || user.documentType) && (
                       <div className="flex items-center space-x-2 text-sm">

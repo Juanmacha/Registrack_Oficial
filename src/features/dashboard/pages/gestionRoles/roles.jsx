@@ -5,7 +5,7 @@ import TablaRoles from "./components/tablaRoles";
 import CrearRolModal from "./components/crearRol";
 import EditarRolModal from "./components/editarRol";
 import DetalleRolModal from "./components/verRol";
-import { useNotification } from "../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../shared/services/NotificationService.js";
 import { modelosDisponibles, guardarRoles } from "./services/rolesG";
 import rolesApiService from "./services/rolesApiService";
 
@@ -14,7 +14,6 @@ const GestionRoles = () => {
   const [showModal, setShowModal] = useState(false);
   const [rolSeleccionado, setRolSeleccionado] = useState(null);
   const [rolEditable, setRolEditable] = useState(null);
-  const { createSuccess, updateSuccess, createError, updateError } = useNotification();
 
   const [nuevoRol, setNuevoRol] = useState({
     nombre: "",
@@ -35,7 +34,7 @@ const GestionRoles = () => {
       console.log('✅ [GestionRoles] Roles cargados exitosamente:', rolesData);
     } catch (error) {
       console.error('❌ [GestionRoles] Error cargando roles:', error);
-      createError('Error al cargar los roles');
+      notificationService.createError('Error al cargar los roles');
     }
   };
 
@@ -53,13 +52,13 @@ const GestionRoles = () => {
         // Limpiar formulario y cerrar modal
         setNuevoRol({ nombre: "", estado: "Activo", permisos: {} });
         setShowModal(false);
-        createSuccess('rol');
+        notificationService.createSuccess('rol');
       } catch (error) {
         console.error('❌ [GestionRoles] Error creando rol:', error);
-        createError('Error al crear el rol');
+        notificationService.createError('Error al crear el rol');
       }
     } else {
-      createError('El nombre del rol es obligatorio');
+      notificationService.createError('El nombre del rol es obligatorio');
     }
   };
 
@@ -97,10 +96,10 @@ const GestionRoles = () => {
           
           // Recargar la lista de roles
           await loadRoles();
-          updateSuccess('rol');
+          notificationService.updateSuccess('rol');
         } catch (error) {
           console.error('❌ [GestionRoles] Error cambiando estado del rol:', error);
-          updateError('Error al cambiar el estado del rol');
+          notificationService.updateError('Error al cambiar el estado del rol');
         }
       }
     });
@@ -141,7 +140,6 @@ const GestionRoles = () => {
           setNuevoRol={setNuevoRol}
           handleSubmit={handleSubmit}
           handleCheckboxChange={handleCheckboxChange}
-          modelosDisponibles={modelosDisponibles}
         />
 
         {rolSeleccionado && (

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { BiKey, BiLock, BiHide, BiShow, BiLeftArrowAlt } from "react-icons/bi";
 import authApiService from '../services/authApiService.js';
 import alertService from '../../../utils/alertService.js';
+import { validatePasswordStrength, getPasswordRequirementsShort } from '../../../shared/utils/passwordValidator.js';
+import { manejarErrorAPI, obtenerMensajeErrorUsuario } from '../../../shared/utils/errorHandler.js';
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +15,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState({});
 
   const navigate = useNavigate();
 
@@ -39,10 +42,28 @@ const ResetPassword = () => {
   };
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+    
+    // Validar contraseña en tiempo real
+    if (name === 'newPassword') {
+      const validation = validatePasswordStrength(value);
+      setPasswordErrors(prev => ({
+        ...prev,
+        newPassword: validation.isValid ? '' : validation.errors[0]
+      }));
+    } else if (name === 'confirmPassword') {
+      setPasswordErrors(prev => ({
+        ...prev,
+        confirmPassword: value === formData.newPassword ? '' : 'Las contraseñas no coinciden'
+      }));
+    }
+    
+    // Limpiar error general cuando el usuario empieza a escribir
+    if (error) setError("");
   };
 
   const handleReset = async () => {
@@ -58,17 +79,22 @@ const ResetPassword = () => {
       return;
     }
     
-    if (newPassword.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+    // Validar fortaleza de contraseña
+    const passwordValidation = validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      const errorMessage = passwordValidation.errors[0] || "La contraseña no cumple con los requisitos de seguridad.";
+      setError(errorMessage);
+      setPasswordErrors({ newPassword: errorMessage });
       await alertService.warning(
-        "Contraseña muy corta",
-        "La contraseña debe tener al menos 6 caracteres para mayor seguridad."
+        "Contraseña no válida",
+        errorMessage + " " + getPasswordRequirementsShort()
       );
       return;
     }
     
     if (newPassword !== confirmPassword) {
       setError("Las contraseñas no coinciden.");
+      setPasswordErrors({ confirmPassword: "Las contraseñas no coinciden" });
       await alertService.warning(
         "Contraseñas no coinciden",
         "Las contraseñas ingresadas no son iguales. Por favor, verifica que ambas sean idénticas."
@@ -122,12 +148,30 @@ const ResetPassword = () => {
       }
     } catch (error) {
       console.error('💥 [ResetPassword] Error:', error);
-      await alertService.error(
-        "Error de conexión",
-        "No se pudo conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.",
-        { confirmButtonText: "Reintentar" }
-      );
-      setError("Error al restablecer la contraseña. Intenta de nuevo.");
+      
+      // Manejar errores de la API
+      const errorInfo = manejarErrorAPI(error, error.response);
+      const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
+      
+      // Si es rate limit, mostrar mensaje específico
+      if (errorInfo.tipo === 'RATE_LIMIT') {
+        const rateLimitMessage = errorInfo.waitTimeMinutes 
+          ? `${errorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`
+          : errorMessage;
+        
+        setError(rateLimitMessage);
+        await alertService.warning(
+          "Demasiados intentos",
+          rateLimitMessage
+        );
+      } else {
+        await alertService.error(
+          "Error al restablecer contraseña",
+          errorMessage,
+          { confirmButtonText: "Reintentar" }
+        );
+        setError(errorMessage);
+      }
     }
   };
 
@@ -174,8 +218,18 @@ const ResetPassword = () => {
               <>
                 {/* Error Message */}
                 {error && (
-                  <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-600 text-sm text-center">{error}</p>
+                  <div className={`mb-6 p-3 border rounded-lg ${
+                    error.includes('Demasiados intentos') || error.includes('espera')
+                      ? 'bg-yellow-50 border-yellow-200' 
+                      : 'bg-red-50 border-red-200'
+                  }`}>
+                    <p className={`text-sm text-center ${
+                      error.includes('Demasiados intentos') || error.includes('espera')
+                        ? 'text-yellow-800' 
+                        : 'text-red-600'
+                    }`}>
+                      {error}
+                    </p>
                   </div>
                 )}
 
@@ -201,6 +255,14 @@ const ResetPassword = () => {
                         {showPassword ? <BiHide className="text-lg" /> : <BiShow className="text-lg" />}
                       </button>
                     </div>
+                    {passwordErrors.newPassword && (
+                      <p className="text-red-500 text-xs mt-1">{passwordErrors.newPassword}</p>
+                    )}
+                    {formData.newPassword && !passwordErrors.newPassword && (
+                      <p className="text-gray-500 text-xs mt-1">
+                        {getPasswordRequirementsShort()}
+                      </p>
+                    )}
                   </div>
 
                   {/* Campo Confirmar Contraseña */}
@@ -216,6 +278,9 @@ const ResetPassword = () => {
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-red-500 text-xs mt-1">{passwordErrors.confirmPassword}</p>
+                    )}
                   </div>
 
                   {/* Botón de Restablecimiento */}

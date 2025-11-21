@@ -70,6 +70,15 @@ const userApiService = {
   // Crear usuario (solo admin)
   createUser: async (userData) => {
     try {
+      // Validar que roleId sea válido
+      if (!userData.roleId || userData.roleId === null || userData.roleId === undefined) {
+        console.error('❌ [userApiService] roleId inválido:', userData.roleId);
+        return {
+          success: false,
+          message: 'El rol seleccionado no es válido. Por favor, selecciona un rol válido.'
+        };
+      }
+      
       // Preparar datos según la documentación de la API
       const requestData = {
         tipo_documento: userData.tipoDocumento || 'CC',
@@ -78,10 +87,11 @@ const userApiService = {
         apellido: String(userData.apellido).trim(),
         correo: String(userData.email).trim(),
         contrasena: String(userData.password).trim(),
-        id_rol: userData.roleId || 1 // Por defecto cliente (backend: 1=cliente, 2=admin, 3=empleado)
+        id_rol: Number(userData.roleId) // Asegurar que sea un número
       };
       
       console.log('📤 [userApiService] Datos enviados a la API:', requestData);
+      console.log('📤 [userApiService] id_rol (tipo):', typeof requestData.id_rol, 'valor:', requestData.id_rol);
       
       const response = await apiService.post(API_CONFIG.ENDPOINTS.CREATE_USER, requestData);
       

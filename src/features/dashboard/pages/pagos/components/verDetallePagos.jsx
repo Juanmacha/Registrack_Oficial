@@ -4,6 +4,7 @@ import { useAuth } from '../../../../../shared/contexts/authContext';
 import pagosApiService from '../services/pagosApiService';
 import { saveAs } from "file-saver";
 import Swal from 'sweetalert2';
+import jsPDF from 'jspdf';
 
 const VerDetallePago = ({ datos, isOpen, onClose }) => {
   const { getToken } = useAuth();
@@ -51,71 +52,379 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
     }
   };
 
-  // Descargar comprobante
-  const handleDescargarComprobante = async () => {
+  // Generar comprobante PDF mejorado
+  const generarComprobantePDF = () => {
     try {
-      const token = getToken();
-      if (!token) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No hay token de autenticación',
-        });
-        return;
-      }
+      console.log('🔧 [VerDetallePago] Generando PDF...');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      let y = margin;
 
-      const idPago = datos.id_pago || datos.id;
-      if (!idPago) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo identificar el pago',
-        });
-        return;
-      }
+      // Colores
+      const colorAzul = [37, 99, 235]; // blue-600
+      const colorVerde = [34, 197, 94]; // green-500
+      const colorGris = [107, 114, 128]; // gray-500
+      const colorGrisClaro = [243, 244, 246]; // gray-100
 
-      setDescargando(true);
-      Swal.fire({
-        title: 'Descargando comprobante...',
-        text: 'Por favor espera',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
+      // Encabezado con fondo azul
+      doc.setFillColor(...colorAzul);
+      doc.rect(0, 0, pageWidth, 50, 'F');
+      
+      // Logo/Icono (círculo con check mejorado)
+      const centerX = pageWidth / 2;
+      const centerY = 25;
+      const radius = 10;
+      
+      // Círculo exterior blanco
+      doc.setFillColor(255, 255, 255);
+      doc.circle(centerX, centerY, radius, 'F');
+      
+      // Círculo interior verde
+      doc.setFillColor(...colorVerde);
+      doc.circle(centerX, centerY, radius - 2, 'F');
+      
+      // Check mark usando líneas más gruesas
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(2.5);
+      // Dibujar check mark: dos líneas que forman una V invertida
+      // Línea vertical corta
+      doc.line(centerX - 3, centerY, centerX - 1, centerY + 3);
+      // Línea diagonal larga
+      doc.line(centerX - 1, centerY + 3, centerX + 4, centerY - 3);
+
+      // Título
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('COMPROBANTE DE PAGO', pageWidth / 2, 40, { align: 'center' });
+
+      y = 60;
+
+      // Información principal del pago
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Información del Pago', margin, y);
+      y += 10;
+
+      // Línea divisoria
+      doc.setDrawColor(...colorGris);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      // Monto destacado
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...colorVerde);
+      const monto = `$${(datos.monto || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      doc.text('Monto Pagado:', margin, y);
+      doc.text(monto, pageWidth - margin, y, { align: 'right' });
+      y += 12;
+
+      // Información del pago
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 0, 0);
+
+      const infoPago = [
+        ['ID de Pago:', datos.id_pago || datos.id || 'N/A'],
+        ['Fecha de Pago:', formatearFechaCorta(datos.fecha_pago)],
+        ['Método de Pago:', datos.metodo_pago || 'N/A'],
+        ['Estado:', texto || datos.estado || 'N/A'],
+        ['Número de Comprobante:', datos.numero_comprobante || 'N/A'],
+        ['Transaction ID:', datos.transaction_id || 'N/A'],
+      ];
+
+      infoPago.forEach(([label, value]) => {
+        if (value && value !== 'N/A') {
+          doc.setFont('helvetica', 'bold');
+          doc.text(label, margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(String(value), margin + 60, y);
+          y += 7;
         }
       });
 
-      const { blob, filename } = await pagosApiService.descargarComprobante(idPago, token);
-      saveAs(blob, filename);
-      
-      Swal.close();
-      Swal.fire({
-        icon: 'success',
-        title: '¡Éxito!',
-        text: 'Comprobante descargado correctamente',
-        timer: 2000,
-        showConfirmButton: false
-      });
-    } catch (err) {
-      console.error('❌ [VerDetallePago] Error descargando comprobante:', err);
-      Swal.close();
-      
-      let errorMessage = 'No se pudo descargar el comprobante. Por favor, intenta nuevamente.';
-      if (err.message) {
-        errorMessage = err.message;
-      } else if (err.status === 404) {
-        errorMessage = 'El comprobante no está disponible para este pago';
-      } else if (err.status === 403) {
-        errorMessage = 'No tienes permisos para descargar este comprobante';
+      y += 5;
+
+      // Información del Cliente
+      if (datos.cliente || datos.empresa) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('Información del Cliente', margin, y);
+        y += 8;
+
+        doc.setDrawColor(...colorGris);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        if (datos.cliente) {
+          if (datos.cliente.marca) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Marca:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(datos.cliente.marca, margin + 30, y);
+            y += 6;
+          }
+          if (datos.cliente.nombre || datos.cliente.apellido) {
+            const nombreCompleto = datos.cliente.nombre && datos.cliente.apellido
+              ? `${datos.cliente.nombre} ${datos.cliente.apellido}`
+              : datos.cliente.nombre || datos.cliente.apellido || '';
+            if (nombreCompleto) {
+              doc.setFont('helvetica', 'bold');
+              doc.text('Nombre:', margin, y);
+              doc.setFont('helvetica', 'normal');
+              doc.text(nombreCompleto, margin + 30, y);
+              y += 6;
+            }
+          }
+          if (datos.cliente.tipo_persona) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Tipo de Persona:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(datos.cliente.tipo_persona, margin + 50, y);
+            y += 6;
+          }
+          if (datos.cliente.correo) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Correo:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(datos.cliente.correo, margin + 30, y);
+            y += 6;
+          }
+        }
+
+        if (datos.empresa) {
+          if (datos.empresa.nombre) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Empresa:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(datos.empresa.nombre, margin + 30, y);
+            y += 6;
+          }
+          if (datos.empresa.nit) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('NIT:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(datos.empresa.nit, margin + 20, y);
+            y += 6;
+          }
+        }
+
+        y += 5;
       }
+
+      // Información del Servicio
+      if (datos.servicio) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('Información del Servicio', margin, y);
+        y += 8;
+
+        doc.setDrawColor(...colorGris);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        if (datos.servicio.nombre) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Servicio:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(datos.servicio.nombre, margin + 35, y);
+          y += 6;
+        }
+        if (datos.servicio.precio_base !== undefined) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Precio Base:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`$${datos.servicio.precio_base.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 40, y);
+          y += 6;
+        }
+
+        y += 5;
+      }
+
+      // Información de la Solicitud
+      if (datos.solicitud) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('Información de la Solicitud', margin, y);
+        y += 8;
+
+        doc.setDrawColor(...colorGris);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        if (datos.solicitud.numero_expediente) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Expediente:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(datos.solicitud.numero_expediente, margin + 40, y);
+          y += 6;
+        }
+        if (datos.solicitud.estado) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Estado:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(datos.solicitud.estado, margin + 30, y);
+          y += 6;
+        }
+        if (datos.solicitud.total_estimado !== undefined) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Total Estimado:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`$${datos.solicitud.total_estimado.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 50, y);
+          y += 6;
+        }
+
+        y += 5;
+      }
+
+      // Información del Usuario
+      if (datos.usuario) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('Información del Usuario', margin, y);
+        y += 8;
+
+        doc.setDrawColor(...colorGris);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+
+        if (datos.usuario.nombre || datos.usuario.apellido) {
+          const nombreUsuario = datos.usuario.nombre && datos.usuario.apellido
+            ? `${datos.usuario.nombre} ${datos.usuario.apellido}`
+            : datos.usuario.nombre || datos.usuario.apellido || '';
+          if (nombreUsuario) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Nombre:', margin, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(nombreUsuario, margin + 30, y);
+            y += 6;
+          }
+        }
+        if (datos.usuario.correo) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Correo:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(datos.usuario.correo, margin + 30, y);
+          y += 6;
+        }
+        if (datos.usuario.documento || datos.usuario.numero_documento || datos.usuario.cedula || datos.usuario.numero_cedula) {
+          const documento = datos.usuario.documento || datos.usuario.numero_documento || datos.usuario.cedula || datos.usuario.numero_cedula;
+          doc.setFont('helvetica', 'bold');
+          doc.text('Documento:', margin, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(String(documento), margin + 40, y);
+          y += 6;
+        }
+
+        y += 5;
+      }
+
+      // Observaciones
+      if (datos.observaciones) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('Observaciones', margin, y);
+        y += 8;
+
+        doc.setDrawColor(...colorGris);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        const observaciones = doc.splitTextToSize(datos.observaciones, pageWidth - 2 * margin);
+        doc.text(observaciones, margin, y);
+        y += observaciones.length * 5 + 5;
+      }
+
+      // Pie de página
+      const fechaGeneracion = new Date().toLocaleString('es-CO', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      doc.setDrawColor(...colorGris);
+      doc.line(margin, pageHeight - 30, pageWidth - margin, pageHeight - 30);
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...colorGris);
+      doc.text(`Comprobante generado el ${fechaGeneracion}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
+      doc.text('Este documento es un comprobante de pago válido', pageWidth / 2, pageHeight - 15, { align: 'center' });
+      doc.text('Registrack - Sistema de Gestión de Marcas', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+      // Guardar PDF
+      const nombreArchivo = `comprobante_pago_${datos.id_pago || datos.id || 'N/A'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(nombreArchivo);
+      console.log('✅ [VerDetallePago] PDF generado exitosamente:', nombreArchivo);
+    } catch (error) {
+      console.error('❌ [VerDetallePago] Error en generarComprobantePDF:', error);
+      throw error;
+    }
+  };
+
+  // Descargar comprobante
+  const handleDescargarComprobante = () => {
+    try {
+      console.log('🔧 [VerDetallePago] Iniciando generación de comprobante...');
+      console.log('📋 [VerDetallePago] Datos del pago:', datos);
+      
+      setDescargando(true);
+      
+      // Generar PDF mejorado
+      generarComprobantePDF();
+      
+      // Pequeño delay para asegurar que el PDF se genere
+      setTimeout(() => {
+        setDescargando(false);
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: 'Comprobante generado correctamente',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }, 500);
+      
+    } catch (err) {
+      console.error('❌ [VerDetallePago] Error generando comprobante:', err);
+      setDescargando(false);
       
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: errorMessage,
+        text: err.message || 'No se pudo generar el comprobante. Por favor, intenta nuevamente.',
       });
-    } finally {
-      setDescargando(false);
     }
   };
 
@@ -284,39 +593,42 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
             )}
 
             {/* Comprobante - Sección de Descarga */}
-            {tieneComprobante && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <div className="bg-yellow-100 p-2 rounded-full">
-                    <i className="bi bi-file-earmark-pdf text-yellow-600 text-lg"></i>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-800">Comprobante de Pago</h3>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="bg-yellow-100 p-2 rounded-full">
+                  <i className="bi bi-file-earmark-pdf text-yellow-600 text-lg"></i>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-yellow-100 p-3 rounded-full">
-                        <i className="bi bi-file-earmark-pdf text-yellow-600 text-xl"></i>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-800">Comprobante disponible</div>
-                        <div className="text-sm text-gray-500">
-                          {datos.numero_comprobante ? `N° ${datos.numero_comprobante}` : 'Descargar comprobante PDF'}
-                        </div>
+                <h3 className="text-lg font-semibold text-gray-800">Comprobante de Pago</h3>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-yellow-100 p-3 rounded-full">
+                      <i className="bi bi-file-earmark-pdf text-yellow-600 text-xl"></i>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-800">Comprobante disponible</div>
+                      <div className="text-sm text-gray-500">
+                        {datos.numero_comprobante ? `N° ${datos.numero_comprobante}` : 'Generar comprobante PDF'}
                       </div>
                     </div>
-                    <button
-                      onClick={handleDescargarComprobante}
-                      disabled={descargando}
-                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-                    >
-                      <i className="bi bi-download"></i>
-                      {descargando ? 'Descargando...' : 'Descargar'}
-                    </button>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDescargarComprobante();
+                    }}
+                    disabled={descargando}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                    type="button"
+                  >
+                    <i className="bi bi-download"></i>
+                    {descargando ? 'Generando...' : 'Descargar'}
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Observaciones */}
             {datos.observaciones && (
@@ -329,6 +641,182 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
                 </div>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap">{datos.observaciones}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Información del Cliente */}
+            {(datos.cliente || datos.empresa) && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-indigo-100 p-2 rounded-full">
+                    <i className="bi bi-person-badge text-indigo-600 text-lg"></i>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Información del Cliente</h3>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                  {datos.cliente && (
+                    <>
+                      {datos.cliente.marca && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-tag text-indigo-500"></i>
+                          <span className="text-gray-600">Marca:</span>
+                          <span className="font-medium text-gray-800">{datos.cliente.marca}</span>
+                        </div>
+                      )}
+                      {(datos.cliente.nombre || datos.cliente.apellido) && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-person text-indigo-500"></i>
+                          <span className="text-gray-600">Nombre:</span>
+                          <span className="font-medium text-gray-800">
+                            {datos.cliente.nombre && datos.cliente.apellido
+                              ? `${datos.cliente.nombre} ${datos.cliente.apellido}`
+                              : datos.cliente.nombre || datos.cliente.apellido || '-'}
+                          </span>
+                        </div>
+                      )}
+                      {datos.cliente.tipo_persona && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-person-check text-indigo-500"></i>
+                          <span className="text-gray-600">Tipo de Persona:</span>
+                          <span className="font-medium text-gray-800">{datos.cliente.tipo_persona}</span>
+                        </div>
+                      )}
+                      {datos.cliente.correo && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-envelope text-indigo-500"></i>
+                          <span className="text-gray-600">Correo:</span>
+                          <span className="font-medium text-gray-800">{datos.cliente.correo}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {datos.empresa && (
+                    <>
+                      {datos.empresa.nombre && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-building text-indigo-500"></i>
+                          <span className="text-gray-600">Empresa:</span>
+                          <span className="font-medium text-gray-800">{datos.empresa.nombre}</span>
+                        </div>
+                      )}
+                      {datos.empresa.nit && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <i className="bi bi-file-earmark-text text-indigo-500"></i>
+                          <span className="text-gray-600">NIT:</span>
+                          <span className="font-medium text-gray-800">{datos.empresa.nit}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Información del Servicio */}
+            {datos.servicio && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-teal-100 p-2 rounded-full">
+                    <i className="bi bi-briefcase text-teal-600 text-lg"></i>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Información del Servicio</h3>
+                </div>
+                <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 space-y-3">
+                  {datos.servicio.nombre && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-tag text-teal-500"></i>
+                      <span className="text-gray-600">Nombre del Servicio:</span>
+                      <span className="font-medium text-gray-800">{datos.servicio.nombre}</span>
+                    </div>
+                  )}
+                  {datos.servicio.precio_base !== undefined && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-currency-dollar text-teal-500"></i>
+                      <span className="text-gray-600">Precio Base:</span>
+                      <span className="font-medium text-gray-800">
+                        ${datos.servicio.precio_base?.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Información de la Solicitud */}
+            {datos.solicitud && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-orange-100 p-2 rounded-full">
+                    <i className="bi bi-file-earmark-text text-orange-600 text-lg"></i>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Información de la Solicitud</h3>
+                </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
+                  {datos.solicitud.numero_expediente && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-file-earmark-text text-orange-500"></i>
+                      <span className="text-gray-600">Número de Expediente:</span>
+                      <span className="font-medium text-gray-800">{datos.solicitud.numero_expediente}</span>
+                    </div>
+                  )}
+                  {datos.solicitud.estado && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-info-circle text-orange-500"></i>
+                      <span className="text-gray-600">Estado:</span>
+                      <span className="font-medium text-gray-800">{datos.solicitud.estado}</span>
+                    </div>
+                  )}
+                  {datos.solicitud.total_estimado !== undefined && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-currency-dollar text-orange-500"></i>
+                      <span className="text-gray-600">Total Estimado:</span>
+                      <span className="font-medium text-gray-800">
+                        ${datos.solicitud.total_estimado?.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Información del Usuario */}
+            {datos.usuario && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <div className="bg-pink-100 p-2 rounded-full">
+                    <i className="bi bi-person-circle text-pink-600 text-lg"></i>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Información del Usuario</h3>
+                </div>
+                <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 space-y-3">
+                  {(datos.usuario.nombre || datos.usuario.apellido) && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-person text-pink-500"></i>
+                      <span className="text-gray-600">Nombre:</span>
+                      <span className="font-medium text-gray-800">
+                        {datos.usuario.nombre && datos.usuario.apellido
+                          ? `${datos.usuario.nombre} ${datos.usuario.apellido}`
+                          : datos.usuario.nombre || datos.usuario.apellido || '-'}
+                      </span>
+                    </div>
+                  )}
+                  {datos.usuario.correo && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-envelope text-pink-500"></i>
+                      <span className="text-gray-600">Correo:</span>
+                      <span className="font-medium text-gray-800">{datos.usuario.correo}</span>
+                    </div>
+                  )}
+                  {(datos.usuario.documento || datos.usuario.numero_documento || datos.usuario.cedula || datos.usuario.numero_cedula) && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <i className="bi bi-card-text text-pink-500"></i>
+                      <span className="text-gray-600">Documento:</span>
+                      <span className="font-medium text-gray-800">
+                        {datos.usuario.documento || datos.usuario.numero_documento || datos.usuario.cedula || datos.usuario.numero_cedula}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

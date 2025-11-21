@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useNotification } from "../../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../../shared/services/NotificationService.js";
 import rolesApiService from "../services/rolesApiService";
 
 const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRoles }) => {
   console.log("EditarRolModal - rolEditable:", rolEditable);  // Depuración
-  const { updateSuccess, updateError } = useNotification();
 
   if (!rolEditable) {
     return null;
@@ -105,13 +104,13 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRole
       }
 
       console.log("✅ [EditarRol] ===== ACTUALIZACIÓN COMPLETADA =====");
-      updateSuccess('rol');
+      notificationService.updateSuccess('rol');
     } catch (error) {
       console.error("❌ [EditarRol] ===== ERROR EN ACTUALIZACIÓN =====");
       console.error("❌ [EditarRol] Error completo:", error);
       console.error("❌ [EditarRol] Mensaje de error:", error.message);
       console.error("❌ [EditarRol] Stack:", error.stack);
-      updateError(error.message || 'Error al actualizar el rol');
+      notificationService.updateError(error.message || 'Error al actualizar el rol');
     }
   };
 
@@ -133,26 +132,34 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRole
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Mapear los recursos del sistema centralizado (18 módulos reales de la API)
+  // Mapear los recursos del sistema centralizado (19 módulos reales de la API según INFORMACION_SISTEMA_PERMISOS.md)
+  // El backend envía los módulos sin el prefijo "gestion_"
+  // Total: 19 módulos (11 completos, 7 parciales, 1 solo lectura)
   const recursosSistema = [
+    // Módulos Completos (11) - Tienen todas las acciones: crear, leer, actualizar, eliminar
     { key: 'usuarios', nombre: 'Usuarios' },
     { key: 'empleados', nombre: 'Empleados' },
     { key: 'clientes', nombre: 'Clientes' },
-    { key: 'empresas', nombre: 'Empresas' },
-    { key: 'servicios', nombre: 'Servicios' },
     { key: 'solicitudes', nombre: 'Solicitudes' },
     { key: 'citas', nombre: 'Citas' },
-    { key: 'pagos', nombre: 'Pagos' },
+    { key: 'seguimiento', nombre: 'Seguimiento' },
     { key: 'roles', nombre: 'Roles' },
     { key: 'permisos', nombre: 'Permisos' },
     { key: 'privilegios', nombre: 'Privilegios' },
-    { key: 'seguimiento', nombre: 'Seguimiento' },
-    { key: 'archivos', nombre: 'Archivos' },
     { key: 'tipo_archivos', nombre: 'Tipos de Archivo' },
-    { key: 'formularios', nombre: 'Formularios' },
-    { key: 'detalles_orden', nombre: 'Detalles de Orden' },
     { key: 'detalles_procesos', nombre: 'Detalles de Procesos' },
-    { key: 'servicios_procesos', nombre: 'Servicios y Procesos' }
+    
+    // Módulos Parciales (7) - Tienen solo algunas acciones
+    { key: 'empresas', nombre: 'Empresas' }, // crear, leer
+    { key: 'servicios', nombre: 'Servicios' }, // leer, actualizar
+    { key: 'pagos', nombre: 'Pagos' }, // crear, leer, actualizar
+    { key: 'archivos', nombre: 'Archivos' }, // crear, leer
+    { key: 'solicitud_cita', nombre: 'Solicitudes de Cita' }, // crear, leer, actualizar (módulo separado de gestion_citas)
+    { key: 'detalles_orden', nombre: 'Detalles de Orden' }, // crear, leer, actualizar
+    { key: 'servicios_procesos', nombre: 'Servicios y Procesos' }, // crear, leer, eliminar
+    
+    // Módulos de Solo Lectura (1)
+    { key: 'dashboard', nombre: 'Dashboard' } // solo lectura
   ];
 
   return (

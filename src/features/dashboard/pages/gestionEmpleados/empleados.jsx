@@ -7,7 +7,7 @@ import ProfileModal from "../../../../shared/components/ProfileModal";
 import EliminarEmpleado from "./components/eliminarEmpleado";
 import DescargarExcelEmpleados from "./components/descargarEmpleadosExcel";
 import VerificacionAuth from "./components/VerificacionAuth";
-import { useNotification } from "../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../shared/services/NotificationService.js";
 import useAuth from "../../hooks/useAuth.js";
 import empleadosApiService from "../../services/empleadosApiService.js";
 
@@ -19,7 +19,6 @@ const Empleados = () => {
   const [loading, setLoading] = useState(false);
   // Siempre usar API real
   const empleadosPorPagina = 5;
-  const { updateSuccess, updateError } = useNotification();
   const { isAuthenticated, isLoading: authLoading, refreshAuth } = useAuth();
 
   const [mostrarEditar, setMostrarEditar] = useState(false);
@@ -60,14 +59,14 @@ const Empleados = () => {
         console.log('📋 [Empleados] Datos recibidos en response.data:', empleadosData);
       } else {
         console.error('❌ [Empleados] Formato de respuesta inesperado:', response);
-        updateError('Formato de respuesta inesperado de la API');
+        notificationService.updateError('Formato de respuesta inesperado de la API');
         return;
       }
       
       if (empleadosData.length === 0) {
         console.log('⚠️ [Empleados] No hay empleados en la respuesta');
         setDatosEmpleados([]);
-        updateSuccess('No hay empleados registrados');
+        notificationService.info('Sin empleados', 'No hay empleados registrados en el sistema.');
         return;
       }
       
@@ -111,10 +110,10 @@ const Empleados = () => {
         });
           setDatosEmpleados(empleadosTransformados);
           console.log('✅ [Empleados] Empleados cargados desde API:', empleadosTransformados);
-        updateSuccess('Empleados cargados correctamente');
+        notificationService.success('Empleados cargados', 'Los empleados se han cargado correctamente.');
     } catch (error) {
       console.error('💥 [Empleados] Error al cargar empleados:', error);
-      updateError('Error al cargar empleados: ' + error.message);
+      notificationService.updateError('Error al cargar empleados: ' + error.message);
       setDatosEmpleados([]);
     } finally {
       setLoading(false);
@@ -167,15 +166,15 @@ const Empleados = () => {
         // La API devuelve información completa del empleado actualizado según la documentación
         if (response.success || response.id_empleado) {
           console.log('✅ [Empleados] Empleado actualizado en API');
-          updateSuccess('Empleado actualizado correctamente');
+          notificationService.updateSuccess('Empleado actualizado correctamente');
           await cargarEmpleados(); // Recargar datos
         } else {
           console.error('❌ [Empleados] Error al actualizar empleado en API:', response.message || response.error);
-          updateError('Error al actualizar empleado: ' + (response.message || response.error || 'Error desconocido'));
+          notificationService.updateError('Error al actualizar empleado: ' + (response.message || response.error || 'Error desconocido'));
         }
       } catch (error) {
         console.error('💥 [Empleados] Error al actualizar empleado:', error);
-      updateError('Error al actualizar empleado: ' + error.message);
+      notificationService.updateError('Error al actualizar empleado: ' + error.message);
     }
     setMostrarEditar(false);
   };
@@ -232,8 +231,8 @@ const Empleados = () => {
     console.log("🔄 [Empleados] ID empleado:", empleado.id_empleado);
     
     Swal.fire({
-      title: "¿Estás seguro?",
-      text: `¿Deseas cambiar el estado de ${empleado.nombre} ${empleado.apellidos} a ${nuevoEstado}?`,
+      title: "¿Está seguro?",
+      text: `¿Desea cambiar el estado de ${empleado.nombre} ${empleado.apellidos} a ${nuevoEstado}?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
@@ -254,17 +253,17 @@ const Empleados = () => {
           // La API devuelve información completa del empleado y usuario actualizados según la documentación
           if (response.success || response.id_empleado) {
               console.log('✅ [Empleados] Estado cambiado en API');
-              updateSuccess('Estado del empleado actualizado correctamente');
+              notificationService.updateSuccess('Estado del empleado actualizado correctamente');
             console.log('🔄 [Empleados] Recargando datos...');
               await cargarEmpleados(); // Recargar datos
             console.log('✅ [Empleados] Datos recargados');
             } else {
             console.error('❌ [Empleados] Error al cambiar estado en API:', response.message || response.error);
-            updateError('Error al cambiar estado: ' + (response.message || response.error || 'Error desconocido'));
+            notificationService.updateError('Error al cambiar estado: ' + (response.message || response.error || 'Error desconocido'));
             }
           } catch (error) {
             console.error('💥 [Empleados] Error al cambiar estado:', error);
-          updateError('Error al cambiar estado del empleado: ' + error.message);
+          notificationService.updateError('Error al cambiar estado del empleado: ' + error.message);
         }
       }
     });
@@ -277,8 +276,8 @@ const Empleados = () => {
     
     try {
       const result = await Swal.fire({
-      title: "¿Estás seguro?",
-      text: `¿Deseas eliminar a ${empleado.nombre} ${empleado.apellidos}?`,
+      title: "¿Está seguro?",
+      text: `¿Desea eliminar a ${empleado.nombre} ${empleado.apellidos}?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -302,24 +301,24 @@ const Empleados = () => {
           // La API devuelve confirmación de eliminación completa (empleado y usuario asociado) según la documentación
           if (response.success || response.message || response.id_empleado_eliminado) {
             console.log('✅ [Empleados] Empleado y usuario asociado eliminados en API');
-            updateSuccess('Empleado y usuario asociado eliminados correctamente');
+            notificationService.updateSuccess('Empleado y usuario asociado eliminados correctamente');
             console.log('🔄 [Empleados] Recargando datos...');
               await cargarEmpleados(); // Recargar datos
             console.log('✅ [Empleados] Datos recargados');
             } else {
             console.error('❌ [Empleados] Error al eliminar empleado en API:', response.message || response.error);
-            updateError('Error al eliminar empleado: ' + (response.message || response.error || 'Error desconocido'));
+            notificationService.updateError('Error al eliminar empleado: ' + (response.message || response.error || 'Error desconocido'));
             }
           } catch (error) {
             console.error('💥 [Empleados] Error al eliminar empleado:', error);
-          updateError('Error al eliminar empleado: ' + error.message);
+          notificationService.updateError('Error al eliminar empleado: ' + error.message);
           }
         } else {
         console.log('❌ [Empleados] Usuario canceló la eliminación');
       }
     } catch (error) {
       console.error('💥 [Empleados] Error en el modal de confirmación:', error);
-      updateError('Error al mostrar modal de confirmación: ' + error.message);
+      notificationService.updateError('Error al mostrar modal de confirmación: ' + error.message);
     }
   };
 

@@ -22,11 +22,20 @@ const ProfileContent = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   // Determinar el rol del usuario
-  const userRole = usuario?.rol?.nombre || usuario?.role || 'cliente';
-  const isAdmin = userRole === 'administrador';
-  const isEmployee = userRole === 'empleado';
-  const isClient = userRole === 'cliente';
-  const showPhone = false; // Campo de teléfono deshabilitado para todos los roles
+  const userRole = usuario?.rol?.nombre || usuario?.role || usuario?.rol || 'cliente';
+  const userRoleId = usuario?.rol?.id || usuario?.id_rol || usuario?.idRol;
+  
+  // Normalizar el nombre del rol para comparaciones
+  const userRoleLower = (userRole || '').toLowerCase().trim();
+  const isAdmin = userRoleId === 2 || userRoleId === '2' || userRoleLower === 'administrador' || userRoleLower === 'admin';
+  const isEmployee = userRoleId === 3 || userRoleId === '3' || userRoleLower === 'empleado' || userRoleLower === 'employee';
+  const isClient = userRoleId === 1 || userRoleId === '1' || userRoleLower === 'cliente' || userRoleLower === 'client';
+  
+  // Obtener el nombre del rol para mostrar (usar el nombre real del rol, no solo los estándar)
+  const displayRole = userRole || 'Usuario';
+  
+  // Habilitar campo de teléfono para todos los usuarios
+  const showPhone = true;
 
   // Inicializar datos del formulario cuando el usuario cambie
   useEffect(() => {
@@ -70,11 +79,9 @@ const ProfileContent = () => {
       newErrors.email = 'El formato del correo electrónico no es válido';
     }
 
-    // Solo validar teléfono si es admin o empleado
-    if (showPhone) {
-      if (!data.phone.trim()) {
-        newErrors.phone = 'El teléfono es requerido';
-      } else if (!/^[0-9+\-\s()]+$/.test(data.phone)) {
+    // Validar teléfono (opcional, pero si se proporciona debe tener formato válido)
+    if (data.phone && data.phone.trim()) {
+      if (!/^[0-9+\-\s()]+$/.test(data.phone.trim())) {
         newErrors.phone = 'El formato del teléfono no es válido';
       }
     }
@@ -125,9 +132,12 @@ const ProfileContent = () => {
         correo: formData.email
       };
 
-      // Solo incluir teléfono si es admin o empleado
-      if (showPhone && formData.phone) {
-        updatedData.telefono = formData.phone;
+      // Incluir teléfono si se proporciona
+      if (formData.phone && formData.phone.trim()) {
+        updatedData.telefono = formData.phone.trim();
+      } else {
+        // Si el campo está vacío, enviar null para limpiar el teléfono
+        updatedData.telefono = null;
       }
 
       const result = await updateUser(updatedData);
@@ -233,9 +243,13 @@ const ProfileContent = () => {
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 isAdmin ? 'bg-red-100 text-red-800' : 
                 isEmployee ? 'bg-green-100 text-green-800' : 
-                'bg-blue-100 text-blue-800'
+                isClient ? 'bg-blue-100 text-blue-800' :
+                'bg-purple-100 text-purple-800'
               }`}>
-                {isAdmin ? '👑 Administrador' : isEmployee ? '👨‍💼 Empleado' : '👤 Cliente'}
+                {isAdmin ? '👑 Administrador' : 
+                 isEmployee ? '👨‍💼 Empleado' : 
+                 isClient ? '👤 Cliente' : 
+                 `👤 ${displayRole}`}
               </span>
             </div>
           </div>
@@ -310,8 +324,8 @@ const ProfileContent = () => {
               </div>
             </div>
 
-            {/* Segunda fila: Email */}
-            <div className="grid grid-cols-1 gap-4">
+            {/* Segunda fila: Email y Teléfono */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <i className="bi bi-envelope text-gray-400 mr-2"></i>
@@ -337,33 +351,31 @@ const ProfileContent = () => {
                 )}
               </div>
               
-              {/* Campo de teléfono deshabilitado para todos los roles */}
-              {showPhone && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <i className="bi bi-telephone text-gray-400 mr-2"></i>
-                    Teléfono <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="tel" 
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
-                      isEditing
-                        ? errors.phone 
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
-                          : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                    placeholder="Ingresa tu teléfono"
-                  />
-                  {errors.phone && (
-                    <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
-                  )}
-                </div>
-              )}
+              {/* Campo de teléfono - ahora habilitado para todos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-telephone text-gray-400 mr-2"></i>
+                  Teléfono {showPhone && <span className="text-red-500">*</span>}
+                </label>
+                <input 
+                  type="tel" 
+                  name="phone"
+                  value={formData.phone || ''}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                    isEditing
+                      ? errors.phone 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                        : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  }`}
+                  placeholder="Ingresa tu teléfono (opcional)"
+                />
+                {errors.phone && (
+                  <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

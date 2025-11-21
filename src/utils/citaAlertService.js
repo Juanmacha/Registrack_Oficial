@@ -6,7 +6,7 @@ const citaAlertService = {
   fechaNoValida: () => {
     return AlertService.warning(
       "Fecha no válida",
-      "No puedes agendar citas en fechas anteriores a hoy. Por favor, selecciona una fecha futura."
+      "No se pueden agendar citas en fechas anteriores a hoy. Por favor, seleccione una fecha futura."
     );
   },
 
@@ -38,7 +38,7 @@ const citaAlertService = {
   confirmarAnulacion: () => {
     return AlertService.confirm(
       "Confirmar anulación de cita",
-      "¿Estás seguro de que deseas anular esta cita? Esta acción no se puede deshacer y se notificará al cliente.",
+      "¿Está seguro de que desea anular esta cita? Esta acción no se puede deshacer y se notificará al cliente.",
       {
         confirmButtonText: "Sí, anular cita",
         cancelButtonText: "Cancelar",
@@ -51,7 +51,7 @@ const citaAlertService = {
   confirmarReprogramacion: () => {
     return AlertService.confirm(
       "Confirmar reprogramación de cita",
-      "¿Estás seguro de que deseas reprogramar esta cita? Se enviará una notificación al cliente con la nueva fecha y hora.",
+      "¿Está seguro de que desea reprogramar esta cita? Se enviará una notificación al cliente con la nueva fecha y hora.",
       {
         confirmButtonText: "Sí, reprogramar",
         cancelButtonText: "Cancelar",
@@ -64,7 +64,7 @@ const citaAlertService = {
   errorProcesarCita: () => {
     return AlertService.error(
       "Error al procesar cita",
-      "No se pudo procesar la solicitud de cita. Por favor, verifica los datos e intenta nuevamente."
+      "No se pudo procesar la solicitud de cita. Por favor, verifique los datos e intente nuevamente."
     );
   },
 
@@ -72,7 +72,7 @@ const citaAlertService = {
   errorAnularCita: () => {
     return AlertService.error(
       "Error al anular cita",
-      "No se pudo anular la cita. Por favor, intenta nuevamente o contacta al soporte técnico."
+      "No se pudo anular la cita. Por favor, intente nuevamente o contacte al soporte técnico."
     );
   },
 
@@ -80,14 +80,14 @@ const citaAlertService = {
   errorReprogramarCita: () => {
     return AlertService.error(
       "Error al reprogramar cita",
-      "No se pudo reprogramar la cita. Por favor, intenta nuevamente o contacta al soporte técnico."
+      "No se pudo reprogramar la cita. Por favor, intente nuevamente o contacte al soporte técnico."
     );
   },
 
   // Alerta de validación de campos
   validacionCampos: (campo) => {
     return alertService.validationError(
-      `Por favor, completa el campo: ${campo}`
+      `Por favor, complete el campo: ${campo}`
     );
   },
 
@@ -95,7 +95,7 @@ const citaAlertService = {
   conflictoHorarios: () => {
     return alertService.warning(
       "Conflicto de horarios",
-      "Ya existe una cita programada en este horario. Por favor, selecciona otro horario."
+      "Ya existe una cita programada en este horario. Por favor, seleccione otro horario."
     );
   },
 
@@ -142,7 +142,7 @@ const citaAlertService = {
   errorExportar: () => {
     return alertService.error(
       "Error de exportación",
-      "Error al exportar las citas. Por favor, intenta de nuevo."
+      "Error al exportar las citas. Por favor, intente nuevamente."
     );
   },
 
@@ -150,7 +150,7 @@ const citaAlertService = {
   confirmarEliminacionMultiple: (cantidad) => {
     return alertService.confirm(
       "Eliminar citas",
-      `¿Estás seguro de que quieres eliminar ${cantidad} citas? Esta acción no se puede deshacer.`,
+      `¿Está seguro de que desea eliminar ${cantidad} citas? Esta acción no se puede deshacer.`,
       "Sí, eliminar",
       "Cancelar"
     );
@@ -176,7 +176,7 @@ const citaAlertService = {
   confirmarLimpiarCalendario: () => {
     return alertService.confirm(
       "Limpiar calendario",
-      "¿Estás seguro de que quieres eliminar todas las citas del calendario? Esta acción no se puede deshacer.",
+      "¿Está seguro de que desea eliminar todas las citas del calendario? Esta acción no se puede deshacer.",
       "Sí, limpiar todo",
       "Cancelar"
     );

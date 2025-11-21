@@ -103,7 +103,7 @@ const alertService = {
   registerSuccess: () => {
     return AlertService.success(
       "Registro exitoso",
-      "Tu cuenta ha sido creada correctamente. Por favor, inicia sesión para continuar."
+      "Su cuenta ha sido creada correctamente. Por favor, inicie sesión para continuar."
     );
   },
 
@@ -118,7 +118,7 @@ const alertService = {
   logoutConfirm: () => {
     return AlertService.confirm(
       "¿Cerrar sesión?",
-      "¿Estás seguro de que quieres cerrar tu sesión?"
+      "¿Está seguro de que desea cerrar su sesión?"
     );
   },
 
@@ -127,7 +127,7 @@ const alertService = {
     return Swal.fire({
       icon: "warning",
       title: "¿Eliminar?",
-      text: `¿Estás seguro de que quieres eliminar ${itemName}? Esta acción no se puede deshacer.`,
+      text: `¿Está seguro de que desea eliminar ${itemName}? Esta acción no se puede deshacer.`,
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
@@ -247,7 +247,7 @@ const alertService = {
     return Swal.fire({
       icon: "warning",
       title: "¿Eliminar?",
-      text: `¿Estás seguro de que quieres eliminar ${itemName}? Esta acción no se puede deshacer.`,
+      text: `¿Está seguro de que desea eliminar ${itemName}? Esta acción no se puede deshacer.`,
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
@@ -274,7 +274,7 @@ const alertService = {
     return Swal.fire({
       icon: "question",
       title: "¿Cancelar?",
-      text: `¿Estás seguro de que quieres cancelar ${itemName}?`,
+      text: `¿Está seguro de que desea cancelar ${itemName}?`,
       showCancelButton: true,
       confirmButtonText: "Sí, cancelar",
       cancelButtonText: "No",

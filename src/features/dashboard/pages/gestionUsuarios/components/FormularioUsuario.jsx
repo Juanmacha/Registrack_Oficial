@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import { validarUsuario } from "../services/validarUsuario";
 import rolesApiService from "../../gestionRoles/services/rolesApiService";
+import { validatePasswordStrength, getPasswordRequirementsShort } from "../../../../../shared/utils/passwordValidator.js";
 
 const FormularioUsuario = ({
   nuevoUsuario,
@@ -93,7 +94,26 @@ const FormularioUsuario = ({
 
   const handlePasswordChange = (e) => {
     handleInputChange(e);
-    if (confirmarPassword && e.target.value !== confirmarPassword) {
+    const password = e.target.value;
+    
+    // Validar fortaleza de contraseña en tiempo real
+    if (password) {
+      const validation = validatePasswordStrength(password);
+      if (!validation.isValid) {
+        setErrores(prev => ({
+          ...prev,
+          password: validation.errors[0]
+        }));
+      } else {
+        setErrores(prev => {
+          const newErrores = { ...prev };
+          delete newErrores.password;
+          return newErrores;
+        });
+      }
+    }
+    
+    if (confirmarPassword && password !== confirmarPassword) {
       setErrorPassword("Las contraseñas no coinciden");
     } else {
       setErrorPassword("");
@@ -136,11 +156,22 @@ const FormularioUsuario = ({
     }
 
     if (!modoEdicion) {
-      if (!nuevoUsuario.password || nuevoUsuario.password.length < 6) nuevosErrores.password = "La contraseña es obligatoria y debe tener al menos 6 caracteres.";
-      else if (/\s/.test(nuevoUsuario.password)) nuevosErrores.password = "La contraseña no debe contener espacios en blanco.";
-      if (!confirmarPassword) nuevosErrores.confirmarPassword = "Debes confirmar la contraseña.";
-      else if (nuevoUsuario.password !== confirmarPassword) nuevosErrores.confirmarPassword = "Las contraseñas no coinciden.";
-      else if (/\s/.test(confirmarPassword)) nuevosErrores.confirmarPassword = "La confirmación no debe contener espacios en blanco.";
+      // Validar fortaleza de contraseña según requisitos del backend
+      if (!nuevoUsuario.password) {
+        nuevosErrores.password = "La contraseña es obligatoria.";
+      } else {
+        const passwordValidation = validatePasswordStrength(nuevoUsuario.password);
+        if (!passwordValidation.isValid) {
+          nuevosErrores.password = passwordValidation.errors[0] || "La contraseña no cumple con los requisitos de seguridad.";
+        }
+      }
+      
+      // Validar confirmación de contraseña
+      if (!confirmarPassword) {
+        nuevosErrores.confirmarPassword = "Debes confirmar la contraseña.";
+      } else if (nuevoUsuario.password !== confirmarPassword) {
+        nuevosErrores.confirmarPassword = "Las contraseñas no coinciden.";
+      }
     }
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
@@ -355,6 +386,11 @@ const FormularioUsuario = ({
                     </span>
                   </div>
                   {mostrarError('password') && <p className="text-red-600 text-sm mt-1">{errores.password}</p>}
+                  {nuevoUsuario.password && !errores.password && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      {getPasswordRequirementsShort()}
+                    </p>
+                  )}
                 </div>
                 {/* Confirmar contraseña */}
                 <div>

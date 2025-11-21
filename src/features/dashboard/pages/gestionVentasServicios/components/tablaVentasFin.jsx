@@ -6,6 +6,8 @@ import EditarVenta from "./editarVenta";
 import { agregarComentario } from "../services/ventasService";
 import { mockDataService } from '../../../../../utils/mockDataService';
 import solicitudesApiService from '../services/solicitudesApiService';
+import archivosApiService from '../services/archivosApiService';
+import seguimientoApiService from '../services/seguimientoApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import getEstadoBadge from "../services/getEstadoBadge"; // Usa el mismo servicio
@@ -14,6 +16,7 @@ import StandardAvatar from "../../../../../shared/components/StandardAvatar";
 import { saveAs } from "file-saver";
 import ActionDropdown from "../../../../../shared/components/ActionDropdown";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
+import Swal from 'sweetalert2';
 
 const TablaVentasFin = () => {
   const { getToken } = useAuth();
@@ -31,6 +34,9 @@ const TablaVentasFin = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
   const [serviciosDisponibles, setServiciosDisponibles] = useState([]);
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
+  const [modalSeguimientosDescargarOpen, setModalSeguimientosDescargarOpen] = useState(false);
+  const [seguimientosDisponibles, setSeguimientosDisponibles] = useState([]);
+  const [cargandoSeguimientos, setCargandoSeguimientos] = useState(false);
   
   // ✅ NUEVO: Estados para API real
   const [allDatos, setAllDatos] = useState([]);
@@ -191,6 +197,121 @@ const TablaVentasFin = () => {
       refrescar();
     }
     setModalObservacionOpen(false);
+  };
+
+  const cargarSeguimientosParaDescarga = async (idOrdenServicio) => {
+    if (!idOrdenServicio) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo identificar la orden de servicio',
+        customClass: { popup: "swal2-border-radius" }
+      });
+      return;
+    }
+
+    setCargandoSeguimientos(true);
+    try {
+      const token = getToken();
+      if (!token) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se encontró token de autenticación',
+          customClass: { popup: "swal2-border-radius" }
+        });
+        return;
+      }
+
+      console.log('🔧 [TablaVentasFin] Cargando seguimientos para orden:', idOrdenServicio);
+      const historial = await seguimientoApiService.getHistorial(idOrdenServicio, token);
+      
+      // Filtrar solo seguimientos que tienen documentos adjuntos
+      const seguimientosConArchivos = historial.filter(s => {
+        const docs = s.documentos_adjuntos;
+        return docs && docs !== null && docs !== '' && docs !== 'null';
+      });
+      
+      console.log('✅ [TablaVentasFin] Seguimientos con archivos:', seguimientosConArchivos.length);
+      setSeguimientosDisponibles(seguimientosConArchivos);
+    } catch (error) {
+      console.error('❌ [TablaVentasFin] Error cargando seguimientos:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los seguimientos',
+        customClass: { popup: "swal2-border-radius" }
+      });
+      setSeguimientosDisponibles([]);
+    } finally {
+      setCargandoSeguimientos(false);
+    }
+  };
+
+  const descargarArchivosSeguimiento = async (idSeguimiento) => {
+    try {
+      Swal.fire({
+        title: 'Descargando archivos...',
+        text: 'Por favor espera mientras se preparan los archivos',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const token = getToken();
+      if (!token) {
+        throw new Error('No hay token de autenticación. Por favor inicia sesión nuevamente.');
+      }
+
+      const result = await seguimientoApiService.descargarArchivosSeguimiento(idSeguimiento, token);
+      
+      // Descargar el archivo
+      const url = window.URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Descarga exitosa',
+        text: `Los archivos se han descargado correctamente${result.filename ? `: ${result.filename}` : ''}`,
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: { popup: "swal2-border-radius" }
+      });
+
+      // Cerrar modal
+      setModalSeguimientosDescargarOpen(false);
+    } catch (error) {
+      console.error('❌ [TablaVentasFin] Error descargando archivos de seguimiento:', error);
+      Swal.close();
+      
+      let errorMessage = 'No se pudieron descargar los archivos. Por favor, intente nuevamente.';
+      if (error.message) {
+        if (error.message.includes('404')) {
+          errorMessage = 'No se encontraron archivos asociados a este seguimiento.';
+        } else if (error.message.includes('403') || error.message.includes('401')) {
+          errorMessage = 'No tiene permisos para descargar estos archivos.';
+        } else if (error.message.includes('token')) {
+          errorMessage = 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al descargar',
+        text: errorMessage,
+        customClass: { popup: "swal2-border-radius" }
+      });
+    }
   };
 
   const exportarExcel = () => {
@@ -418,14 +539,12 @@ const TablaVentasFin = () => {
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center">
                           <ActionDropdown
-                            layout="horizontal"
                             actions={[
                               ...(!esAnulado ? [
                                 {
                                   icon: "bi bi-pencil-fill",
                                   label: "Editar",
                                   title: "Editar venta",
-                                  hideLabel: true,
                                   onClick: () => {
                                     setDatoSeleccionado(item);
                                     setModalEditarOpen(true);
@@ -435,7 +554,6 @@ const TablaVentasFin = () => {
                                   icon: "bi bi-chat-dots-fill",
                                   label: "Observaciones",
                                   title: "Ver y agregar observaciones",
-                                  hideLabel: true,
                                   onClick: () => {
                                     setDatoSeleccionado(item);
                                     setModalObservacionOpen(true);
@@ -446,10 +564,69 @@ const TablaVentasFin = () => {
                                 icon: "bi bi-eye-fill",
                                 label: "Ver detalle",
                                 title: "Ver detalles completos",
-                                hideLabel: true,
                                 onClick: () => {
                                   setDatoSeleccionado(item);
                                   setModalDetalleOpen(true);
+                                }
+                              },
+                              {
+                                icon: "bi bi-file-earmark-arrow-down",
+                                label: "Descargar archivos de seguimiento",
+                                title: "Descargar archivos adjuntos de seguimientos",
+                                onClick: async () => {
+                                  setDatoSeleccionado(item);
+                                  setModalSeguimientosDescargarOpen(true);
+                                  await cargarSeguimientosParaDescarga(item.id || item.id_orden_servicio);
+                                }
+                              },
+                              {
+                                icon: "bi bi-file-earmark-zip",
+                                label: "Descargar ZIP",
+                                title: "Descargar documentos adjuntos",
+                                onClick: async () => {
+                                  try {
+                                    // Mostrar loading
+                                    Swal.fire({
+                                      title: 'Descargando archivos...',
+                                      text: 'Por favor espera mientras se preparan los archivos',
+                                      allowOutsideClick: false,
+                                      didOpen: () => {
+                                        Swal.showLoading();
+                                      }
+                                    });
+                                    
+                                    const token = getToken();
+                                    if (!token) {
+                                      throw new Error('No hay token de autenticación. Por favor inicia sesión nuevamente.');
+                                    }
+                                    
+                                    // Obtener id_orden_servicio del item
+                                    const idOrdenServicio = item.id || item.id_orden_servicio;
+                                    if (!idOrdenServicio) {
+                                      throw new Error('No se pudo obtener el ID de la solicitud');
+                                    }
+                                    
+                                    // Llamar al servicio para descargar ZIP desde el backend
+                                    const result = await archivosApiService.downloadArchivosSolicitudZip(idOrdenServicio, token);
+                                    
+                                    // Cerrar loading y mostrar éxito
+                                    Swal.close();
+                                    Swal.fire({
+                                      icon: 'success',
+                                      title: '¡Descarga exitosa!',
+                                      text: 'Los archivos se han descargado correctamente.',
+                                      confirmButtonText: 'Aceptar'
+                                    });
+                                  } catch (error) {
+                                    console.error('❌ [TablaVentasFin] Error al descargar ZIP:', error);
+                                    Swal.close();
+                                    Swal.fire({
+                                      icon: 'error',
+                                      title: 'Error al descargar',
+                                      text: error.message || 'No se pudieron descargar los archivos. Por favor, intente nuevamente.',
+                                      confirmButtonText: 'Aceptar'
+                                    });
+                                  }
                                 }
                               }
                             ]}
@@ -528,6 +705,109 @@ const TablaVentasFin = () => {
         onClose={() => setModalEditarOpen(false)}
         onGuardar={handleGuardarEdicion}
       />
+      {/* Modal para seleccionar seguimiento y descargar archivos */}
+      {modalSeguimientosDescargarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-75 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-0 overflow-y-auto max-h-[90vh] relative border border-gray-200">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <span className="bg-blue-100 p-2 rounded-full">
+                  <i className="bi bi-file-earmark-arrow-down text-blue-600 text-2xl"></i>
+                </span>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">Descargar Archivos de Seguimiento</h2>
+                  <p className="text-sm text-gray-500">Seleccione un seguimiento para descargar sus archivos adjuntos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalSeguimientosDescargarOpen(false);
+                  setSeguimientosDisponibles([]);
+                }}
+                className="text-gray-500 hover:text-red-600 transition-colors"
+              >
+                <i className="bi bi-x-lg text-2xl"></i>
+              </button>
+            </div>
+            {/* Content */}
+            <div className="p-6">
+              {cargandoSeguimientos ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-gray-500 mt-4">Cargando seguimientos...</p>
+                </div>
+              ) : seguimientosDisponibles.length === 0 ? (
+                <div className="text-center py-8">
+                  <i className="bi bi-inbox text-4xl text-gray-400 mb-4"></i>
+                  <p className="text-gray-600 font-medium">No hay seguimientos con archivos adjuntos</p>
+                  <p className="text-sm text-gray-500 mt-2">Esta solicitud no tiene seguimientos con documentos adjuntos disponibles para descargar.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {seguimientosDisponibles.map((seguimiento) => {
+                    const fecha = seguimiento.fecha_registro || seguimiento.fecha_creacion || seguimiento.fecha;
+                    const formatearFecha = (fecha) => {
+                      if (!fecha) return '-';
+                      try {
+                        const fechaObj = new Date(fecha);
+                        return fechaObj.toLocaleDateString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      } catch {
+                        return fecha;
+                      }
+                    };
+                    
+                    return (
+                      <div
+                        key={seguimiento.id_seguimiento || seguimiento.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-800 mb-1">
+                              {seguimiento.titulo || seguimiento.título || 'Sin título'}
+                            </h3>
+                            {seguimiento.descripcion && (
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                {seguimiento.descripcion}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <i className="bi bi-calendar3"></i>
+                                {formatearFecha(fecha)}
+                              </span>
+                              {seguimiento.usuario_registro && (
+                                <span className="flex items-center gap-1">
+                                  <i className="bi bi-person"></i>
+                                  {seguimiento.usuario_registro.nombre} {seguimiento.usuario_registro.apellido}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => descargarArchivosSeguimiento(seguimiento.id_seguimiento || seguimiento.id)}
+                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <i className="bi bi-download"></i>
+                            Descargar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Estilo de botones */}
       <style jsx>{`
         .custom-hover:hover {

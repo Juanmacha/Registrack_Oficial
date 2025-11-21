@@ -21,6 +21,19 @@ import FormularioAmpliacion from '../../../../../shared/components/formularioAmp
 import FormularioRespuesta from '../../../../../shared/components/formularioRespuesta';
 import DemoPasarelaPagoModal from '../../../../landing/components/DemoPasarelaPagoModal'; // Asegúrate de que la ruta sea correcta
 
+/**
+ * ⚠️ COMPONENTE EXCLUSIVO PARA CLIENTES
+ * 
+ * Este componente permite crear solicitudes como cliente.
+ * Diferencias clave con CrearSolicitudAdmin (admin/empleado):
+ * - NO requiere id_cliente (se toma automáticamente del token)
+ * - Muestra pasarela de pago después de crear
+ * - Estado inicial: "Pendiente de Pago"
+ * - Requiere procesar pago para activar la solicitud
+ * 
+ * Para administradores/empleados, usar CrearSolicitudAdmin.jsx en su lugar.
+ */
+
 // Mapeo de formularios por servicio
 const FORMULARIOS_POR_SERVICIO = {
   'Búsqueda de Antecedentes': FormularioBusqueda,

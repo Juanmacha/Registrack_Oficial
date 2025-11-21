@@ -37,10 +37,64 @@ export const manejarErrorAPI = (error, response = null) => {
       };
     
     case 403:
+      // Detectar si es un usuario inactivo o falta de permisos
+      const isInactiveUser = data.mensaje?.toLowerCase().includes('inactivo') || 
+                             data.mensaje?.toLowerCase().includes('desactivado') ||
+                             data.error?.toLowerCase().includes('inactivo') ||
+                             data.error?.toLowerCase().includes('desactivado');
+      
       return {
         tipo: 'FORBIDDEN',
-        mensaje: 'No tienes permisos para realizar esta acción.',
-        detalles: data.mensaje
+        mensaje: isInactiveUser 
+          ? 'Tu cuenta ha sido desactivada. Contacta al administrador para más información.'
+          : 'No tienes permisos para realizar esta acción.',
+        detalles: data.mensaje || data.error,
+        isInactiveUser
+      };
+    
+    case 429:
+      // Rate Limiting - Demasiados intentos
+      // Manejar headers tanto si es un objeto Headers de Fetch como si es un objeto plano
+      let retryAfter = null;
+      let rateLimitReset = null;
+      let rateLimitRemaining = null;
+      
+      if (response.headers) {
+        // Si es un objeto Headers de Fetch API
+        if (typeof response.headers.get === 'function') {
+          retryAfter = response.headers.get('Retry-After');
+          rateLimitReset = response.headers.get('RateLimit-Reset');
+          rateLimitRemaining = response.headers.get('RateLimit-Remaining');
+        } else {
+          // Si es un objeto plano
+          retryAfter = response.headers['Retry-After'] || response.headers['retry-after'];
+          rateLimitReset = response.headers['RateLimit-Reset'] || response.headers['ratelimit-reset'];
+          rateLimitRemaining = response.headers['RateLimit-Remaining'] || response.headers['ratelimit-remaining'];
+        }
+      }
+      
+      // También verificar en data
+      retryAfter = retryAfter || data.retryAfter;
+      rateLimitReset = rateLimitReset || data.rateLimitReset;
+      rateLimitRemaining = rateLimitRemaining || data.rateLimitRemaining;
+      
+      // Calcular tiempo de espera en minutos
+      let waitTime = null;
+      if (retryAfter) {
+        const seconds = parseInt(retryAfter, 10);
+        if (!isNaN(seconds)) {
+          waitTime = Math.ceil(seconds / 60); // Convertir a minutos
+        }
+      }
+      
+      return {
+        tipo: 'RATE_LIMIT',
+        mensaje: data.mensaje || data.message || 'Demasiados intentos. Por favor, espera antes de intentar nuevamente.',
+        detalles: data.detalles || data.error || data.message,
+        retryAfter,
+        rateLimitReset,
+        rateLimitRemaining,
+        waitTimeMinutes: waitTime
       };
     
     case 404:
@@ -86,6 +140,17 @@ export const obtenerMensajeErrorUsuario = (errorInfo) => {
     
     case 'UNAUTHORIZED':
       return 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+    
+    case 'FORBIDDEN':
+      return errorInfo.isInactiveUser
+        ? 'Tu cuenta ha sido desactivada. Contacta al administrador para más información.'
+        : 'No tienes permisos para realizar esta acción.';
+    
+    case 'RATE_LIMIT':
+      if (errorInfo.waitTimeMinutes) {
+        return `Demasiados intentos. Por favor, espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'} antes de intentar nuevamente.`;
+      }
+      return errorInfo.mensaje || 'Demasiados intentos. Por favor, espera unos minutos antes de intentar nuevamente.';
     
     case 'NETWORK_ERROR':
       return 'Error de conexión. Verifica tu conexión a internet e intenta nuevamente.';

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSidebar } from "../../../../shared/contexts/SidebarContext";
 import { useAuth } from "../../../../shared/contexts/authContext";
+import { usePermiso } from "../../../../shared/hooks/usePermiso";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import FullCalendar from "@fullcalendar/react";
@@ -33,12 +34,12 @@ const esLocale = {
 import citasApiService from "../../services/citasApiService.js";
 import alertService from "../../../../utils/alertService.js";
 import empleadosApiService from "../../services/empleadosApiService.js";
-import userApiService from "../../../auth/services/userApiService.js";
+import clientesApiService from "../../services/clientesApiService.js";
 import DownloadButton from "../../../../shared/components/DownloadButton";
 import VerDetalleCita from "../gestionCitas/components/verDetallecita";
 import ModalAgendarDesdeSolicitud from "../gestionCitas/components/ModalAgendarDesdeSolicitud";
 import Swal from "sweetalert2";
-import { FaCalendarAlt, FaUser, FaPhone, FaFileAlt, FaBriefcase, FaDownload, FaSearch, FaEye, FaEdit, FaTrash, FaCalendarDay } from "react-icons/fa";
+import { FaCalendarAlt, FaUser, FaPhone, FaFileAlt, FaBriefcase, FaDownload, FaSearch, FaEye, FaEdit, FaTrash, FaCalendarDay, FaInfoCircle, FaSpinner } from "react-icons/fa";
 import { Dialog } from "@headlessui/react";
 import * as XLSX from "xlsx";
 import "../../../../styles/fullcalendar-custom.css";
@@ -46,6 +47,17 @@ import "../../../../styles/fullcalendar-custom.css";
 
 const Calendario = () => {
   const { getToken } = useAuth();
+  
+  // ✅ Permisos del módulo de citas
+  const puedeCrear = usePermiso('gestion_citas', 'crear');
+  const puedeEditar = usePermiso('gestion_citas', 'editar');
+  const puedeActualizar = usePermiso('gestion_citas', 'actualizar');
+  const puedeEliminar = usePermiso('gestion_citas', 'eliminar');
+  const puedeLeer = usePermiso('gestion_citas', 'leer');
+  
+  // Combinar editar y actualizar (pueden ser sinónimos según el backend)
+  const puedeModificar = puedeEditar || puedeActualizar;
+  
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -81,10 +93,74 @@ const Calendario = () => {
   const [empleadosActivos, setEmpleadosActivos] = useState([]);
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   
+  // ✅ Estados para selector de clientes
+  const [clientes, setClientes] = useState([]);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  
   // Función para refrescar citas cuando se crea desde solicitud
   const handleCitaCreadaDesdeSolicitud = async () => {
     await cargarCitasDesdeAPI();
   };
+
+  // ✅ Función para cargar clientes desde la API
+  const cargarClientes = async () => {
+    try {
+      setCargandoClientes(true);
+      console.log('👥 [Calendario] Cargando clientes desde la API...');
+      const clientesData = await clientesApiService.getAllClientes();
+      // Filtrar solo clientes activos
+      const clientesActivos = (clientesData || []).filter(c => c.estado !== false);
+      setClientes(clientesActivos);
+      console.log('✅ [Calendario] Clientes cargados:', clientesActivos.length);
+    } catch (error) {
+      console.error('❌ [Calendario] Error al cargar clientes:', error);
+      await alertService.error('Error', 'No se pudieron cargar los clientes. Intente nuevamente.');
+    } finally {
+      setCargandoClientes(false);
+    }
+  };
+
+  // ✅ Función para autocompletar datos del cliente seleccionado
+  const autocompletarDatosCliente = (cliente) => {
+    if (!cliente) {
+      setClienteSeleccionado(null);
+      setFormData(prev => ({
+        ...prev,
+        nombre: "",
+        apellido: "",
+        cedula: "",
+        tipoDocumento: "",
+        telefono: "",
+      }));
+      return;
+    }
+    
+    setClienteSeleccionado(cliente);
+    setFormData(prev => ({
+      ...prev,
+      nombre: cliente.nombre || '',
+      apellido: cliente.apellido || '',
+      cedula: cliente.documento || '',
+      // ✅ Solo usar valor por defecto si realmente no hay tipo de documento del cliente
+      tipoDocumento: cliente.tipoDocumento || cliente.tipo_documento || '',
+      // ✅ No usar 'N/A' como valor, usar cadena vacía si es null/undefined/N/A
+      telefono: (cliente.telefono && cliente.telefono.trim() !== '' && cliente.telefono.toUpperCase() !== 'N/A') 
+        ? cliente.telefono 
+        : '',
+    }));
+  };
+
+  // ✅ Cargar clientes cuando se abre el modal
+  useEffect(() => {
+    if (showModal && !modoReprogramar) {
+      cargarClientes();
+    } else if (!showModal) {
+      // Limpiar al cerrar el modal
+      setClienteSeleccionado(null);
+      setClientes([]);
+    }
+  }, [showModal, modoReprogramar]);
 
   // Función para cargar empleados desde la API
   const cargarEmpleadosDesdeAPI = async () => {
@@ -170,10 +246,12 @@ const Calendario = () => {
           
           // Normalizar estado para que coincida con el formato esperado por las estadísticas
           const estadoNormalizado = normalizarEstado(cita.estado);
+          // ✅ Normalizar tipo de cita para corregir tildes
+          const tipoCitaNormalizado = normalizarTipoCita(cita.tipo);
           
           const evento = {
             id: cita.id_cita || cita.id,
-            title: `${cita.tipo || 'Sin tipo'} - ${cita.cliente?.nombre || cita.cliente?.nombre_completo || 'Cliente'}`,
+            title: `${tipoCitaNormalizado} - ${cita.cliente?.nombre || cita.cliente?.nombre_completo || 'Cliente'}`,
             start: `${cita.fecha}T${cita.hora_inicio}`,
             end: `${cita.fecha}T${cita.hora_fin}`,
             backgroundColor: getColorByEstado(estadoNormalizado),
@@ -187,11 +265,11 @@ const Calendario = () => {
               cedula: cita.cliente?.documento || cita.cliente?.cedula || 'N/A',
               telefono: cita.cliente?.telefono || 'N/A',
               email: cita.cliente?.email || cita.cliente?.correo || 'N/A',
-              tipoCita: cita.tipo || 'N/A',
+              tipoCita: tipoCitaNormalizado, // ✅ Usar tipo normalizado con tildes corregidas
               horaInicio: cita.hora_inicio || 'N/A',
               horaFin: cita.hora_fin || 'N/A',
               asesor: cita.empleado?.nombre || cita.empleado?.nombre_completo || 'N/A',
-              detalle: cita.descripcion || cita.observacion || 'Sin detalle',
+              detalle: cita.descripcion || cita.observacion || 'Sin detalles',
               estado: estadoNormalizado, // ✅ Usar estado normalizado
               modalidad: cita.modalidad || 'N/A',
               observacionAnulacion: cita.observacion_anulacion || '',
@@ -261,6 +339,51 @@ const Calendario = () => {
     return estado.charAt(0).toUpperCase() + estado.slice(1).toLowerCase();
   };
 
+  // ✅ Función para normalizar tipos de cita y corregir tildes
+  const normalizarTipoCita = (tipo) => {
+    if (!tipo) return 'Sin tipo';
+    
+    const tipoLower = tipo.toLowerCase().trim();
+    
+    // Mapeo de variantes sin tilde o mal escritas a la versión correcta
+    const tiposCorregidos = {
+      'oposicion': 'Oposición',
+      'oposición': 'Oposición',
+      'certificacion': 'Certificación',
+      'certificación': 'Certificación',
+      'cesion': 'Cesión de marca',
+      'cesión': 'Cesión de marca',
+      'cesion de marca': 'Cesión de marca',
+      'cesión de marca': 'Cesión de marca',
+      'renovacion': 'Renovación',
+      'renovación': 'Renovación',
+      'busqueda de antecedentes': 'Búsqueda de antecedentes',
+      'búsqueda de antecedentes': 'Búsqueda de antecedentes',
+      'búsqueda de antecedente': 'Búsqueda de antecedentes',
+      'general': 'General',
+      'generales': 'General'
+    };
+    
+    // Buscar coincidencia exacta (case-insensitive)
+    const tipoNormalizado = tiposCorregidos[tipoLower];
+    if (tipoNormalizado) {
+      return tipoNormalizado;
+    }
+    
+    // Si no hay coincidencia exacta, intentar corregir tildes comunes
+    let tipoCorregido = tipo;
+    
+    // Correcciones comunes de tildes
+    tipoCorregido = tipoCorregido.replace(/oposicion/gi, 'Oposición');
+    tipoCorregido = tipoCorregido.replace(/certificacion/gi, 'Certificación');
+    tipoCorregido = tipoCorregido.replace(/cesion/gi, 'Cesión');
+    tipoCorregido = tipoCorregido.replace(/renovacion/gi, 'Renovación');
+    tipoCorregido = tipoCorregido.replace(/busqueda/gi, 'Búsqueda');
+    
+    // Capitalizar primera letra si es necesario
+    return tipoCorregido.charAt(0).toUpperCase() + tipoCorregido.slice(1);
+  };
+
   // Función para obtener color según el estado
   const getColorByEstado = (estado) => {
     const estadoLower = (estado || '').toLowerCase();
@@ -324,7 +447,7 @@ const Calendario = () => {
         Swal.fire({
           icon: 'info',
           title: 'Datos cargados automáticamente',
-          text: `Se han cargado los datos de la solicitud de ${solicitudData.clienteNombre}. Selecciona la fecha, hora y asesor.`,
+          text: `Se han cargado los datos de la solicitud de ${solicitudData.clienteNombre}. Seleccione la fecha, hora y asesor.`,
           timer: 3000,
           showConfirmButton: false
         });
@@ -340,6 +463,16 @@ const Calendario = () => {
 
   const handleDateSelect = async (selectInfo) => {
     console.log('🔧 [Calendario] handleDateSelect llamado:', selectInfo);
+    
+    // ✅ Verificar permiso de crear antes de permitir seleccionar fecha
+    if (!puedeCrear) {
+      await alertService.warning(
+        "Sin permisos",
+        "No tiene permiso para crear citas. Contacte al administrador si necesita este acceso."
+      );
+      return;
+    }
+    
     try {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
@@ -397,7 +530,7 @@ const Calendario = () => {
       } else {
         await alertService.error(
           "Error al crear cita",
-          result.message || "No se pudo crear la cita. Intenta de nuevo.",
+          result.message || "No se pudo crear la cita. Intente de nuevo.",
           { confirmButtonText: "Entendido" }
         );
       }
@@ -405,7 +538,7 @@ const Calendario = () => {
       console.error('💥 [Calendario] Error al crear cita:', error);
       await alertService.error(
         "Error de conexión",
-        "No se pudo conectar con el servidor. Intenta de nuevo.",
+        "No se pudo conectar con el servidor. Intente de nuevo.",
         { confirmButtonText: "Entendido" }
       );
     } finally {
@@ -435,7 +568,7 @@ const Calendario = () => {
       } else {
         await alertService.error(
           "Error al reprogramar cita",
-          result.message || "No se pudo reprogramar la cita. Intenta de nuevo.",
+          result.message || "No se pudo reprogramar la cita. Intente de nuevo.",
           { confirmButtonText: "Entendido" }
         );
       }
@@ -443,7 +576,7 @@ const Calendario = () => {
       console.error('💥 [Calendario] Error al reprogramar cita:', error);
       await alertService.error(
         "Error de conexión",
-        "No se pudo conectar con el servidor. Intenta de nuevo.",
+        "No se pudo conectar con el servidor. Intente de nuevo.",
         { confirmButtonText: "Entendido" }
       );
     } finally {
@@ -471,7 +604,7 @@ const Calendario = () => {
       } else {
         await alertService.error(
           "Error al anular cita",
-          result.message || "No se pudo anular la cita. Intenta de nuevo.",
+          result.message || "No se pudo anular la cita. Intente de nuevo.",
           { confirmButtonText: "Entendido" }
         );
       }
@@ -479,7 +612,7 @@ const Calendario = () => {
       console.error('💥 [Calendario] Error al anular cita:', error);
       await alertService.error(
         "Error de conexión",
-        "No se pudo conectar con el servidor. Intenta de nuevo.",
+        "No se pudo conectar con el servidor. Intente de nuevo.",
         { confirmButtonText: "Entendido" }
       );
     } finally {
@@ -487,109 +620,8 @@ const Calendario = () => {
     }
   };
 
-  // Función auxiliar para obtener o crear usuario y retornar su id_usuario
-  const obtenerIdUsuarioCliente = async (tipoDocumento, documento, nombre, apellido, telefono) => {
-    try {
-      console.log('🔍 [Calendario] Buscando usuario por documento:', documento);
-      
-      // 1. Buscar usuario existente por documento
-      const usuariosResult = await userApiService.getAllUsers();
-      
-      if (usuariosResult.success && usuariosResult.users && Array.isArray(usuariosResult.users)) {
-        // Normalizar tipo de documento para comparación
-        const tipoDocNormalizado = tipoDocumento?.toLowerCase().trim() || '';
-        const tiposValidos = {
-          'cc': 'CC',
-          'cédula de ciudadanía': 'CC',
-          'ti': 'TI',
-          'tarjeta de identidad': 'TI',
-          'ce': 'CE',
-          'cédula de extranjería': 'CE',
-          'pa': 'PA',
-          'pasaporte': 'PA'
-        };
-        const tipoDocFormato = tiposValidos[tipoDocNormalizado] || tipoDocumento;
-        
-        const usuarioExistente = usuariosResult.users.find(u => {
-          const docUsuario = String(u.documento || '').trim();
-          const tipoDocUsuario = String(u.tipo_documento || '').trim();
-          return docUsuario === String(documento).trim() && 
-                 (tipoDocUsuario === tipoDocFormato || tipoDocUsuario === tipoDocumento);
-        });
-        
-        if (usuarioExistente && usuarioExistente.id_usuario) {
-          console.log('✅ [Calendario] Usuario encontrado, id_usuario:', usuarioExistente.id_usuario);
-          return usuarioExistente.id_usuario;
-        }
-      }
-      
-      // 2. Si no existe, crear usuario nuevo
-      console.log('📝 [Calendario] Usuario no encontrado, creando nuevo usuario...');
-      
-      // Normalizar tipo de documento para la API (debe ser código corto: CC, TI, CE, PA)
-      const tipoDocNormalizado = tipoDocumento?.toLowerCase().trim() || '';
-      const tiposValidos = {
-        'cc': 'CC',
-        'cédula de ciudadanía': 'CC',
-        'cedula de ciudadania': 'CC',
-        'ti': 'TI',
-        'tarjeta de identidad': 'TI',
-        'ce': 'CE',
-        'cédula de extranjería': 'CE',
-        'cedula de extranjeria': 'CE',
-        'pa': 'PA',
-        'pasaporte': 'PA'
-      };
-      const tipoDocFormato = tiposValidos[tipoDocNormalizado] || 'CC'; // Por defecto CC si no se reconoce
-      
-      // Generar email temporal si no se proporciona
-      const emailTemporal = `temp_${documento}@registrack.com`;
-      // Generar contraseña temporal que cumpla con los requisitos del backend:
-      // - Mínimo 8 caracteres (según validaciones del backend)
-      // - Debe contener mayúsculas, minúsculas, números y caracteres especiales
-      const passwordTemporal = `Temp${documento}123!`;
-      
-      const nuevoUsuario = {
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
-        email: emailTemporal,
-        password: passwordTemporal,
-        tipoDocumento: tipoDocFormato, // ✅ Usar formato normalizado (CC, TI, CE, PA)
-        documento: String(documento).trim(),
-        telefono: telefono || '',
-        roleId: 1 // Rol cliente (id_rol=1 según backend: 1=cliente, 2=admin, 3=empleado)
-      };
-      
-      console.log('📤 [Calendario] Creando usuario:', nuevoUsuario);
-      console.log('📤 [Calendario] Tipo documento normalizado:', tipoDocFormato);
-      
-      const crearResult = await userApiService.createUser(nuevoUsuario);
-      
-      if (crearResult.success && crearResult.user) {
-        const idUsuario = crearResult.user.id_usuario || crearResult.user.id;
-        console.log('✅ [Calendario] Usuario creado exitosamente, id_usuario:', idUsuario);
-        
-        // Mostrar advertencia al usuario
-        await Swal.fire({
-          icon: 'info',
-          title: 'Usuario creado',
-          text: 'Se ha creado un usuario temporal para este cliente. El usuario deberá actualizar su contraseña al iniciar sesión.',
-          confirmButtonText: 'Entendido'
-        });
-        
-        return idUsuario;
-      } else {
-        // Mostrar error detallado
-        const errorMessage = crearResult.message || 'Error desconocido';
-        console.error('❌ [Calendario] Error al crear usuario:', errorMessage);
-        console.error('❌ [Calendario] Respuesta completa:', crearResult);
-        throw new Error('No se pudo crear el usuario: ' + errorMessage);
-      }
-    } catch (error) {
-      console.error('❌ [Calendario] Error al obtener/crear usuario:', error);
-      throw error;
-    }
-  };
+  // ✅ Función eliminada: obtenerIdUsuarioCliente
+  // Ahora usamos selector de clientes que ya tienen id_cliente en la tabla clientes
 
   const handleGuardarCita = async (e) => {
     e.preventDefault();
@@ -600,13 +632,18 @@ const Calendario = () => {
       await Swal.fire({ 
         icon: 'error', 
         title: 'Error de fecha', 
-        text: 'No se ha seleccionado una fecha válida. Por favor, selecciona una fecha en el calendario.' 
+        text: 'No se ha seleccionado una fecha válida. Por favor, seleccione una fecha en el calendario.' 
       });
       return;
     }
     
-    // Validación básica
-    let camposObligatorios = ["nombre","apellido","cedula","telefono","tipoCita","horaInicio","horaFin","asesor"];
+    // ✅ Validación básica
+    // Si hay cliente seleccionado, los campos de cliente no son obligatorios (ya están llenos)
+    let camposObligatorios = ["tipoCita","horaInicio","horaFin","asesor"];
+    if (!clienteSeleccionado && !modoReprogramar) {
+      // Solo validar campos de cliente si NO hay cliente seleccionado
+      camposObligatorios = ["nombre","apellido","cedula","telefono","tipoCita","horaInicio","horaFin","asesor"];
+    }
     if (modoReprogramar) {
       // En modo reprogramar solo se requieren fecha, hora y asesor (opcional)
       camposObligatorios = ["horaInicio","horaFin"];
@@ -617,17 +654,10 @@ const Calendario = () => {
         return;
       }
     }
-    // Validar que horaFin > horaInicio
-    if (formData.horaFin <= formData.horaInicio) {
-      await alertService.error("Hora inválida", "La hora de fin debe ser mayor que la de inicio.");
-      return;
-    }
     
-    // Determinar fechaBase
+    // Preparar fecha base para validaciones
     let fechaBase;
     if (modoReprogramar && citaAReprogramar?.start) {
-      // En modo reprogramar, usar la fecha seleccionada en el modalDate si existe,
-      // de lo contrario usar la fecha actual de la cita
       fechaBase = modalDate?.startStr ? modalDate.startStr.split("T")[0] : new Date(citaAReprogramar.start).toISOString().split("T")[0];
     } else if (modalDate?.startStr) {
       fechaBase = modalDate.startStr.split("T")[0];
@@ -639,6 +669,43 @@ const Calendario = () => {
         text: 'No se puede determinar la fecha para la cita.' 
       });
       return;
+    }
+    
+    // Preparar datos de cita para validar
+    const horaInicioConSegundos = formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 
+      ? formData.horaInicio + ':00' 
+      : formData.horaInicio;
+    const horaFinConSegundos = formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 
+      ? formData.horaFin + ':00' 
+      : formData.horaFin;
+    
+    // Validar usando el servicio de citas (incluye todas las validaciones nuevas)
+    const datosParaValidar = {
+      fecha: fechaBase,
+      hora_inicio: horaInicioConSegundos,
+      hora_fin: horaFinConSegundos,
+      tipo: formData.tipoCita,
+      modalidad: "Presencial",
+      id_cliente: 1, // Placeholder, se asignará después
+      id_empleado: 1 // Placeholder, se asignará después
+    };
+    
+    if (modoReprogramar) {
+      // Validar para reprogramar
+      const validacionReprogramar = citasApiService.validateReprogramarData(datosParaValidar);
+      if (!validacionReprogramar.isValid) {
+        const primerError = Object.values(validacionReprogramar.errors)[0];
+        await alertService.error("Error de validación", primerError);
+        return;
+      }
+    } else {
+      // Validar para crear
+      const validacionCrear = citasApiService.validateCitaData(datosParaValidar);
+      if (!validacionCrear.isValid) {
+        const primerError = Object.values(validacionCrear.errors)[0];
+        await alertService.error("Error de validación", primerError);
+        return;
+      }
     }
     
     // Validar cruce de horarios
@@ -696,51 +763,25 @@ const Calendario = () => {
       return;
     }
     
-    // Obtener id_usuario del cliente (buscar o crear si no existe)
-    let idUsuarioCliente;
-    try {
-      setIsLoading(true);
-      idUsuarioCliente = await obtenerIdUsuarioCliente(
-        formData.tipoDocumento,
-        formData.cedula,
-        formData.nombre,
-        formData.apellido,
-        formData.telefono
-      );
-      
-      if (!idUsuarioCliente) {
-        await alertService.error(
-          "Error al obtener usuario",
-          "No se pudo obtener o crear el usuario. Verifica los datos ingresados."
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('❌ [Calendario] Error al obtener id_usuario:', error);
+    // ✅ Validar que se haya seleccionado un cliente
+    if (!clienteSeleccionado || !clienteSeleccionado.id_cliente) {
       await alertService.error(
-        "Error al procesar cliente",
-        error.message || "No se pudo procesar la información del cliente. Intenta de nuevo."
+        "Cliente requerido",
+        "Debe seleccionar un cliente para crear la cita."
       );
       return;
-    } finally {
-      setIsLoading(false);
     }
     
+    // Preparar datos de la cita usando id_cliente de la tabla clientes
     const citaData = {
       fecha: fechaBase,
       hora_inicio: formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 ? formData.horaInicio + ':00' : formData.horaInicio,
       hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin,
       tipo: formData.tipoCita,
       modalidad: "Presencial",
-      id_cliente: idUsuarioCliente, // ✅ Usar id_usuario correcto
+      id_cliente: clienteSeleccionado.id_cliente, // ✅ USAR id_cliente DE LA TABLA clientes
       id_empleado: idEmpleado,
-      observacion: formData.detalle || '',
-      cliente: {
-        nombre: formData.nombre,
-        apellido: formData.apellido,
-        documento: formData.cedula,
-        telefono: formData.telefono
-      }
+      observacion: formData.detalle || ''
     };
     
     await handleCreateCita(citaData);
@@ -780,9 +821,19 @@ const Calendario = () => {
     asesor: Yup.string().required("Requerido"),
   });
 
-  const handleEventClick = (clickInfo) => {
+  const handleEventClick = async (clickInfo) => {
     console.log('🖱️ [Calendario] Click en evento:', clickInfo.event);
     console.log('📋 [Calendario] ExtendedProps del evento:', clickInfo.event.extendedProps);
+    
+    // ✅ Verificar permiso de leer antes de mostrar detalles
+    if (!puedeLeer) {
+      await alertService.warning(
+        "Sin permisos",
+        "No tiene permiso para ver detalles de citas."
+      );
+      return;
+    }
+    
     setCitaSeleccionada(clickInfo.event.extendedProps);
     setCitaAReprogramar(clickInfo.event);
     setShowDetalle(true);
@@ -792,8 +843,8 @@ const Calendario = () => {
     Swal.fire({
       title: "Observación obligatoria",
       input: "textarea",
-      inputLabel: "Por favor, ingresa la razón de la anulación:",
-      inputPlaceholder: "Escribe aquí la observación...",
+      inputLabel: "Por favor, ingrese la razón de la anulación:",
+      inputPlaceholder: "Escriba aquí la observación...",
       inputValidator: (value) => {
         if (!value || value.trim().length === 0) return 'La observación es obligatoria';
         return null;
@@ -915,6 +966,8 @@ const Calendario = () => {
   function cerrarModal() {
     setShowModal(false);
     setModalDate(null);
+    setClienteSeleccionado(null); // ✅ Resetear cliente seleccionado
+    setClientes([]); // ✅ Limpiar lista de clientes
     setFormData({
       nombre: "",
       apellido: "",
@@ -1153,20 +1206,19 @@ const Calendario = () => {
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar citas..."
+              placeholder="Buscar citas por nombre, documento, tipo..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               className="pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
             />
           </div>
-          <DownloadButton
-            type="excel"
-            onClick={exportarExcelMesActual}
-            title="Descargar Excel"
-          />
-          <button className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-md flex items-center gap-2 font-semibold shadow" onClick={() => abrirModal()}>
-            <FaCalendarAlt /> Nueva Cita
-          </button>
+          {puedeLeer && (
+            <DownloadButton
+              type="excel"
+              onClick={exportarExcelMesActual}
+              title="Descargar Excel"
+            />
+          )}
         </div>
       </div>
 
@@ -1215,8 +1267,8 @@ const Calendario = () => {
             ...event,
             ...getEventColors(event.extendedProps?.estado),
           }))}
-          selectable={true}
-          selectMirror={true}
+          selectable={puedeCrear}
+          selectMirror={puedeCrear}
           dayMaxEvents={1}
           dayMaxEventRows={false}
           eventDisplay="block"
@@ -1260,7 +1312,7 @@ const Calendario = () => {
         {events.length === 0 && (
           <div className="flex flex-col items-center justify-center h-96 text-gray-300">
             <FaCalendarAlt className="text-7xl mb-4" />
-            <p className="text-lg">No hay citas registradas</p>
+            <p className="text-lg">No hay citas programadas</p>
           </div>
         )}
       </div>
@@ -1278,13 +1330,87 @@ const Calendario = () => {
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">{modoReprogramar ? 'Reprogramar Cita' : 'Agendar Nueva Cita'}</h2>
                   <p className="text-xs text-gray-500">
-                    {modoReprogramar ? 'Modifica solo los campos permitidos para reprogramar la cita' : 'Llena los campos para registrar una cita'}
+                    {modoReprogramar ? 'Modifica solo los campos permitidos para reprogramar la cita' : 'Completa los campos para registrar una cita'}
                   </p>
                 </div>
               </div>
             </div>
+            
+            {/* ✅ Aviso al administrador (solo en modo crear) */}
+            {!modoReprogramar && (
+              <div className="mx-4 mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                <div className="flex items-start gap-3">
+                  <FaInfoCircle className="text-blue-500 text-xl mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-blue-700">
+                    <strong>Importante:</strong> Para crear una cita, el cliente debe estar registrado en el sistema. 
+                    Seleccione un cliente de la lista a continuación.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Formulario en dos columnas */}
             <form onSubmit={handleGuardarCita} className="p-4 space-y-4">
+              {/* ✅ Selector de Clientes (solo en modo crear) */}
+              {!modoReprogramar && (
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Cliente <span className="text-red-500">*</span>
+                  </label>
+                  {cargandoClientes ? (
+                    <div className="flex items-center gap-2 text-gray-600 p-3 border rounded-lg bg-gray-50">
+                      <FaSpinner className="animate-spin" />
+                      <span className="text-sm">Cargando clientes...</span>
+                    </div>
+                  ) : clientes.length === 0 ? (
+                    <div className="p-3 border rounded-lg bg-yellow-50 border-yellow-300">
+                      <p className="text-sm text-yellow-700">
+                        No hay clientes disponibles. Debes registrar un cliente primero.
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={clienteSeleccionado?.id_cliente || ''}
+                      onChange={(e) => {
+                        const idSeleccionado = parseInt(e.target.value);
+                        const cliente = clientes.find(c => c.id_cliente === idSeleccionado);
+                        autocompletarDatosCliente(cliente);
+                      }}
+                      className="w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      required
+                    >
+                      <option value="">Seleccionar cliente...</option>
+                      {clientes.map((cliente) => (
+                        <option key={cliente.id_cliente} value={cliente.id_cliente}>
+                          {cliente.nombre} {cliente.apellido} - {cliente.tipoDocumento || cliente.tipo_documento || 'CC'} {cliente.documento}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* ✅ Información del Cliente Seleccionado (solo en modo crear) */}
+              {!modoReprogramar && clienteSeleccionado && (
+                <div className="mb-4 p-4 bg-gray-50 border rounded-lg">
+                  <h4 className="font-semibold mb-2 text-sm">Datos del Cliente Seleccionado:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><strong>Nombre:</strong> {clienteSeleccionado.nombre} {clienteSeleccionado.apellido}</div>
+                    <div><strong>Documento:</strong> {clienteSeleccionado.tipoDocumento || clienteSeleccionado.tipo_documento || 'CC'} {clienteSeleccionado.documento}</div>
+                    <div>
+                      <strong>Teléfono:</strong> {
+                        clienteSeleccionado.telefono && 
+                        clienteSeleccionado.telefono.trim() !== '' && 
+                        clienteSeleccionado.telefono.toUpperCase() !== 'N/A'
+                          ? clienteSeleccionado.telefono 
+                          : <span className="text-yellow-600 italic">No registrado (puedes agregarlo a continuación)</span>
+                      }
+                    </div>
+                    <div><strong>Email:</strong> {clienteSeleccionado.email || 'N/A'}</div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Nombre */}
                 <div>
@@ -1298,7 +1424,7 @@ const Calendario = () => {
                     onBlur={handleBlur}
                     className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 text-sm"
                     value={formData.nombre}
-                    readOnly={modoReprogramar}
+                    readOnly={modoReprogramar || clienteSeleccionado} // ✅ Readonly si hay cliente seleccionado (siempre)
                   />
                   {touched.nombre && errores.nombre && <p className="text-red-600 text-xs mt-1">{errores.nombre}</p>}
                 </div>
@@ -1314,31 +1440,52 @@ const Calendario = () => {
                     onBlur={handleBlur}
                     className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 text-sm"
                     value={formData.apellido}
-                    readOnly={modoReprogramar}
+                    readOnly={modoReprogramar || clienteSeleccionado} // ✅ Readonly si hay cliente seleccionado (siempre)
                   />
                   {touched.apellido && errores.apellido && <p className="text-red-600 text-xs mt-1">{errores.apellido}</p>}
                 </div>
                 {/* Tipo de documento */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    <FaFileAlt className="inline text-gray-400 mr-1" /> Tipo de documento <span className="text-gray-500">*</span>
-                  </label>
-                  <select
-                    name="tipoDocumento"
-                    onChange={handleInputChange}
-                    onBlur={handleBlur}
-                    className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 text-sm"
-                    value={formData.tipoDocumento}
-                    disabled={modoReprogramar}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Cédula de ciudadanía">Cédula de ciudadanía</option>
-                    <option value="Cédula de extranjería">Cédula de extranjería</option>
-                    <option value="Pasaporte">Pasaporte</option>
-                    <option value="NIT">NIT</option>
-                    <option value="Otro">Otro</option>
-                  </select>
-                  {touched.tipoDocumento && errores.tipoDocumento && <p className="text-red-600 text-xs mt-1">{errores.tipoDocumento}</p>}
+                  {(() => {
+                    // ✅ Verificar si el cliente tiene tipo de documento válido (excluyendo valores por defecto)
+                    const tipoDocCliente = clienteSeleccionado?.tipoDocumento || clienteSeleccionado?.tipo_documento || '';
+                    const tieneTipoDocValido = clienteSeleccionado && 
+                      tipoDocCliente &&
+                      typeof tipoDocCliente === 'string' &&
+                      tipoDocCliente.trim() !== '' &&
+                      // ✅ Verificar que el formData también tenga el mismo valor (no es solo el default)
+                      formData.tipoDocumento === tipoDocCliente;
+                    const esTipoDocDisabled = modoReprogramar || tieneTipoDocValido;
+                    
+                    return (
+                      <>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <FaFileAlt className="inline text-gray-400 mr-1" /> Tipo de documento <span className="text-gray-500">*</span>
+                          {clienteSeleccionado && !tieneTipoDocValido && (
+                            <span className="ml-2 text-xs text-yellow-600 italic">(Puedes agregarlo)</span>
+                          )}
+                        </label>
+                        <select
+                          name="tipoDocumento"
+                          onChange={handleInputChange}
+                          onBlur={handleBlur}
+                          className={`w-full px-2 py-1.5 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 text-sm ${
+                            esTipoDocDisabled ? 'bg-gray-100' : 'bg-white'
+                          }`}
+                          value={formData.tipoDocumento}
+                          disabled={esTipoDocDisabled} // ✅ Disabled solo si está en modo reprogramar O si el cliente tiene tipo de documento válido
+                        >
+                          <option value="">Seleccionar...</option>
+                          <option value="Cédula de ciudadanía">Cédula de ciudadanía</option>
+                          <option value="Cédula de extranjería">Cédula de extranjería</option>
+                          <option value="Pasaporte">Pasaporte</option>
+                          <option value="NIT">NIT</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                        {touched.tipoDocumento && errores.tipoDocumento && <p className="text-red-600 text-xs mt-1">{errores.tipoDocumento}</p>}
+                      </>
+                    );
+                  })()}
                 </div>
                 {/* Número de documento */}
                 <div>
@@ -1352,25 +1499,53 @@ const Calendario = () => {
                     onBlur={handleBlur}
                     className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 text-sm"
                     value={formData.cedula}
-                    readOnly={modoReprogramar}
+                    readOnly={modoReprogramar || clienteSeleccionado} // ✅ Readonly si hay cliente seleccionado (siempre)
                   />
                   {touched.cedula && errores.cedula && <p className="text-red-600 text-xs mt-1">{errores.cedula}</p>}
                 </div>
                 {/* Teléfono */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    <FaPhone className="inline text-gray-400 mr-1" /> Teléfono <span className="text-gray-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="telefono"
-                    onChange={handleInputChange}
-                    onBlur={handleBlur}
-                    className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 text-sm"
-                    value={formData.telefono}
-                    readOnly={modoReprogramar}
-                  />
-                  {touched.telefono && errores.telefono && <p className="text-red-600 text-xs mt-1">{errores.telefono}</p>}
+                  {(() => {
+                    // ✅ Calcular si el cliente tiene teléfono válido (excluyendo "N/A", null, undefined, cadenas vacías)
+                    const telefonoCliente = clienteSeleccionado?.telefono || '';
+                    const tieneTelefonoValido = clienteSeleccionado && 
+                      telefonoCliente &&
+                      typeof telefonoCliente === 'string' && 
+                      telefonoCliente.trim() !== '' &&
+                      telefonoCliente.toUpperCase() !== 'N/A' &&
+                      telefonoCliente.trim() !== 'null' &&
+                      telefonoCliente.trim() !== 'undefined';
+                    
+                    const esTelefonoReadonly = modoReprogramar || tieneTelefonoValido;
+                    const clienteSinTelefono = clienteSeleccionado && !tieneTelefonoValido;
+                    
+                    return (
+                      <>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <FaPhone className="inline text-gray-400 mr-1" /> Teléfono <span className="text-gray-500">*</span>
+                          {clienteSinTelefono && (
+                            <span className="ml-2 text-xs text-yellow-600 italic">(Puedes agregarlo aquí)</span>
+                          )}
+                        </label>
+                        <input
+                          type="text"
+                          name="telefono"
+                          onChange={handleInputChange}
+                          onBlur={handleBlur}
+                          className={`w-full px-2 py-1.5 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 text-sm ${
+                            esTelefonoReadonly ? 'bg-gray-100' : 'bg-white'
+                          }`}
+                          value={formData.telefono}
+                          readOnly={esTelefonoReadonly} // ✅ Readonly solo si está en modo reprogramar O si el cliente tiene teléfono válido
+                          placeholder={clienteSinTelefono ? "Ingresa el teléfono del cliente" : ""}
+                        />
+                        {touched.telefono && errores.telefono && <p className="text-red-600 text-xs mt-1">{errores.telefono}</p>}
+                        {clienteSinTelefono && !formData.telefono && (
+                          <p className="text-yellow-600 text-xs mt-1">⚠️ Este cliente no tiene teléfono registrado. Por favor, agréguelo.</p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 {/* Tipo de Cita */}
                 <div>
@@ -1464,7 +1639,7 @@ const Calendario = () => {
                     </option>
                     {empleadosActivos.map(e => (
                       <option key={e.id_empleado || e.cedula} value={e.nombreCompleto}>
-                        {e.nombreCompleto}
+                        {e.nombreCompleto} {e.cedula ? `- ${e.cedula}` : ''}
                       </option>
                     ))}
                   </select>
@@ -1477,7 +1652,7 @@ const Calendario = () => {
                   {!loadingEmpleados && empleadosActivos.length === 0 && (
                     <p className="text-yellow-600 text-xs mt-1 flex items-center">
                       <i className="bi bi-exclamation-triangle mr-2"></i>
-                      No hay empleados disponibles. Verifica que existan empleados activos en el sistema.
+                      No hay empleados disponibles. Verifique que existan empleados activos en el sistema.
                     </p>
                   )}
                   {touched.asesor && errores.asesor && <p className="text-red-600 text-xs mt-1">{errores.asesor}</p>}
@@ -1495,7 +1670,7 @@ const Calendario = () => {
                     rows={1}
                     value={formData.detalle}
                     readOnly={modoReprogramar}
-                    placeholder="Detalles adicionales de la cita..."
+                    placeholder="Detalles adicionales de la cita (opcional)..."
                   />
                   {touched.detalle && errores.detalle && <p className="text-red-600 text-xs mt-1">{errores.detalle}</p>}
                 </div>
@@ -1536,8 +1711,8 @@ const Calendario = () => {
             });
           }}
           onAnular={handleAnularCitaModal}
-          puedeReprogramar={citaSeleccionada?.estado !== "Cita anulada"}
-          puedeAnular={citaSeleccionada?.estado !== "Cita anulada"}
+          puedeReprogramar={puedeModificar && citaSeleccionada?.estado !== "Cita anulada"}
+          puedeAnular={puedeEliminar && citaSeleccionada?.estado !== "Cita anulada"}
         />
       )}
       {modalEventos.open && (

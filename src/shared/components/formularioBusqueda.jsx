@@ -13,7 +13,7 @@ const tiposDocumento = [
   'Tarjeta de Identidad'
 ];
 
-const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsqueda de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors }) => {
+const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsqueda de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, handleChange: propHandleChange, handleClaseChange: propHandleClaseChange, addClase: propAddClase, removeClase: propRemoveClase, renderForm = true, renderModal = true }) => {
   console.log('🔧 [FormularioBusqueda] Componente montado, isOpen:', isOpen);
   
   // Estado local como fallback
@@ -45,7 +45,31 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
   const [localErrors, setLocalErrors] = useState({});
 
   // Usar props si están disponibles, sino usar estado local
-  const form = propForm || localForm;
+  // Asegurar que todos los campos tengan valores por defecto para evitar warnings de inputs no controlados
+  const form = propForm ? {
+    tipoDocumento: propForm.tipoDocumento ?? '',
+    numeroDocumento: propForm.numeroDocumento ?? '',
+    nombres: propForm.nombres ?? '',
+    apellidos: propForm.apellidos ?? '',
+    email: propForm.email ?? '',
+    telefono: propForm.telefono ?? '',
+    direccion: propForm.direccion ?? '',
+    pais: propForm.pais ?? '',
+    ciudad: propForm.ciudad ?? 'Bogotá',
+    codigoPostal: propForm.codigoPostal ?? '110111',
+    nombreMarca: propForm.nombreMarca ?? '',
+    tipoProductoServicio: propForm.tipoProductoServicio ?? '',
+    claseNiza: propForm.claseNiza ?? '',
+    clases: propForm.clases ?? [{ numero: '', descripcion: '' }],
+    logotipoMarca: propForm.logotipoMarca ?? null,
+    fechaSolicitud: propForm.fechaSolicitud ?? '',
+    estado: propForm.estado ?? 'En revisión',
+    tipoSolicitud: propForm.tipoSolicitud ?? tipoSolicitud,
+    encargado: propForm.encargado ?? 'Sin asignar',
+    proximaCita: propForm.proximaCita ?? null,
+    comentarios: propForm.comentarios ?? [],
+    ...propForm // Mantener cualquier otro campo adicional
+  } : localForm;
   const setForm = propSetForm || setLocalForm;
   const errors = propErrors || localErrors;
   const setErrors = propSetErrors || setLocalErrors;
@@ -173,7 +197,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     return e;
   };
 
-  const handleChange = e => {
+  // Usar props si están disponibles, sino usar funciones locales
+  const handleChange = propHandleChange || (e => {
     const { name, value, type, files } = e.target;
     let newValue;
     
@@ -200,26 +225,26 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
       setErrors(newErrors);
       return updatedForm;
     });
-  };
+  });
 
-  const handleClaseChange = (i, field, value) => {
+  const handleClaseChange = propHandleClaseChange || ((i, field, value) => {
     setForm(f => {
       const clases = [...f.clases];
       clases[i][field] = value;
       return { ...f, clases };
     });
     setErrors(prev => ({ ...prev, [`clase_${field}_${i}`]: '' }));
-  };
+  });
 
-  const addClase = () => {
+  const addClase = propAddClase || (() => {
     if (form.clases.length < 25) {
       setForm(f => ({ ...f, clases: [...f.clases, { numero: '', descripcion: '' }] }));
     }
-  };
+  });
 
-  const removeClase = i => {
+  const removeClase = propRemoveClase || (i => {
     setForm(f => ({ ...f, clases: f.clases.filter((_, idx) => idx !== i) }));
-  };
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -236,12 +261,302 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     }
   };
 
+  // Si no se debe renderizar el modal, solo retornar el contenido del formulario
+  if (!renderModal) {
+    console.log('✅ [FormularioBusqueda] Renderizando solo contenido (sin modal)...');
+    const FormWrapper = renderForm ? 'form' : 'div';
+    const wrapperProps = renderForm 
+      ? { onSubmit: handleSubmit, className: "space-y-6" }
+      : { className: "space-y-6" };
+    
+    return (
+      <FormWrapper {...wrapperProps}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+            {/* Tipo de Solicitud (bloqueado) */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Tipo de Solicitud *
+              </label>
+              <input
+                type="text"
+                name="tipoSolicitud"
+                value={form.tipoSolicitud}
+                readOnly
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
+              />
+            </div>
+            {/* Datos del Solicitante */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Tipo de Documento *              </label>
+              <select 
+                name="tipoDocumento" 
+                value={form.tipoDocumento} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.tipoDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`}
+              >
+                <option value="">Seleccionar</option>
+                {tiposDocumento.map(t => <option key={t}>{t}</option>)}
+              </select>
+              {errors.tipoDocumento && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.tipoDocumento}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Número de Documento *              </label>
+              <input 
+                type="text" 
+                name="numeroDocumento" 
+                value={form.numeroDocumento} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.numeroDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="Ej: 1234567890" 
+              />
+              {errors.numeroDocumento && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.numeroDocumento}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Nombres *              </label>
+              <input 
+                type="text" 
+                name="nombres" 
+                value={form.nombres} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.nombres ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="Ej: Juan" 
+              />
+              {errors.nombres && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.nombres}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Apellidos *              </label>
+              <input 
+                type="text" 
+                name="apellidos" 
+                value={form.apellidos} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.apellidos ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="Ej: Pérez" 
+              />
+              {errors.apellidos && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.apellidos}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Correo Electrónico *              </label>
+              <input 
+                type="email" 
+                name="email" 
+                value={form.email} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.email ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="ejemplo@correo.com" 
+              />
+              {errors.email && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.email}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Teléfono *              </label>
+              <input 
+                type="text" 
+                name="telefono" 
+                value={form.telefono} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.telefono ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="Ej: 3001234567" 
+              />
+              {errors.telefono && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.telefono}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Dirección *              </label>
+              <input 
+                type="text" 
+                name="direccion" 
+                value={form.direccion} 
+                onChange={handleChange} 
+                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.direccion ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                placeholder="Ej: Calle 123 #45-67" 
+              />
+              {errors.direccion && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.direccion}
+                </p>
+              )}
+            </div>
+            {/* Datos de la Marca */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                País *              </label>
+              <div className="flex items-center gap-3">
+                <select name="pais" value={form.pais} onChange={handleChange} className={`flex-1 border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.pais ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <option value="">Seleccionar</option>
+                  {PAISES.map(p => (
+                    <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
+                  ))}
+                </select>
+                {form.pais && PAISES.find(p => p.nombre === form.pais) && (
+                  <img
+                    src={PAISES.find(p => p.nombre === form.pais).bandera}
+                    alt={form.pais}
+                    title={form.pais}
+                    className="w-10 h-7 rounded-lg shadow-md border-2 border-gray-200 object-cover"
+                  />
+                )}
+              </div>
+              {errors.pais && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.pais}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                Ciudad              </label>
+              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.ciudad ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Bogotá" />
+              {errors.ciudad && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.ciudad}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                Código Postal              </label>
+              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
+              {errors.codigoPostal && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.codigoPostal}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Nombre a Buscar (Marca) *              </label>
+              <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.nombreMarca ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Nombre de la marca a buscar" />
+              {errors.nombreMarca && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.nombreMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Tipo de Producto/Servicio *              </label>
+              <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Productos tecnológicos" />
+              {errors.tipoProductoServicio && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.tipoProductoServicio}</p>}
+            </div>
+          </div>
+          {/* Clases de la Marca (Opcional) - Se mapea a clase_niza */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Clases de la marca (Opcional)            </label>
+            {/* Enlace a la Clasificación de Niza */}
+            <a
+              href="https://www.wipo.int/es/web/classification-nice"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline text-xs mb-2 inline-block"
+            >
+              Consulta la Clasificación de Niza para identificar la clase adecuada
+            </a>
+            <div className="space-y-2">
+              {form.clases.map((clase, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                  <input type="text" placeholder="Descripción (opcional)" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                  <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-lg">×</button>
+                  {errors[`clase_numero_${i}`] && <span className="text-xs text-red-600">{errors[`clase_numero_${i}`]}</span>}
+                </div>
+              ))}
+              <button type="button" onClick={addClase} disabled={form.clases.length >= 25} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded disabled:opacity-50">Añadir Clase</button>
+            </div>
+          </div>
+          {/* Adjuntar Logotipo (Requerido) - Se mapea a logotipo */}
+          <div className="mb-4">
+            <FileUpload
+              name="logotipoMarca"
+              value={form.logotipoMarca}
+              onChange={handleChange}
+              label="Logotipo de la Marca *"
+              required={true}
+              accept=".jpg,.jpeg,.png"
+              error={errors.logotipoMarca}
+            />
+          </div>
+          {/* Botones de acción modernos - Solo mostrar si renderForm es true */}
+          {renderForm && (
+            <div className="flex justify-end gap-4 pt-6 border-t border-gray-200/60 mt-8 bg-white/50 rounded-xl p-6 backdrop-blur-sm">
+              <button 
+                type="button" 
+                onClick={onClose} 
+                className="px-8 py-3.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                className="px-8 py-3.5 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Enviar Solicitud
+                </span>
+              </button>
+            </div>
+          )}
+      </FormWrapper>
+    );
+  }
+
   if (!isOpen) {
     console.log('🔧 [FormularioBusqueda] isOpen es false, no renderizando');
     return null;
   }
 
-  console.log('✅ [FormularioBusqueda] Renderizando formulario...');
+  console.log('✅ [FormularioBusqueda] Renderizando formulario con modal...');
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md transition-all duration-300 p-4"
@@ -282,295 +597,305 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
         
         {/* Contenido del formulario con scroll */}
         <div className="overflow-y-auto max-h-[calc(96vh-140px)] px-8 py-8 bg-gradient-to-b from-gray-50/50 via-white to-gray-50/50">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
-            {/* Tipo de Solicitud (bloqueado) */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Tipo de Solicitud *
-              </label>
-              <input
-                type="text"
-                name="tipoSolicitud"
-                value={form.tipoSolicitud}
-                readOnly
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
-              />
-            </div>
-            {/* Datos del Solicitante */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Tipo de Documento * <span className="text-xs text-gray-500 font-normal">(tipo_documento)</span>
-              </label>
-              <select 
-                name="tipoDocumento" 
-                value={form.tipoDocumento} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.tipoDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`}
-              >
-                <option value="">Seleccionar</option>
-                {tiposDocumento.map(t => <option key={t}>{t}</option>)}
-              </select>
-              {errors.tipoDocumento && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.tipoDocumento}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Número de Documento * <span className="text-xs text-gray-500 font-normal">(numero_documento)</span>
-              </label>
-              <input 
-                type="text" 
-                name="numeroDocumento" 
-                value={form.numeroDocumento} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.numeroDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="Ej: 1234567890" 
-              />
-              {errors.numeroDocumento && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.numeroDocumento}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Nombres * <span className="text-xs text-gray-500 font-normal">(nombres_apellidos)</span>
-              </label>
-              <input 
-                type="text" 
-                name="nombres" 
-                value={form.nombres} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.nombres ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="Ej: Juan" 
-              />
-              {errors.nombres && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.nombres}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Apellidos * <span className="text-xs text-gray-500 font-normal">(nombres_apellidos)</span>
-              </label>
-              <input 
-                type="text" 
-                name="apellidos" 
-                value={form.apellidos} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.apellidos ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="Ej: Pérez" 
-              />
-              {errors.apellidos && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.apellidos}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Correo Electrónico * <span className="text-xs text-gray-500 font-normal">(correo)</span>
-              </label>
-              <input 
-                type="email" 
-                name="email" 
-                value={form.email} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.email ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="ejemplo@correo.com" 
-              />
-              {errors.email && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.email}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Teléfono * <span className="text-xs text-gray-500 font-normal">(telefono)</span>
-              </label>
-              <input 
-                type="text" 
-                name="telefono" 
-                value={form.telefono} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.telefono ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="Ej: 3001234567" 
-              />
-              {errors.telefono && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.telefono}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Dirección * <span className="text-xs text-gray-500 font-normal">(direccion)</span>
-              </label>
-              <input 
-                type="text" 
-                name="direccion" 
-                value={form.direccion} 
-                onChange={handleChange} 
-                className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.direccion ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
-                placeholder="Ej: Calle 123 #45-67" 
-              />
-              {errors.direccion && (
-                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.direccion}
-                </p>
-              )}
-            </div>
-            {/* Datos de la Marca */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                País * <span className="text-xs text-gray-500 font-normal">(pais)</span>
-              </label>
-              <div className="flex items-center gap-3">
-                <select name="pais" value={form.pais} onChange={handleChange} className={`flex-1 border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.pais ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <option value="">Seleccionar</option>
-                  {PAISES.map(p => (
-                    <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
-                  ))}
-                </select>
-                {form.pais && PAISES.find(p => p.nombre === form.pais) && (
-                  <img
-                    src={PAISES.find(p => p.nombre === form.pais).bandera}
-                    alt={form.pais}
-                    title={form.pais}
-                    className="w-10 h-7 rounded-lg shadow-md border-2 border-gray-200 object-cover"
+        {(() => {
+          const FormWrapper = renderForm ? 'form' : 'div';
+          const wrapperProps = renderForm 
+            ? { onSubmit: handleSubmit, className: "space-y-6" }
+            : { className: "space-y-6" };
+          
+          return (
+            <FormWrapper {...wrapperProps}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+                {/* Tipo de Solicitud (bloqueado) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Tipo de Solicitud *
+                  </label>
+                  <input
+                    type="text"
+                    name="tipoSolicitud"
+                    value={form.tipoSolicitud}
+                    readOnly
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
                   />
-                )}
-              </div>
-              {errors.pais && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.pais}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                Ciudad <span className="text-xs text-gray-500 font-normal">(opcional - ciudad)</span>
-              </label>
-              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.ciudad ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Bogotá" />
-              {errors.ciudad && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.ciudad}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                Código Postal <span className="text-xs text-gray-500 font-normal">(opcional - codigo_postal)</span>
-              </label>
-              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
-              {errors.codigoPostal && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.codigoPostal}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Nombre a Buscar (Marca) * <span className="text-xs text-gray-500 font-normal">(nombre_a_buscar)</span>
-              </label>
-              <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.nombreMarca ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Nombre de la marca a buscar" />
-              {errors.nombreMarca && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.nombreMarca}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Tipo de Producto/Servicio * <span className="text-xs text-gray-500 font-normal">(tipo_producto_servicio)</span>
-              </label>
-              <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Productos tecnológicos" />
-              {errors.tipoProductoServicio && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.tipoProductoServicio}</p>}
-            </div>
-          </div>
-          {/* Clases de la Marca (Opcional) - Se mapea a clase_niza */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Clases de la marca (Opcional) <span className="text-xs text-gray-500 font-normal">(clase_niza - opcional)</span>
-            </label>
-            {/* Enlace a la Clasificación de Niza */}
-            <a
-              href="https://www.wipo.int/es/web/classification-nice"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline text-xs mb-2 inline-block"
-            >
-              Consulta la Clasificación de Niza para identificar la clase adecuada
-            </a>
-            <div className="space-y-2">
-              {form.clases.map((clase, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
-                  <input type="text" placeholder="Descripción (opcional)" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
-                  <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-lg">×</button>
-                  {errors[`clase_numero_${i}`] && <span className="text-xs text-red-600">{errors[`clase_numero_${i}`]}</span>}
                 </div>
-              ))}
-              <button type="button" onClick={addClase} disabled={form.clases.length >= 25} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded disabled:opacity-50">Añadir Clase</button>
-            </div>
-          </div>
-          {/* Adjuntar Logotipo (Requerido) - Se mapea a logotipo */}
-          <div className="mb-4">
-            <FileUpload
-              name="logotipoMarca"
-              value={form.logotipoMarca}
-              onChange={handleChange}
-              label="Logotipo de la Marca * (logotipo - requerido)"
-              required={true}
-              accept=".jpg,.jpeg,.png"
-              error={errors.logotipoMarca}
-            />
-          </div>
-          {/* Botones de acción modernos */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200/60 mt-8 bg-white/50 rounded-xl p-6 backdrop-blur-sm">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="px-8 py-3.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 active:scale-95"
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit" 
-              className="px-8 py-3.5 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Enviar Solicitud
-              </span>
-            </button>
-          </div>
-        </form>
+                {/* Datos del Solicitante */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Tipo de Documento *
+                  </label>
+                  <select 
+                    name="tipoDocumento" 
+                    value={form.tipoDocumento} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.tipoDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`}
+                  >
+                    <option value="">Seleccionar</option>
+                    {tiposDocumento.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  {errors.tipoDocumento && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.tipoDocumento}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Número de Documento *
+                  </label>
+                  <input 
+                    type="text" 
+                    name="numeroDocumento" 
+                    value={form.numeroDocumento} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.numeroDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="Ej: 1234567890" 
+                  />
+                  {errors.numeroDocumento && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.numeroDocumento}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Nombres *
+                  </label>
+                  <input 
+                    type="text" 
+                    name="nombres" 
+                    value={form.nombres} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.nombres ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="Ej: Juan" 
+                  />
+                  {errors.nombres && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.nombres}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Apellidos *
+                  </label>
+                  <input 
+                    type="text" 
+                    name="apellidos" 
+                    value={form.apellidos} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.apellidos ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="Ej: Pérez" 
+                  />
+                  {errors.apellidos && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.apellidos}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Correo Electrónico *
+                  </label>
+                  <input 
+                    type="email" 
+                    name="email" 
+                    value={form.email} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.email ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="ejemplo@correo.com" 
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.email}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Teléfono *
+                  </label>
+                  <input 
+                    type="text" 
+                    name="telefono" 
+                    value={form.telefono} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.telefono ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="Ej: 3001234567" 
+                  />
+                  {errors.telefono && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.telefono}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Dirección *
+                  </label>
+                  <input 
+                    type="text" 
+                    name="direccion" 
+                    value={form.direccion} 
+                    onChange={handleChange} 
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.direccion ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
+                    placeholder="Ej: Calle 123 #45-67" 
+                  />
+                  {errors.direccion && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5 font-medium">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.direccion}
+                    </p>
+                  )}
+                </div>
+                {/* Datos de la Marca */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    País *
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <select name="pais" value={form.pais} onChange={handleChange} className={`flex-1 border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.pais ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <option value="">Seleccionar</option>
+                      {PAISES.map(p => (
+                        <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
+                      ))}
+                    </select>
+                    {form.pais && PAISES.find(p => p.nombre === form.pais) && (
+                      <img
+                        src={PAISES.find(p => p.nombre === form.pais).bandera}
+                        alt={form.pais}
+                        title={form.pais}
+                        className="w-10 h-7 rounded-lg shadow-md border-2 border-gray-200 object-cover"
+                      />
+                    )}
+                  </div>
+                  {errors.pais && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.pais}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                    Ciudad
+                  </label>
+                  <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.ciudad ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Bogotá" />
+                  {errors.ciudad && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.ciudad}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                    Código Postal
+                  </label>
+                  <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
+                  {errors.codigoPostal && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.codigoPostal}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Nombre a Buscar (Marca) *
+                  </label>
+                  <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.nombreMarca ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Nombre de la marca a buscar" />
+                  {errors.nombreMarca && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.nombreMarca}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Tipo de Producto/Servicio *
+                  </label>
+                  <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Productos tecnológicos" />
+                  {errors.tipoProductoServicio && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.tipoProductoServicio}</p>}
+                </div>
+              </div>
+              {/* Clases de la Marca (Opcional) - Se mapea a clase_niza */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Clases de la marca (Opcional)
+                </label>
+                <a
+                  href="https://www.wipo.int/es/web/classification-nice"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline text-xs mb-2 inline-block"
+                >
+                  Consulta la Clasificación de Niza para identificar la clase adecuada
+                </a>
+                <div className="space-y-2">
+                  {form.clases.map((clase, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                      <input type="text" placeholder="Descripción (opcional)" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                      <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-lg">×</button>
+                      {errors[`clase_numero_${i}`] && <span className="text-xs text-red-600">{errors[`clase_numero_${i}`]}</span>}
+                    </div>
+                  ))}
+                  <button type="button" onClick={addClase} disabled={form.clases.length >= 25} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded disabled:opacity-50">Añadir Clase</button>
+                </div>
+              </div>
+              {/* Adjuntar Logotipo (Requerido) - Se mapea a logotipo */}
+              <div className="mb-4">
+                <FileUpload
+                  name="logotipoMarca"
+                  value={form.logotipoMarca}
+                  onChange={handleChange}
+                  label="Logotipo de la Marca *"
+                  required={true}
+                  accept=".jpg,.jpeg,.png"
+                  error={errors.logotipoMarca}
+                />
+              </div>
+              {/* Botones de acción modernos - Solo mostrar si renderForm es true */}
+              {renderForm && (
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-200/60 mt-8 bg-white/50 rounded-xl p-6 backdrop-blur-sm">
+                  <button 
+                    type="button" 
+                    onClick={onClose} 
+                    className="px-8 py-3.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-8 py-3.5 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2"
+                  >
+                    <span className="flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Enviar Solicitud
+                    </span>
+                  </button>
+                </div>
+              )}
+            </FormWrapper>
+          );
+        })()}
         </div>
       </div>
     </div>

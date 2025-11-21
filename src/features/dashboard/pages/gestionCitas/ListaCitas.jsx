@@ -48,6 +48,51 @@ const ListaCitas = () => {
     return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   };
 
+  // ✅ Función para normalizar tipos de cita y corregir tildes
+  const normalizarTipoCita = (tipo) => {
+    if (!tipo) return 'Sin tipo';
+    
+    const tipoLower = tipo.toLowerCase().trim();
+    
+    // Mapeo de variantes sin tilde o mal escritas a la versión correcta
+    const tiposCorregidos = {
+      'oposicion': 'Oposición',
+      'oposición': 'Oposición',
+      'certificacion': 'Certificación',
+      'certificación': 'Certificación',
+      'cesion': 'Cesión de marca',
+      'cesión': 'Cesión de marca',
+      'cesion de marca': 'Cesión de marca',
+      'cesión de marca': 'Cesión de marca',
+      'renovacion': 'Renovación',
+      'renovación': 'Renovación',
+      'busqueda de antecedentes': 'Búsqueda de antecedentes',
+      'búsqueda de antecedentes': 'Búsqueda de antecedentes',
+      'búsqueda de antecedente': 'Búsqueda de antecedentes',
+      'general': 'General',
+      'generales': 'General'
+    };
+    
+    // Buscar coincidencia exacta (case-insensitive)
+    const tipoNormalizado = tiposCorregidos[tipoLower];
+    if (tipoNormalizado) {
+      return tipoNormalizado;
+    }
+    
+    // Si no hay coincidencia exacta, intentar corregir tildes comunes
+    let tipoCorregido = tipo;
+    
+    // Correcciones comunes de tildes
+    tipoCorregido = tipoCorregido.replace(/oposicion/gi, 'Oposición');
+    tipoCorregido = tipoCorregido.replace(/certificacion/gi, 'Certificación');
+    tipoCorregido = tipoCorregido.replace(/cesion/gi, 'Cesión');
+    tipoCorregido = tipoCorregido.replace(/renovacion/gi, 'Renovación');
+    tipoCorregido = tipoCorregido.replace(/busqueda/gi, 'Búsqueda');
+    
+    // Capitalizar primera letra si es necesario
+    return tipoCorregido.charAt(0).toUpperCase() + tipoCorregido.slice(1);
+  };
+
   const citasFiltradas = citas.filter((cita) => {
     const cliente = cita.cliente?.nombre || '';
     const empleado = cita.empleado?.nombre || '';
@@ -104,7 +149,7 @@ const ListaCitas = () => {
           const observacion = document.getElementById('observacion').value;
           
           if (!nuevaFecha || !nuevaHoraInicio || !nuevaHoraFin) {
-            Swal.showValidationMessage('Por favor completa todos los campos requeridos');
+            Swal.showValidationMessage('Por favor, complete todos los campos requeridos');
             return false;
           }
           
@@ -134,7 +179,7 @@ const ListaCitas = () => {
         title: 'Anular Cita',
         text: `¿Estás seguro de anular la cita de ${cita.cliente?.nombre || 'este cliente'}?`,
         input: 'textarea',
-        inputPlaceholder: 'Motivo de la anulación (opcional)',
+        inputPlaceholder: 'Ingrese el motivo de la anulación (opcional)',
         showCancelButton: true,
         confirmButtonText: 'Anular Cita',
         cancelButtonText: 'Cancelar',
@@ -166,7 +211,7 @@ const ListaCitas = () => {
       "Fecha": cita.fecha || '',
       "Hora Inicio": cita.hora_inicio || '',
       "Hora Fin": cita.hora_fin || '',
-      "Tipo": cita.tipo || '',
+      "Tipo": normalizarTipoCita(cita.tipo),
       "Modalidad": cita.modalidad || '',
       "Estado": cita.estado || '',
       "Cliente": `${cita.cliente?.nombre || ''} ${cita.cliente?.apellido || ''}`.trim(),
@@ -187,7 +232,7 @@ const ListaCitas = () => {
     alertService.success("¡Éxito!", "Archivo Excel descargado exitosamente.");
   };
 
-  const tiposCita = [...new Set(citas.map(c => c.tipo).filter(tipo => tipo))];
+  const tiposCita = [...new Set(citas.map(c => normalizarTipoCita(c.tipo)).filter(tipo => tipo && tipo !== 'Sin tipo'))];
   const estadosCita = [...new Set(citas.map(c => c.estado).filter(estado => estado))];
 
   return (
@@ -344,7 +389,7 @@ const ListaCitas = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cita.tipo || 'N/A'}
+                        {normalizarTipoCita(cita.tipo)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {cita.modalidad || 'N/A'}
@@ -380,7 +425,7 @@ const ListaCitas = () => {
                 ) : (
                   <tr>
                     <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                      No hay citas registradas
+                      No hay citas programadas
                     </td>
                   </tr>
                 )}

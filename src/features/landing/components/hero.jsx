@@ -8,6 +8,7 @@ import { useAuth } from '../../../shared/contexts/authContext.jsx';
 import { normalizeRole } from '../../../shared/utils/roleUtils.js';
 import solicitudesApiService from '../../../features/dashboard/pages/gestionVentasServicios/services/solicitudesApiService.js';
 import DemoPasarelaPagoModal from './DemoPasarelaPagoModal';
+import ModalRecuperacionPago from './ModalRecuperacionPago';
 
 // Formularios y Modal
 import FormularioBaseModal from "../../../shared/layouts/FormularioBase";
@@ -32,6 +33,8 @@ const FORMULARIOS_POR_SERVICIO = {
   "Respuesta a Oposición": FormularioRespuesta,
   // Variaciones de nombres para compatibilidad
   "Búsqueda de Marca": FormularioBusqueda,
+  "Busqueda de Antecedentes": FormularioBusqueda, // Sin tilde
+  "Busqueda de Marca": FormularioBusqueda, // Sin tilde
   "Certificación": FormularioCertificacion,
   "Renovación": FormularioRenovacion,
   "Oposición": FormularioOposicion,
@@ -41,6 +44,48 @@ const FORMULARIOS_POR_SERVICIO = {
   "Ampliación de Marca": FormularioAmpliacion,
   "Respuesta": FormularioRespuesta,
   "Respuesta de Oposición": FormularioRespuesta
+};
+
+// Función auxiliar para normalizar nombres de servicios y encontrar el formulario correspondiente
+const obtenerFormularioPorServicio = (nombreServicio) => {
+  if (!nombreServicio) return null;
+  
+  // Primero intentar búsqueda exacta
+  if (FORMULARIOS_POR_SERVICIO[nombreServicio]) {
+    return FORMULARIOS_POR_SERVICIO[nombreServicio];
+  }
+  
+  // Normalizar el nombre (minúsculas, sin espacios extra, sin tildes)
+  const normalizar = (str) => {
+    return str
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remover tildes
+      .replace(/\s+/g, " "); // Normalizar espacios
+  };
+  
+  const nombreNormalizado = normalizar(nombreServicio);
+  
+  // Buscar en todas las claves normalizadas
+  for (const [clave, formulario] of Object.entries(FORMULARIOS_POR_SERVICIO)) {
+    if (normalizar(clave) === nombreNormalizado) {
+      return formulario;
+    }
+  }
+  
+  // Búsqueda parcial (por si el nombre contiene palabras clave)
+  const palabrasClave = nombreNormalizado.split(" ");
+  for (const [clave, formulario] of Object.entries(FORMULARIOS_POR_SERVICIO)) {
+    const claveNormalizada = normalizar(clave);
+    // Si todas las palabras clave están en el nombre o viceversa
+    if (palabrasClave.some(palabra => claveNormalizada.includes(palabra)) ||
+        palabrasClave.every(palabra => claveNormalizada.includes(palabra))) {
+      return formulario;
+    }
+  }
+  
+  return null;
 };
 
 // Componente para las características del hero
@@ -182,7 +227,7 @@ const ServiciosSection = ({ servicios, loading, onSaberMas, onAdquirir }) => (
               servicio={servicio}
               onSaberMas={onSaberMas}
               onAdquirir={onAdquirir}
-              formularioDisponible={!!FORMULARIOS_POR_SERVICIO[servicio.nombre]}
+              formularioDisponible={!!obtenerFormularioPorServicio(servicio.nombre)}
             />
           ))}
         </div>
@@ -260,7 +305,7 @@ const useModal = () => {
     console.log('🔧 [Hero] Nombre del servicio:', servicio.nombre);
     console.log('🔧 [Hero] Claves disponibles en FORMULARIOS_POR_SERVICIO:', Object.keys(FORMULARIOS_POR_SERVICIO));
     
-    const FormularioComponente = FORMULARIOS_POR_SERVICIO[servicio.nombre];
+    const FormularioComponente = obtenerFormularioPorServicio(servicio.nombre);
     console.log('🔧 [Hero] FormularioComponente para', servicio.nombre, ':', FormularioComponente);
 
     if (!FormularioComponente) {
@@ -301,6 +346,10 @@ const Hero = () => {
   const [solicitudCreada, setSolicitudCreada] = useState(null);
   const [mostrarPasarela, setMostrarPasarela] = useState(false);
   const [procesandoPago, setProcesandoPago] = useState(false);
+  
+  // ✅ Estados para recuperación de pago después de timeout
+  const [mostrarModalRecuperacion, setMostrarModalRecuperacion] = useState(false);
+  const [tipoSolicitudTimeout, setTipoSolicitudTimeout] = useState(null);
 
   // ✅ Función auxiliar para convertir archivo a base64
   const fileToBase64 = (file) => {
@@ -478,6 +527,20 @@ const Hero = () => {
     } catch (error) {
       console.error('❌ [Hero] Error al guardar la orden:', error);
       
+      // ✅ NUEVO: Detectar timeout y mostrar modal de recuperación
+      if (error.isTimeout === true) {
+        console.log('⏱️ [Hero] Timeout detectado, mostrando modal de recuperación...');
+        setTipoSolicitudTimeout(tipoSolicitud);
+        setMostrarModalRecuperacion(true);
+        
+        await alertService.warning(
+          "Timeout de Conexión",
+          "La solicitud tardó demasiado tiempo en procesarse. Es posible que se haya creado correctamente. Te mostraremos opciones para verificar y completar el pago."
+        );
+        
+        return; // Salir temprano, el modal manejará el resto
+      }
+      
       // ✅ Backend mejorado: extraer mensaje de error estructurado
       let errorMessage = error.message || 'Error desconocido';
       
@@ -526,10 +589,43 @@ const Hero = () => {
     }
   };
 
+  // ✅ NUEVO: Handler para cuando el modal de recuperación encuentra una solicitud pendiente
+  const handlePagoEncontrado = (infoPago) => {
+    console.log('✅ [Hero] Pago encontrado en modal de recuperación:', infoPago);
+    // Configurar solicitud creada para que pueda procesarse el pago
+    setSolicitudCreada({
+      orden_id: infoPago.orden_id,
+      estado: infoPago.estado,
+      monto_a_pagar: infoPago.monto_a_pagar,
+      servicio: infoPago.servicio
+    });
+  };
+
+  // ✅ NUEVO: Handler para procesar pago desde el modal de recuperación
+  const handleProcesarPagoDesdeModal = async (infoPago) => {
+    console.log('🔧 [Hero] Procesando pago desde modal de recuperación:', infoPago);
+    
+    // Configurar solicitud creada
+    setSolicitudCreada({
+      orden_id: infoPago.orden_id,
+      estado: infoPago.estado,
+      monto_a_pagar: infoPago.monto_a_pagar,
+      servicio: infoPago.servicio
+    });
+    
+    // Cerrar modal de recuperación y abrir pasarela de pago
+    setMostrarModalRecuperacion(false);
+    setMostrarPasarela(true);
+  };
+
   // ✅ NUEVO: Procesar pago y activar solicitud
   const handleProcesarPago = async () => {
+    console.log('🔧 [Hero] handleProcesarPago iniciado');
+    console.log('🔧 [Hero] solicitudCreada:', solicitudCreada);
+    
     if (!solicitudCreada || !solicitudCreada.orden_id) {
-      await alertService.error('Error', 'No hay una solicitud pendiente de pago.');
+      console.error('❌ [Hero] No hay solicitud creada o falta orden_id');
+      await alertService.error('Error', 'No hay una solicitud pendiente de pago. Por favor, crea una solicitud primero.');
       return;
     }
 
@@ -537,6 +633,7 @@ const Hero = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
+        console.error('❌ [Hero] No hay token de autenticación');
         await alertService.error('Error', 'No hay sesión activa. Por favor, inicia sesión.');
         setProcesandoPago(false);
         return;
@@ -546,37 +643,121 @@ const Hero = () => {
       const API_CONFIG = await import('../../../shared/config/apiConfig.js');
       const baseURL = API_CONFIG.default?.BASE_URL || API_CONFIG.BASE_URL || (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
 
+      console.log('🔧 [Hero] Base URL:', baseURL);
+      console.log('🔧 [Hero] orden_id original:', solicitudCreada.orden_id);
+      console.log('🔧 [Hero] Tipo de orden_id:', typeof solicitudCreada.orden_id);
+
       // ✅ Llamar al endpoint de procesamiento de pago con los parámetros correctos
+      // Usar Opción 1 (Recomendada): No enviar monto, el backend lo toma automáticamente del total_estimado
+      
+      // Asegurar que orden_id sea un número
+      const ordenId = Number(solicitudCreada.orden_id);
+      if (isNaN(ordenId) || ordenId <= 0) {
+        console.error('❌ [Hero] ID de orden inválido:', solicitudCreada.orden_id);
+        throw new Error(`ID de orden inválido: ${solicitudCreada.orden_id}. Por favor, crea una nueva solicitud.`);
+      }
+      
+      const requestBody = {
+        id_orden_servicio: ordenId, // ✅ Campo correcto según API (debe ser número)
+        metodo_pago: 'Tarjeta' // ✅ Valor esperado por la API
+      };
+      
+      // Opcional: Si se quiere enviar monto, debe coincidir exactamente con total_estimado
+      // Por ahora, usamos la opción recomendada (sin monto) para evitar errores de validación
+      
+      console.log('🔧 [Hero] Procesando pago con body:', requestBody);
+      console.log('🔧 [Hero] Solicitud creada completa:', JSON.stringify(solicitudCreada, null, 2));
+      console.log('🔧 [Hero] URL completa:', `${baseURL}/api/gestion-pagos/process-mock`);
+      
       const response = await fetch(`${baseURL}/api/gestion-pagos/process-mock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          id_orden_servicio: solicitudCreada.orden_id, // ✅ Campo correcto según API
-          monto: solicitudCreada.monto_a_pagar,
-          metodo_pago: 'Tarjeta' // ✅ Valor esperado por la API
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('📡 [Hero] Response status:', response.status);
+      console.log('📡 [Hero] Response ok:', response.ok);
+      console.log('📡 [Hero] Response headers:', Object.fromEntries(response.headers.entries()));
+
       const resultado = await response.json();
+      console.log('📥 [Hero] Resultado parseado:', resultado);
 
       if (!response.ok) {
-        throw new Error(resultado.mensaje || resultado.message || 'Error al procesar el pago');
+        // Extraer mensaje de error más detallado
+        let errorMessage = resultado.mensaje || resultado.message || 'Error al procesar el pago';
+        
+        // Si hay detalles adicionales en el error, agregarlos
+        if (resultado.error) {
+          if (typeof resultado.error === 'string') {
+            errorMessage = resultado.error;
+          } else if (resultado.error.message) {
+            errorMessage = resultado.error.message;
+          }
+        }
+        
+        // Si hay campos de validación, agregarlos
+        if (resultado.camposFaltantes && resultado.camposFaltantes.length > 0) {
+          errorMessage += `\n\nCampos faltantes: ${resultado.camposFaltantes.join(', ')}`;
+        }
+        
+        // Mensajes más específicos según el código de estado
+        if (response.status === 400) {
+          errorMessage = `Error de validación: ${errorMessage}\n\nPor favor, verifica que:\n- La solicitud existe y está en estado "Pendiente de Pago"\n- El ID de orden es válido\n- Tienes permisos para procesar este pago`;
+        } else if (response.status === 401) {
+          errorMessage = 'Error de autenticación: Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 404) {
+          errorMessage = `No se encontró la orden de servicio con ID ${ordenId}. Por favor, verifica que la solicitud existe.`;
+        } else if (response.status === 500) {
+          errorMessage = `Error del servidor: ${errorMessage}\n\nPor favor, intenta nuevamente o contacta al soporte.`;
+        }
+        
+        console.error('❌ [Hero] Error al procesar pago:', {
+          status: response.status,
+          statusText: response.statusText,
+          resultado: resultado,
+          requestBody: requestBody
+        });
+        
+        throw new Error(errorMessage);
       }
 
       console.log("✅ [Hero] Respuesta del pago:", resultado);
+      console.log("✅ [Hero] Estructura completa de respuesta:", JSON.stringify(resultado, null, 2));
 
       // ✅ Verificar si la solicitud fue activada según la estructura de respuesta de la API
-      const solicitudActivada = resultado.data?.solicitud_activada || resultado.solicitud_activada;
+      // La respuesta puede tener diferentes estructuras:
+      // 1. { success: true, data: { payment: {...}, solicitud_activada: true } }
+      // 2. { success: true, data: { solicitud_activada: true, ... } }
+      // 3. { success: true, solicitud_activada: true, ... }
+      // 4. { solicitud_activada: true, ... }
       
-      if (solicitudActivada === true) {
-        console.log("✅ [Hero] Pago procesado y solicitud activada:", resultado);
+      const solicitudActivada = 
+        resultado.data?.solicitud_activada || 
+        resultado.data?.payment?.solicitud_activada ||
+        resultado.solicitud_activada ||
+        resultado.data?.solicitudActivada ||
+        false;
+      
+      console.log("🔍 [Hero] Solicitud activada detectada:", solicitudActivada);
+      console.log("🔍 [Hero] resultado.data:", resultado.data);
+      console.log("🔍 [Hero] resultado.data?.solicitud_activada:", resultado.data?.solicitud_activada);
+      console.log("🔍 [Hero] resultado.solicitud_activada:", resultado.solicitud_activada);
+      
+      // Si success es true, considerar que el pago fue exitoso
+      // El backend puede activar la solicitud incluso si no devuelve explícitamente solicitud_activada
+      if (resultado.success === true || solicitudActivada === true) {
+        console.log("✅ [Hero] Pago procesado exitosamente:", resultado);
+        
+        const mensaje = solicitudActivada === true 
+          ? 'Tu solicitud ha sido activada y está en proceso. Se han enviado notificaciones por email.'
+          : 'El pago fue procesado exitosamente. Verifica el estado de tu solicitud.';
         
         await alertService.success(
           'Pago Procesado Exitosamente',
-          'Tu solicitud ha sido activada y está en proceso. Se han enviado notificaciones por email.'
+          mensaje
         );
 
         // Cerrar pasarela
@@ -589,8 +770,20 @@ const Hero = () => {
           window.location.reload();
         }, 1500);
       } else {
-        console.warn("⚠️ [Hero] Pago procesado pero solicitud no activada:", resultado);
-        throw new Error('El pago fue procesado, pero la solicitud no se activó automáticamente. Por favor, contacta al administrador.');
+        console.warn("⚠️ [Hero] Pago procesado pero formato de respuesta inesperado:", resultado);
+        // Aún así, si el pago fue procesado (status 200), mostrar éxito
+        await alertService.success(
+          'Pago Procesado',
+          'El pago fue procesado. Verifica el estado de tu solicitud en "Mis Procesos".'
+        );
+        
+        setMostrarPasarela(false);
+        setSolicitudCreada(null);
+        cerrarModal();
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       }
     } catch (err) {
       console.error("❌ [Hero] Error al procesar pago:", err);
@@ -766,7 +959,7 @@ const Hero = () => {
           console.log('🔧 [Hero] modalAbierto:', modalAbierto);
           console.log('🔧 [Hero] servicioSeleccionado:', servicioSeleccionado);
           
-          const FormularioComponente = FORMULARIOS_POR_SERVICIO[servicioSeleccionado.nombre];
+          const FormularioComponente = obtenerFormularioPorServicio(servicioSeleccionado.nombre);
           console.log('🔧 [Hero] FormularioComponente encontrado:', FormularioComponente);
           
           if (FormularioComponente) {
@@ -814,6 +1007,18 @@ const Hero = () => {
           onPagoExitoso={handleProcesarPago}
         />
       )}
+
+      {/* ✅ NUEVO: Modal de Recuperación de Pago después de Timeout */}
+      <ModalRecuperacionPago
+        isOpen={mostrarModalRecuperacion}
+        onClose={() => {
+          setMostrarModalRecuperacion(false);
+          setTipoSolicitudTimeout(null);
+        }}
+        tipoSolicitud={tipoSolicitudTimeout}
+        onPagoEncontrado={handlePagoEncontrado}
+        onProcesarPago={handleProcesarPagoDesdeModal}
+      />
     </div>
   );
 };

@@ -1,35 +1,36 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import authApiService from '../../features/auth/services/authApiService.js';
 import userApiService from '../../features/auth/services/userApiService.js';
+import { manejarErrorAPI, obtenerMensajeErrorUsuario } from '../utils/errorHandler.js';
 
-// Crear el contexto de autenticación
-const AuthContext = createContext();
+// Valores por defecto del contexto
+const defaultContextValue = {
+  user: null,
+  loading: true,
+  login: async () => ({ success: false, message: 'Contexto no disponible' }),
+  logout: () => {},
+  updateUser: async () => ({ success: false, message: 'Contexto no disponible' }),
+  isAuthenticated: () => false,
+  hasRole: () => false,
+  hasAnyRole: () => false,
+  hasPermission: () => false,
+  isAdmin: () => false,
+  isEmployee: () => false,
+  isClient: () => false,
+  setToken: () => {},
+  getToken: () => null,
+  removeToken: () => {},
+  getUser: () => null
+};
+
+// Crear el contexto de autenticación con valores por defecto
+const AuthContext = createContext(defaultContextValue);
 
 // Hook personalizado para usar el contexto de autenticación
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    console.error('useAuth debe ser usado dentro de un AuthProvider');
-    // Retornar valores por defecto en lugar de lanzar error
-    return {
-      user: null,
-      loading: false,
-      login: async () => ({ success: false, message: 'Contexto no disponible' }),
-      logout: () => {},
-      updateUser: async () => ({ success: false, message: 'Contexto no disponible' }),
-      isAuthenticated: () => false,
-      hasRole: () => false,
-      hasAnyRole: () => false,
-      hasPermission: () => false,
-      isAdmin: () => false,
-      isEmployee: () => false,
-      isClient: () => false,
-      setToken: () => {},
-      getToken: () => null,
-      removeToken: () => {},
-      getUser: () => null
-    };
-  }
+  // El contexto siempre tendrá un valor (por defecto o del provider)
+  // No necesitamos verificar si está dentro del provider porque siempre habrá un valor
   return context;
 };
 
@@ -81,7 +82,14 @@ export const AuthProvider = ({ children }) => {
           const currentUser = authApiService.getCurrentUser();
           console.log('🔍 [AuthContext] Usuario cargado desde localStorage:', currentUser);
           if (currentUser) {
-            console.log('🔍 [AuthContext] Rol del usuario:', currentUser.rol || currentUser.role);
+            // El rol ahora es un objeto: { id, nombre, estado, permisos }
+            const rolNombre = currentUser.rol?.nombre || currentUser.rol || currentUser.role;
+            console.log('🔍 [AuthContext] Rol del usuario:', rolNombre);
+            if (currentUser.rol?.permisos) {
+              console.log('✅ [AuthContext] Permisos encontrados en usuario.rol.permisos');
+            } else {
+              console.warn('⚠️ [AuthContext] No se encontraron permisos en usuario.rol.permisos');
+            }
           }
           setUser(currentUser);
         } else {
@@ -117,11 +125,25 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: result.user, message: result.message };
       } else {
         console.log('❌ [AuthContext] Login falló:', result.message);
-        return { success: false, message: result.message };
+        // Pasar toda la información del error para manejo específico
+        return { 
+          success: false, 
+          message: result.message || 'Error al iniciar sesión',
+          errorType: result.errorType,
+          errorInfo: result.errorInfo
+        };
       }
     } catch (error) {
       console.error('💥 [AuthContext] Error en login:', error);
-      return { success: false, message: "Error al iniciar sesión" };
+      // Si hay un error inesperado, intentar manejarlo también
+      const errorInfo = manejarErrorAPI(error, error.response);
+      const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
+      return { 
+        success: false, 
+        message: typeof errorMessage === 'string' ? errorMessage : "Error al iniciar sesión",
+        errorType: errorInfo.tipo,
+        errorInfo: errorInfo
+      };
     } finally {
       setLoading(false);
     }
@@ -183,13 +205,24 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Verificar si el usuario tiene un rol específico
+  // Ahora usuario.rol es un objeto: { id, nombre, estado, permisos }
   const hasRole = (role) => {
-    return user && (user.rol === role || user.role === role);
+    if (!user) return false;
+    // Compatibilidad con formato antiguo (string) y nuevo (objeto)
+    const userRole = user.rol?.nombre || user.rol || user.role;
+    return userRole === role || userRole?.toLowerCase() === role?.toLowerCase();
   };
 
   // Verificar si el usuario tiene uno de varios roles
+  // Ahora usuario.rol es un objeto: { id, nombre, estado, permisos }
   const hasAnyRole = (roles) => {
-    return user && (roles.includes(user.rol) || roles.includes(user.role));
+    if (!user) return false;
+    // Compatibilidad con formato antiguo (string) y nuevo (objeto)
+    const userRole = user.rol?.nombre || user.rol || user.role;
+    if (!userRole) return false;
+    return roles.some(role => 
+      userRole === role || userRole?.toLowerCase() === role?.toLowerCase()
+    );
   };
 
   // Verificar permisos específicos

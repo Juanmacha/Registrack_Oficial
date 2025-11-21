@@ -59,11 +59,21 @@ const VerDetalleCita = ({ cita, isOpen, onClose, onReprogramar, onAnular, puedeR
                   <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold text-blue-700">
                     <i className="bi bi-person"></i>
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="font-medium text-gray-800">{cita.nombre} {cita.apellido}</div>
                     <div className="text-sm text-gray-500">Cédula: {cita.cedula}</div>
-                    <div className="text-sm text-gray-500">Teléfono: {cita.telefono}</div>
-                    {cita.email && <div className="text-sm text-gray-500">Email: {cita.email}</div>}
+                    {/* Mostrar teléfono solo si tiene valor real (no 'N/A' ni vacío) */}
+                    {(cita.cliente?.telefono || (cita.telefono && cita.telefono !== 'N/A' && cita.telefono.trim() !== '')) && (
+                      <div className="text-sm text-gray-500">
+                        Teléfono: {cita.cliente?.telefono || cita.telefono}
+                      </div>
+                    )}
+                    {/* Mostrar email solo si tiene valor real (no 'N/A' ni vacío) */}
+                    {(cita.cliente?.email || cita.cliente?.correo || (cita.email && cita.email !== 'N/A' && cita.email.trim() !== '')) && (
+                      <div className="text-sm text-gray-500">
+                        Email: {cita.cliente?.email || cita.cliente?.correo || cita.email}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="pt-2 border-t border-gray-200">
@@ -98,12 +108,40 @@ const VerDetalleCita = ({ cita, isOpen, onClose, onReprogramar, onAnular, puedeR
                 <div className="flex items-center space-x-2 text-sm">
                   <i className="bi bi-person-badge text-gray-400"></i>
                   <span className="text-gray-600">Asesor:</span>
-                  <span className="font-medium text-gray-800">{cita.asesor}</span>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-800">
+                      {cita.empleado?.nombre && cita.empleado?.apellido
+                        ? `${cita.empleado.nombre} ${cita.empleado.apellido}`
+                        : cita.empleado?.nombre || cita.empleado?.nombre_completo || cita.asesor || 'N/A'}
+                    </span>
+                    {/* Verificar múltiples campos posibles para el documento del empleado */}
+                    {(cita.empleado?.documento || 
+                      cita.empleado?.cedula || 
+                      cita.empleado?.numero_documento || 
+                      cita.empleado?.numero_cedula ||
+                      cita.datosOriginales?.empleado?.documento ||
+                      cita.datosOriginales?.empleado?.cedula ||
+                      cita.datosOriginales?.empleado?.numero_documento ||
+                      cita.datosOriginales?.empleado?.numero_cedula) && (
+                      <span className="text-xs text-gray-500">
+                        Documento: {
+                          cita.empleado?.documento || 
+                          cita.empleado?.cedula || 
+                          cita.empleado?.numero_documento || 
+                          cita.empleado?.numero_cedula ||
+                          cita.datosOriginales?.empleado?.documento ||
+                          cita.datosOriginales?.empleado?.cedula ||
+                          cita.datosOriginales?.empleado?.numero_documento ||
+                          cita.datosOriginales?.empleado?.numero_cedula
+                        }
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <i className="bi bi-chat-left-text text-gray-400"></i>
                   <span className="text-gray-600">Detalle:</span>
-                  <span className="font-medium text-gray-800">{cita.detalle || <span className="italic text-gray-400">Sin detalle</span>}</span>
+                  <span className="font-medium text-gray-800">{cita.detalle || <span className="italic text-gray-400">Sin detalles</span>}</span>
                 </div>
                 {/* Observación de anulación */}
                 {cita.estado?.toLowerCase() === 'cita anulada' && cita.observacionAnulacion && (

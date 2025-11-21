@@ -222,6 +222,74 @@ class SeguimientoApiService {
       throw error;
     }
   }
+
+  // GET /api/seguimiento/cliente/:idOrdenServicio - Obtener seguimientos de un cliente para una orden de servicio
+  async getSeguimientosCliente(idOrdenServicio, token) {
+    try {
+      console.log(`🔧 [SeguimientoApiService] Obteniendo seguimientos del cliente para orden ${idOrdenServicio}...`);
+      const seguimientos = await this.makeRequest(`/api/seguimiento/cliente/${idOrdenServicio}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      // El resultado puede venir como array directo o envuelto en data
+      const seguimientosArray = Array.isArray(seguimientos) 
+        ? seguimientos 
+        : (seguimientos?.data && Array.isArray(seguimientos.data) ? seguimientos.data : []);
+      console.log(`✅ [SeguimientoApiService] Seguimientos del cliente obtenidos:`, seguimientosArray.length, 'registros');
+      return seguimientosArray;
+    } catch (error) {
+      console.error(`❌ [SeguimientoApiService] Error obteniendo seguimientos del cliente para orden ${idOrdenServicio}:`, error);
+      throw error;
+    }
+  }
+
+  // GET /api/seguimiento/:id/descargar-archivos - Descargar archivos adjuntos de un seguimiento
+  async descargarArchivosSeguimiento(idSeguimiento, token) {
+    try {
+      console.log(`🔧 [SeguimientoApiService] Descargando archivos del seguimiento ${idSeguimiento}...`);
+      
+      const url = `${this.baseURL}/api/seguimiento/${idSeguimiento}/descargar-archivos`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('📡 [SeguimientoApiService] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { mensaje: errorText || `Error ${response.status}: ${response.statusText}` };
+        }
+        throw new Error(errorData.mensaje || errorData.error || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      // Obtener el blob del archivo ZIP
+      const blob = await response.blob();
+      
+      // Obtener el nombre del archivo del header Content-Disposition si está disponible
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `seguimiento_${idSeguimiento}_archivos.zip`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      console.log('✅ [SeguimientoApiService] Archivo ZIP descargado:', filename);
+      return { blob, filename };
+    } catch (error) {
+      console.error(`❌ [SeguimientoApiService] Error descargando archivos del seguimiento ${idSeguimiento}:`, error);
+      throw error;
+    }
+  }
 }
 
 // Crear instancia única del servicio

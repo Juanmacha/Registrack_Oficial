@@ -20,7 +20,7 @@ const tiposEntidad = [
   'Sociedad en Comandita por Acciones'
 ];
 
-const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Oposición de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors }) => {
+const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Oposición de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true }) => {
   // Estado local como fallback
   const [localForm, setLocalForm] = useState({
     tipoSolicitante: '', // ✅ Debe ser "Natural" o "Jurídica"
@@ -268,7 +268,14 @@ const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Opos
         
         {/* Contenido del formulario con scroll */}
         <div className="overflow-y-auto max-h-[calc(96vh-140px)] px-8 py-8 bg-gradient-to-b from-gray-50/50 via-white to-gray-50/50">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {(() => {
+            const FormWrapper = renderForm ? 'form' : 'div';
+            const wrapperProps = renderForm 
+              ? { onSubmit: handleSubmit, className: "space-y-6" }
+              : { className: "space-y-6" };
+            
+            return (
+              <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -366,7 +373,7 @@ const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Opos
                   </div>
                   {/* ✅ IMPORTANTE: NIT de Empresa es SIEMPRE requerido para Presentación de Oposición */}
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa * <span className="text-xs text-gray-500 font-normal">(nit_empresa - siempre requerido)</span></label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa *</label>
                     <input type="text" name="nit" value={form.nit} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nit ? 'border-red-400' : 'border-gray-300'}`} placeholder="10 dígitos (sin guión)" />
                     {errors.nit && <p className="text-xs text-red-600 mt-1">{errors.nit}</p>}
                   </div>
@@ -472,23 +479,27 @@ const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Opos
               </div>
             )}
 
-            {/* Botones */}
-            <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-              <button 
-                type="button" 
-                onClick={onClose} 
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
-              >
-                Enviar Solicitud
-              </button>
-            </div>
-          </form>
+            {/* Botones - Solo mostrar si renderForm es true */}
+            {renderForm && (
+              <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+                >
+                  Enviar Solicitud
+                </button>
+              </div>
+            )}
+              </FormWrapper>
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { useNotification } from "../../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../../shared/services/NotificationService.js";
 
 const EditarEmpleadoModal = ({
   showModal,
@@ -8,7 +8,6 @@ const EditarEmpleadoModal = ({
   empleadoEditando,
   handleActualizarEmpleado,
 }) => {
-  const { updateSuccess, updateError } = useNotification();
   const [formData, setFormData] = useState({
     id: "",
     nombre: "",
@@ -73,10 +72,10 @@ const EditarEmpleadoModal = ({
       setShowModal(false);
       } catch (error) {
         console.error('Error al actualizar empleado:', error);
-        updateError('Error al actualizar empleado');
+        notificationService.updateError('Error al actualizar empleado');
       }
     } else {
-      updateError('Por favor, corrija los errores en el formulario');
+      notificationService.updateError('Por favor, corrija los errores en el formulario');
     }
   };
 

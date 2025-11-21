@@ -28,6 +28,7 @@ import AdminRoute from '../features/auth/components/adminRoute';
 import EmployeeRoute from '../features/auth/components/employeeRoute';
 import ClientRoute from '../features/auth/components/clientRoute';
 import ProfileRedirect from '../features/auth/components/ProfileRedirect';
+import { PermissionGuard, AccessDenied } from '../shared/components/PermissionGuard.jsx';
 
 // Layout general para admin
 import AdminLayout from '../features/dashboard/layouts/adminLayouts';
@@ -113,24 +114,106 @@ const AppRoutes = () => {
           </EmployeeRoute>
         }
       >
-        {/* ✅ Rutas accesibles para admin Y empleado */}
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="pagos" element={<Pagos />} />
-        <Route path="ventasServiciosProceso" element={<GestionVentasServiciosProceso />} />
-        <Route path="ventasServiciosFin" element={<GestionVentasServiciosFin />} />
-        <Route path="calendario" element={<Calendario />} />
-        <Route path="gestionClientes" element={<GestionClientes />} />
-        <Route path="servicios" element={<Servicios />} />
-        <Route path="solicitudesCitas" element={<SolicitudesCitas />} />
-        <Route path="solicitudesCitas-api" element={<SolicitudesCitasApi />} />
+        {/* ✅ Rutas accesibles para admin Y empleado con verificación de permisos granular */}
+        <Route 
+          path="dashboard" 
+          element={
+            <PermissionGuard modulo="gestion_dashboard" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder al dashboard." />}>
+              <Dashboard />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="pagos" 
+          element={
+            <PermissionGuard modulo="gestion_pagos" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de pagos." />}>
+              <Pagos />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="ventasServiciosProceso" 
+          element={
+            <PermissionGuard modulo="gestion_solicitudes" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a las solicitudes en proceso." />}>
+              <GestionVentasServiciosProceso />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="ventasServiciosFin" 
+          element={
+            <PermissionGuard modulo="gestion_solicitudes" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a las solicitudes finalizadas." />}>
+              <GestionVentasServiciosFin />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="calendario" 
+          element={
+            <PermissionGuard modulo="gestion_citas" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder al calendario de citas." />}>
+              <Calendario />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="gestionClientes" 
+          element={
+            <PermissionGuard modulo="gestion_clientes" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de clientes." />}>
+              <GestionClientes />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="servicios" 
+          element={
+            <PermissionGuard modulo="gestion_servicios" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de servicios." />}>
+              <Servicios />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="solicitudesCitas" 
+          element={
+            <PermissionGuard modulo="gestion_solicitud_cita" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a las solicitudes de citas." />}>
+              <SolicitudesCitas />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="solicitudesCitas-api" 
+          element={
+            <PermissionGuard modulo="gestion_solicitud_cita" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a las solicitudes de citas." />}>
+              <SolicitudesCitasApi />
+            </PermissionGuard>
+          } 
+        />
         <Route path="profile" element={<Profile />} />
 
-        {/* ✅ Rutas SOLO para administradores (protección anidada) */}
-        <Route element={<AdminRoute><Outlet /></AdminRoute>}>
-          <Route path="gestionUsuarios" element={<GestionUsuarios />} />
-          <Route path="roles" element={<Roles />} />
-          <Route path="empleados" element={<Empleados />} />
-        </Route>
+        {/* ✅ Rutas con permisos granular - Cualquier usuario con el permiso asignado puede acceder */}
+        <Route 
+          path="gestionUsuarios" 
+          element={
+            <PermissionGuard modulo="gestion_usuarios" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de usuarios." />}>
+              <GestionUsuarios />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="roles" 
+          element={
+            <PermissionGuard modulo="gestion_roles" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de roles." />}>
+              <Roles />
+            </PermissionGuard>
+          } 
+        />
+        <Route 
+          path="empleados" 
+          element={
+            <PermissionGuard modulo="gestion_empleados" accion="leer" fallback={<AccessDenied message="No tienes permisos para acceder a la gestión de empleados." />}>
+              <Empleados />
+            </PermissionGuard>
+          } 
+        />
       </Route>
 
       {/* ✅ Redirecciones para compatibilidad con URLs antiguas */}

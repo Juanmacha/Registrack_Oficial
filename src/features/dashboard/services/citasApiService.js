@@ -182,18 +182,74 @@ const citasApiService = {
         if (error.response.data.message) {
           console.error('💥 [CitasApiService] Mensaje de error:', error.response.data.message);
         }
+        
+        // ✅ Verificar si el error es porque la cita ya existe (probablemente creada en un intento anterior)
+        if (error.response?.status === 400) {
+          const errorMessage = error.response.data?.message || '';
+          const errorData = error.response.data?.data || {};
+          const citaExistente = errorData?.cita_existente;
+          
+          // Si el backend indica que ya existe una cita y proporciona los datos de la cita existente
+          if ((errorMessage.includes('ya tiene una cita') || errorMessage.includes('cita activa') || errorMessage.includes('horario')) && citaExistente) {
+            console.log('✅ [CitasApiService] El backend indica que ya existe una cita con estos datos.');
+            console.log('✅ [CitasApiService] Verificando si la cita coincide con los datos enviados...');
+            
+            // Verificar si los datos coinciden (fecha, hora, empleado)
+            const fechaCoincide = citaExistente.fecha === requestData.fecha;
+            const horaInicioCoincide = citaExistente.hora_inicio === requestData.hora_inicio ||
+                                     citaExistente.hora_inicio === requestData.hora_inicio.replace(':00', '');
+            const horaFinCoincide = citaExistente.hora_fin === requestData.hora_fin ||
+                                  citaExistente.hora_fin === requestData.hora_fin.replace(':00', '');
+            
+            // Verificar empleado (puede venir como id_empleado directo o en objeto empleado)
+            const idEmpleadoCita = citaExistente.id_empleado || citaExistente.empleado?.id_empleado || citaExistente.empleado?.id;
+            const empleadoCoincide = idEmpleadoCita === parseInt(requestData.id_empleado);
+            
+            // También verificar cliente si está disponible
+            let clienteCoincide = true;
+            if (requestData.id_cliente && citaExistente.id_cliente) {
+              clienteCoincide = citaExistente.id_cliente === parseInt(requestData.id_cliente);
+            }
+            
+            if (fechaCoincide && horaInicioCoincide && horaFinCoincide && empleadoCoincide && clienteCoincide) {
+              console.log('✅ [CitasApiService] ¡Cita encontrada! Los datos coinciden. La cita se creó exitosamente en un intento anterior.');
+              console.log('✅ [CitasApiService] ID de cita creada:', citaExistente.id_cita || citaExistente.id);
+              
+              // Tratar como éxito si la cita existe con los mismos datos
+              return {
+                success: true,
+                data: citaExistente,
+                message: 'Cita creada exitosamente (la cita ya existía, probablemente creada en un intento anterior que tuvo timeout)'
+              };
+            } else {
+              console.warn('⚠️ [CitasApiService] La cita existente no coincide completamente con los datos enviados.');
+              console.warn('⚠️ [CitasApiService] Coincidencias:', {
+                fecha: fechaCoincide,
+                horaInicio: horaInicioCoincide,
+                horaFin: horaFinCoincide,
+                empleado: empleadoCoincide,
+                cliente: clienteCoincide
+              });
+            }
+          }
+        }
       }
       
       let errorMessage = 'Error al crear la cita';
       
       if (error.response?.status === 400) {
-        errorMessage = 'Datos inválidos para la cita: ' + (error.response.data?.message || JSON.stringify(error.response.data));
+        const serverMessage = error.response.data?.message || '';
+        if (serverMessage.includes('ya tiene una cita') || serverMessage.includes('cita activa') || serverMessage.includes('horario')) {
+          errorMessage = `${serverMessage}. Por favor, verifique las citas existentes en el calendario o intente con otro horario.`;
+        } else {
+          errorMessage = 'Datos inválidos para la cita: ' + (serverMessage || JSON.stringify(error.response.data));
+        }
       } else if (error.response?.status === 401) {
-        errorMessage = 'Debes estar logueado para crear una cita';
+        errorMessage = 'Debe estar autenticado para crear una cita';
       } else if (error.response?.status === 403) {
         errorMessage = 'Sin permisos para crear citas';
       } else if (error.response?.status === 409) {
-        errorMessage = 'Conflicto de horarios - El empleado ya tiene una cita en ese horario';
+        errorMessage = 'Conflicto de horarios: el empleado ya tiene una cita en ese horario';
       } else if (error.response?.status === 500) {
         errorMessage = 'Error interno del servidor';
       } else if (error.response?.data?.mensaje) {
@@ -263,7 +319,7 @@ const citasApiService = {
       } else if (error.response?.status === 404) {
         errorMessage = 'Cita no encontrada';
       } else if (error.response?.status === 409) {
-        errorMessage = 'Conflicto de horarios - El empleado ya tiene una cita en ese horario';
+        errorMessage = 'Conflicto de horarios: el empleado ya tiene una cita en ese horario';
       } else if (error.response?.status === 500) {
         errorMessage = 'Error interno del servidor';
       } else if (error.response?.data?.mensaje) {
@@ -542,7 +598,7 @@ const citasApiService = {
               }
               
               // Si no se encontró la cita, mostrar el error normal
-              errorMessage = `${serverMessage}. Por favor, verifica las citas existentes del empleado en el calendario o intenta con otro horario.`;
+              errorMessage = `${serverMessage}. Por favor, verifique las citas existentes del empleado en el calendario o intente con otro horario.`;
               
               console.warn('⚠️ [CitasApiService] El backend indica que ya existe una cita para:');
               console.warn('   - Fecha:', datosCita.fecha);
@@ -597,8 +653,22 @@ const citasApiService = {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       
+      // ✅ Validación 1: Fecha no puede ser pasada
       if (fecha < hoy) {
         errors.fecha = 'La fecha no puede ser pasada';
+      }
+      
+      // ✅ Validación 4: Rango de fechas (máximo 1 año en el futuro)
+      const unAnoEnElFuturo = new Date();
+      unAnoEnElFuturo.setFullYear(unAnoEnElFuturo.getFullYear() + 1);
+      if (fecha > unAnoEnElFuturo) {
+        errors.fecha = 'La fecha no puede ser más de 1 año en el futuro';
+      }
+      
+      // ✅ Validación 1: Días hábiles (lunes a viernes)
+      const diaSemana = fecha.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+      if (diaSemana === 0 || diaSemana === 6) {
+        errors.fecha = 'Las citas solo se pueden agendar de lunes a viernes';
       }
     }
     
@@ -607,8 +677,9 @@ const citasApiService = {
       errors.hora_inicio = 'La hora de inicio es requerida';
     } else {
       const hora = citaData.hora_inicio;
-      const [horas, minutos] = hora.split(':').map(Number);
+      const [horas, minutos, segundos] = hora.split(':').map(Number);
       
+      // ✅ Validación 6: Horarios de atención (7:00 AM - 6:00 PM)
       if (horas < 7 || horas > 18 || (horas === 18 && minutos > 0)) {
         errors.hora_inicio = 'La hora debe estar entre 07:00 y 18:00';
       }
@@ -619,8 +690,9 @@ const citasApiService = {
       errors.hora_fin = 'La hora de fin es requerida';
     } else {
       const hora = citaData.hora_fin;
-      const [horas, minutos] = hora.split(':').map(Number);
+      const [horas, minutos, segundos] = hora.split(':').map(Number);
       
+      // ✅ Validación 6: Horarios de atención (7:00 AM - 6:00 PM)
       if (horas < 7 || horas > 18 || (horas === 18 && minutos > 0)) {
         errors.hora_fin = 'La hora debe estar entre 07:00 y 18:00';
       }
@@ -632,6 +704,12 @@ const citasApiService = {
         
         if (fin <= inicio) {
           errors.hora_fin = 'La hora de fin debe ser mayor que la hora de inicio';
+        } else {
+          // ✅ Validación 2: Duración (1 hora ±5 minutos) - 55-65 minutos
+          const duracionMinutos = (fin - inicio) / (1000 * 60); // Diferencia en minutos
+          if (duracionMinutos < 55 || duracionMinutos > 65) {
+            errors.hora_fin = 'La duración de la cita debe ser de aproximadamente 1 hora (55-65 minutos)';
+          }
         }
       }
     }
@@ -644,6 +722,12 @@ const citasApiService = {
     // Validar modalidad
     if (!citaData.modalidad || !citaData.modalidad.trim()) {
       errors.modalidad = 'La modalidad es requerida';
+    } else {
+      // Validar que la modalidad sea válida
+      const modalidadesValidas = ['Virtual', 'Presencial'];
+      if (!modalidadesValidas.includes(citaData.modalidad.trim())) {
+        errors.modalidad = `La modalidad debe ser: ${modalidadesValidas.join(' o ')}`;
+      }
     }
     
     // Validar id_cliente
@@ -674,8 +758,22 @@ const citasApiService = {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       
+      // ✅ Validación 1: Fecha no puede ser pasada
       if (fecha < hoy) {
         errors.fecha = 'La fecha no puede ser pasada';
+      }
+      
+      // ✅ Validación 4: Rango de fechas (máximo 1 año en el futuro)
+      const unAnoEnElFuturo = new Date();
+      unAnoEnElFuturo.setFullYear(unAnoEnElFuturo.getFullYear() + 1);
+      if (fecha > unAnoEnElFuturo) {
+        errors.fecha = 'La fecha no puede ser más de 1 año en el futuro';
+      }
+      
+      // ✅ Validación 1: Días hábiles (lunes a viernes)
+      const diaSemana = fecha.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+      if (diaSemana === 0 || diaSemana === 6) {
+        errors.fecha = 'Las citas solo se pueden agendar de lunes a viernes';
       }
     }
     
@@ -686,6 +784,7 @@ const citasApiService = {
       const hora = citaData.hora_inicio;
       const [horas, minutos, segundos] = hora.split(':').map(Number);
       
+      // ✅ Validación 6: Horarios de atención (7:00 AM - 6:00 PM)
       if (horas < 7 || horas > 18 || (horas === 18 && minutos > 0)) {
         errors.hora_inicio = 'La hora debe estar entre 07:00 y 18:00';
       }
@@ -696,8 +795,9 @@ const citasApiService = {
       errors.hora_fin = 'La hora de fin es requerida';
     } else {
       const hora = citaData.hora_fin;
-      const [horas, minutos] = hora.split(':').map(Number);
+      const [horas, minutos, segundos] = hora.split(':').map(Number);
       
+      // ✅ Validación 6: Horarios de atención (7:00 AM - 6:00 PM)
       if (horas < 7 || horas > 18 || (horas === 18 && minutos > 0)) {
         errors.hora_fin = 'La hora debe estar entre 07:00 y 18:00';
       }
@@ -709,6 +809,12 @@ const citasApiService = {
         
         if (fin <= inicio) {
           errors.hora_fin = 'La hora de fin debe ser mayor que la hora de inicio';
+        } else {
+          // ✅ Validación 2: Duración (1 hora ±5 minutos) - 55-65 minutos
+          const duracionMinutos = (fin - inicio) / (1000 * 60); // Diferencia en minutos
+          if (duracionMinutos < 55 || duracionMinutos > 65) {
+            errors.hora_fin = 'La duración de la cita debe ser de aproximadamente 1 hora (55-65 minutos)';
+          }
         }
       }
     }

@@ -4,8 +4,11 @@ import TablaUsuarios from "./components/tablaUsuarios";
 import FormularioUsuario from "./components/FormularioUsuario";
 import ProfileModal from "../../../../shared/components/ProfileModal";
 import userApiService from "../../../auth/services/userApiService.js";
+import rolesApiService from "../gestionRoles/services/rolesApiService.js";
 import { validarUsuario } from "./services/validarUsuario";
-import { useNotification } from "../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../shared/services/NotificationService.js";
+import { usePermiso } from "../../../../shared/hooks/usePermiso.js";
+import { useAuth } from "../../../../shared/contexts/authContext.jsx";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
@@ -32,8 +35,31 @@ const GestionUsuarios = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [roles, setRoles] = useState([]); // Estado para almacenar todos los roles
   const usuariosPorPagina = 5;
-  const { deleteConfirm, deleteSuccess, deleteError, createSuccess, updateSuccess, createError, updateError } = useNotification();
+  const { user: currentUser, updateUser: updateCurrentUser } = useAuth();
+  
+  // Verificar permisos del usuario actual
+  const puedeCrear = usePermiso('gestion_usuarios', 'crear');
+  const puedeEditar = usePermiso('gestion_usuarios', 'editar');
+  const puedeEliminar = usePermiso('gestion_usuarios', 'eliminar');
+  
+  // Cargar roles desde la API al inicio
+  useEffect(() => {
+    const cargarRoles = async () => {
+      try {
+        console.log('📤 [GestionUsuarios] Cargando roles desde la API...');
+        const rolesData = await rolesApiService.getAllRoles();
+        console.log('✅ [GestionUsuarios] Roles cargados:', rolesData);
+        setRoles(rolesData || []);
+      } catch (error) {
+        console.error('❌ [GestionUsuarios] Error cargando roles:', error);
+        // Continuar sin roles, las funciones de mapeo usarán fallback
+      }
+    };
+    
+    cargarRoles();
+  }, []);
 
   // Función para cargar usuarios desde la API
   const cargarUsuarios = async () => {
@@ -46,17 +72,25 @@ const GestionUsuarios = () => {
       if (result.success) {
         console.log('✅ [GestionUsuarios] Usuarios cargados exitosamente:', result.users);
         // Mapear datos de la API al formato del frontend
-        const usuariosMapeados = result.users.map(usuario => ({
-          id: usuario.id_usuario,
-          documentType: usuario.tipo_documento,
-          documentNumber: usuario.documento,
-          firstName: usuario.nombre,
-          lastName: usuario.apellido,
-          email: usuario.correo,
-          role: obtenerNombreRol(usuario.id_rol),
-          estado: usuario.estado !== undefined ? Boolean(usuario.estado) : true,
-          fechaCreacion: usuario.createdAt || usuario.fecha_creacion
-        }));
+        const usuariosMapeados = result.users.map(usuario => {
+          // Buscar el rol real desde la lista de roles cargados
+          const rolEncontrado = roles.find(r => r.id === usuario.id_rol);
+          const nombreRol = rolEncontrado 
+            ? rolEncontrado.nombre?.toLowerCase() || obtenerNombreRol(usuario.id_rol)
+            : obtenerNombreRol(usuario.id_rol);
+          
+          return {
+            id: usuario.id_usuario,
+            documentType: usuario.tipo_documento,
+            documentNumber: usuario.documento,
+            firstName: usuario.nombre,
+            lastName: usuario.apellido,
+            email: usuario.correo,
+            role: nombreRol,
+            estado: usuario.estado !== undefined ? Boolean(usuario.estado) : true,
+            fechaCreacion: usuario.createdAt || usuario.fecha_creacion
+          };
+        });
         setUsuarios(usuariosMapeados);
       } else {
         console.error('❌ [GestionUsuarios] Error al cargar usuarios:', result.message);
@@ -96,8 +130,11 @@ const GestionUsuarios = () => {
   };
 
   useEffect(() => {
+    // Cargar usuarios cuando los roles estén disponibles
+    // Esto asegura que los nombres de roles se mapeen correctamente
     cargarUsuarios();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles]); // Recargar usuarios cuando los roles cambien
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -142,16 +179,126 @@ const GestionUsuarios = () => {
         
         if (result.success) {
           console.log("✅ [GestionUsuarios] Usuario actualizado exitosamente");
-          updateSuccess('usuario');
+          
+          // Si el usuario editado es el mismo que está logueado, actualizar su información
+          const usuarioActualizado = result.user;
+          if (currentUser && usuarioActualizado) {
+            const currentUserId = currentUser.id_usuario || currentUser.id;
+            const editedUserId = usuarioSeleccionado.id || usuarioActualizado.id_usuario || usuarioActualizado.id;
+            
+            console.log('🔍 [GestionUsuarios] Verificando si es el usuario actual:', {
+              currentUserId,
+              editedUserId,
+              esElMismo: currentUserId == editedUserId || currentUser.email === usuarioActualizado.email
+            });
+            
+            if (currentUserId == editedUserId || currentUser.email === usuarioActualizado.email) {
+              console.log('🔄 [GestionUsuarios] Es el usuario actual, obteniendo información completa del usuario actualizado');
+              
+              // Obtener el usuario completo con rol y permisos desde la API
+              try {
+                const userResult = await userApiService.getUserById(editedUserId);
+                if (userResult.success && userResult.user) {
+                  const usuarioCompleto = userResult.user;
+                  console.log('✅ [GestionUsuarios] Usuario completo obtenido:', usuarioCompleto);
+                  console.log('✅ [GestionUsuarios] Rol del usuario:', usuarioCompleto.rol);
+                  
+                  // Si el backend devuelve el rol completo con permisos, usarlo
+                  if (usuarioCompleto.rol && typeof usuarioCompleto.rol === 'object') {
+                    // Actualizar en el contexto
+                    await updateCurrentUser(usuarioCompleto);
+                    
+                    // También actualizar en localStorage directamente
+                    localStorage.setItem('currentUser', JSON.stringify(usuarioCompleto));
+                    localStorage.setItem('user', JSON.stringify(usuarioCompleto));
+                    localStorage.setItem('userData', JSON.stringify(usuarioCompleto));
+                    
+                    console.log('✅ [GestionUsuarios] Usuario actual actualizado con rol completo en contexto y localStorage');
+                  } else {
+                    // Si no viene el rol completo, combinar con la información actual
+                    const usuarioParaActualizar = {
+                      ...currentUser,
+                      ...usuarioActualizado,
+                      ...usuarioCompleto,
+                      // Preservar el rol completo si viene en la respuesta
+                      rol: usuarioCompleto.rol || usuarioActualizado.rol || currentUser.rol,
+                      // Actualizar el roleId si viene
+                      id_rol: usuarioCompleto.id_rol || usuarioActualizado.id_rol || datosActualizacion.roleId || currentUser.id_rol
+                    };
+                    
+                    // Actualizar en el contexto
+                    await updateCurrentUser(usuarioParaActualizar);
+                    
+                    // También actualizar en localStorage directamente
+                    localStorage.setItem('currentUser', JSON.stringify(usuarioParaActualizar));
+                    localStorage.setItem('user', JSON.stringify(usuarioParaActualizar));
+                    localStorage.setItem('userData', JSON.stringify(usuarioParaActualizar));
+                    
+                    console.log('⚠️ [GestionUsuarios] Usuario actual actualizado, pero el rol completo no está disponible');
+                  }
+                } else {
+                  console.warn('⚠️ [GestionUsuarios] No se pudo obtener el usuario completo, usando información parcial');
+                  // Fallback: actualizar con la información que tenemos
+                  const usuarioParaActualizar = {
+                    ...currentUser,
+                    ...usuarioActualizado,
+                    // Actualizar el roleId
+                    id_rol: usuarioActualizado.id_rol || datosActualizacion.roleId || currentUser.id_rol
+                  };
+                  
+                  // Actualizar en el contexto
+                  await updateCurrentUser(usuarioParaActualizar);
+                  
+                  // También actualizar en localStorage directamente
+                  localStorage.setItem('currentUser', JSON.stringify(usuarioParaActualizar));
+                  localStorage.setItem('user', JSON.stringify(usuarioParaActualizar));
+                  localStorage.setItem('userData', JSON.stringify(usuarioParaActualizar));
+                }
+              } catch (error) {
+                console.error('❌ [GestionUsuarios] Error al obtener usuario completo:', error);
+                // Fallback: actualizar con la información que tenemos
+                const usuarioParaActualizar = {
+                  ...currentUser,
+                  ...usuarioActualizado,
+                  // Actualizar el roleId
+                  id_rol: usuarioActualizado.id_rol || datosActualizacion.roleId || currentUser.id_rol
+                };
+                
+                // Actualizar en el contexto
+                await updateCurrentUser(usuarioParaActualizar);
+                
+                // También actualizar en localStorage directamente
+                localStorage.setItem('currentUser', JSON.stringify(usuarioParaActualizar));
+                localStorage.setItem('user', JSON.stringify(usuarioParaActualizar));
+                localStorage.setItem('userData', JSON.stringify(usuarioParaActualizar));
+              }
+            }
+          }
+          
+          notificationService.updateSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
           console.log("🔄 [GestionUsuarios] Usuarios recargados después de la actualización");
         } else {
           console.error("❌ [GestionUsuarios] Error al actualizar usuario:", result.message);
-          updateError(result.message);
+          notificationService.updateError(result.message);
           return;
       }
     } else {
         console.log("🔄 [GestionUsuarios] Creando nuevo usuario");
+        
+        // Obtener el ID del rol
+        const roleId = obtenerIdRol(nuevoUsuario.role);
+        console.log('🔍 [GestionUsuarios] Rol seleccionado:', nuevoUsuario.role);
+        console.log('🔍 [GestionUsuarios] RoleId obtenido:', roleId);
+        console.log('🔍 [GestionUsuarios] Roles disponibles:', roles);
+        
+        // Validar que el roleId sea válido
+        if (!roleId || roleId === null || roleId === undefined) {
+          console.error('❌ [GestionUsuarios] RoleId inválido:', roleId);
+          notificationService.updateError(`El rol "${nuevoUsuario.role}" no es válido. Por favor, selecciona un rol válido.`);
+          setLoading(false);
+          return;
+        }
         
         // Mapear datos del frontend al formato de la API
         const datosCreacion = {
@@ -161,18 +308,20 @@ const GestionUsuarios = () => {
           password: nuevoUsuario.password,
           tipoDocumento: nuevoUsuario.documentType,
           documento: nuevoUsuario.documentNumber,
-          roleId: obtenerIdRol(nuevoUsuario.role)
+          roleId: Number(roleId) // Asegurar que sea un número
         };
+        
+        console.log('📤 [GestionUsuarios] Datos de creación:', datosCreacion);
         
         const result = await userApiService.createUser(datosCreacion);
         
         if (result.success) {
           console.log("✅ [GestionUsuarios] Usuario creado exitosamente");
-          createSuccess('usuario');
+          notificationService.createSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
         } else {
           console.error("❌ [GestionUsuarios] Error al crear usuario:", result.message);
-          createError(result.message);
+          notificationService.createError(result.message);
           return;
         }
       }
@@ -195,9 +344,9 @@ const GestionUsuarios = () => {
       console.error("💥 [GestionUsuarios] Error general al guardar usuario:", error);
       const errorMessage = modoEdicion ? 'Error al actualizar usuario' : 'Error al crear usuario';
       if (modoEdicion) {
-        updateError(errorMessage);
+        notificationService.updateError(errorMessage);
       } else {
-        createError(errorMessage);
+        notificationService.createError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -205,31 +354,71 @@ const GestionUsuarios = () => {
   };
 
   // Función auxiliar para obtener el ID del rol
-  // ⚠️ IMPORTANTE: El backend tiene mapeo diferente:
-  // Backend: 1=cliente, 2=administrador, 3=empleado
+  // Busca el rol en la lista de roles cargados desde la API
   const obtenerIdRol = (nombreRol) => {
+    if (!nombreRol) {
+      console.warn('⚠️ [GestionUsuarios] obtenerIdRol: nombreRol es vacío o null');
+      return null;
+    }
+    
+    // Normalizar el nombre del rol
+    const nombreNormalizado = nombreRol.toLowerCase().trim();
+    console.log('🔍 [GestionUsuarios] Buscando rol:', nombreNormalizado);
+    console.log('🔍 [GestionUsuarios] Roles disponibles:', roles.map(r => ({ id: r.id, nombre: r.nombre })));
+    
+    // Buscar el rol en la lista de roles cargados
+    const rolEncontrado = roles.find(r => {
+      const nombreRolLower = r.nombre?.toLowerCase().trim() || '';
+      return nombreRolLower === nombreNormalizado;
+    });
+    
+    if (rolEncontrado && rolEncontrado.id) {
+      console.log('✅ [GestionUsuarios] Rol encontrado:', { id: rolEncontrado.id, nombre: rolEncontrado.nombre });
+      // Asegurar que el ID sea un número
+      return Number(rolEncontrado.id);
+    }
+    
+    // Fallback: mapeo hardcodeado para compatibilidad (solo si no se encontró en la lista)
+    console.warn(`⚠️ [GestionUsuarios] Rol "${nombreRol}" no encontrado en la lista, usando fallback`);
     const rolesMap = {
-      'administrador': 2,  // Backend usa id_rol=2 para admin
-      'empleado': 3,        // Backend usa id_rol=3 para empleado
-      'cliente': 1,         // Backend usa id_rol=1 para cliente
-      'usuario': 1,         // Por defecto cliente
+      'administrador': 2,
+      'empleado': 3,
+      'cliente': 1,
+      'usuario': 1,
       'admin': 2,
       'employee': 3,
       'customer': 1
     };
-    return rolesMap[nombreRol?.toLowerCase()] || 1;
+    const fallbackId = rolesMap[nombreNormalizado];
+    if (fallbackId) {
+      console.log('✅ [GestionUsuarios] Usando fallback ID:', fallbackId);
+      return fallbackId;
+    }
+    
+    console.error('❌ [GestionUsuarios] No se pudo encontrar el ID del rol:', nombreRol);
+    return null;
   };
 
   // Función auxiliar para obtener el nombre del rol desde el ID
-  // ⚠️ IMPORTANTE: El backend tiene mapeo diferente:
-  // Backend: 1=cliente, 2=administrador, 3=empleado
+  // Busca el rol en la lista de roles cargados desde la API
   const obtenerNombreRol = (idRol) => {
+    if (!idRol) return 'cliente';
+    
+    // Buscar el rol en la lista de roles cargados
+    const rolEncontrado = roles.find(r => r.id === idRol || r.id === String(idRol) || r.id === Number(idRol));
+    
+    if (rolEncontrado && rolEncontrado.nombre) {
+      return rolEncontrado.nombre.toLowerCase().trim();
+    }
+    
+    // Fallback: mapeo hardcodeado para compatibilidad (solo si no se encontró en la lista)
+    console.warn(`⚠️ [GestionUsuarios] Rol con ID "${idRol}" no encontrado en la lista, usando fallback`);
     const rolesMap = {
-      1: 'cliente',          // Backend: id_rol=1 es cliente
-      2: 'administrador',    // Backend: id_rol=2 es administrador
-      3: 'empleado'          // Backend: id_rol=3 es empleado
+      1: 'cliente',
+      2: 'administrador',
+      3: 'empleado'
     };
-    return rolesMap[idRol] || 'cliente';
+    return rolesMap[idRol] || rolesMap[Number(idRol)] || 'cliente';
   };
 
   const handleToggleEstado = async (usuario) => {
@@ -288,7 +477,7 @@ const GestionUsuarios = () => {
   const handleDelete = async (usuario) => {
     console.log("🔄 [GestionUsuarios] Usuario a eliminar:", usuario);
     
-    const result = await deleteConfirm('usuario');
+    const result = await notificationService.deleteConfirm('usuario');
       if (result.isConfirmed) {
       setLoading(true);
       try {
@@ -297,15 +486,15 @@ const GestionUsuarios = () => {
         
         if (deleteResult.success) {
           console.log("✅ [GestionUsuarios] Usuario eliminado exitosamente");
-          deleteSuccess('usuario');
+          notificationService.deleteSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
         } else {
           console.error("❌ [GestionUsuarios] Error al eliminar usuario:", deleteResult.message);
-          deleteError(deleteResult.message);
+          notificationService.deleteError(deleteResult.message);
         }
       } catch (error) {
         console.error("💥 [GestionUsuarios] Error general al eliminar usuario:", error);
-        deleteError('Error al eliminar usuario');
+        notificationService.deleteError('Error al eliminar usuario');
       } finally {
         setLoading(false);
       }
@@ -384,22 +573,24 @@ const GestionUsuarios = () => {
           />
 
           <div className="flex gap-3">
-            <button 
-              className="btn btn-primary px-4 py-2 text-sm rounded-md whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed" 
-              onClick={handleAbrirCrear}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Cargando...
-                </>
-              ) : (
-                <>
-              <i className="bi bi-plus-square"></i> Crear Usuario
-                </>
-              )}
-            </button>
+            {puedeCrear && (
+              <button 
+                className="btn btn-primary px-4 py-2 text-sm rounded-md whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed" 
+                onClick={handleAbrirCrear}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Cargando...
+                  </>
+                ) : (
+                  <>
+                <i className="bi bi-plus-square"></i> Crear Usuario
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -428,6 +619,8 @@ const GestionUsuarios = () => {
         ) : (
         <TablaUsuarios
           usuarios={usuariosPagina}
+          puedeEditar={puedeEditar}
+          puedeEliminar={puedeEliminar}
           handleDelete={handleDelete}
           onVer={handleVer}
           onEditar={handleEditar}

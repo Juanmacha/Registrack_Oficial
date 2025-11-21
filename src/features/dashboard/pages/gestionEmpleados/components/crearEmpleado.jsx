@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
-import { useNotification } from "../../../../../shared/contexts/NotificationContext.jsx";
+import notificationService from "../../../../../shared/services/NotificationService.js";
 
 const CrearEmpleadoModal = ({
   showModal,
@@ -9,7 +9,6 @@ const CrearEmpleadoModal = ({
   setNuevoEmpleado,
   handleSubmit,
 }) => {
-  const { createSuccess, createError } = useNotification();
   const [errors, setErrors] = useState({});
   const [rolesDisponibles, setRolesDisponibles] = useState([]);
 
@@ -58,10 +57,10 @@ const CrearEmpleadoModal = ({
 
     if (Object.keys(nuevosErrores).length === 0) {
       handleSubmit(nuevoEmpleado);
-      createSuccess('empleado');
+      notificationService.createSuccess('empleado');
       setShowModal(false);
     } else {
-      createError('empleado');
+      notificationService.createError('empleado');
     }
   };
 

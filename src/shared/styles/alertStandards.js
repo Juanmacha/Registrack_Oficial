@@ -82,7 +82,6 @@ const ALERT_TYPES = {
     confirmButtonColor: "#ef4444",
     confirmButtonColor: "#dc2626",
     cancelButtonColor: "#6b7280",
-    cancelButtonHoverColor: "#4b5563",
     confirmButtonText: "Confirmar",
     cancelButtonText: "Cancelar",
     showCancelButton: true,
@@ -97,20 +96,20 @@ const STANDARD_MESSAGES = {
   create: {
     success: "El registro ha sido creado exitosamente.",
     error:
-      "No se pudo crear el registro. Por favor, verifica los datos e intenta nuevamente.",
+      "No se pudo crear el registro. Por favor, verifique los datos e intente nuevamente.",
     confirm: "¿Estás seguro de que deseas crear este registro?",
   },
 
   update: {
     success: "Los cambios han sido guardados exitosamente.",
     error:
-      "No se pudieron guardar los cambios. Por favor, verifica los datos e intenta nuevamente.",
+      "No se pudieron guardar los cambios. Por favor, verifique los datos e intente nuevamente.",
     confirm: "¿Estás seguro de que deseas guardar estos cambios?",
   },
 
   delete: {
     success: "El registro ha sido eliminado exitosamente.",
-    error: "No se pudo eliminar el registro. Por favor, intenta nuevamente.",
+    error: "No se pudo eliminar el registro. Por favor, intente nuevamente.",
     confirm:
       "¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.",
   },
@@ -119,23 +118,23 @@ const STANDARD_MESSAGES = {
   auth: {
     loginSuccess: "Sesión iniciada correctamente. Bienvenido al sistema.",
     loginError:
-      "Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.",
+      "Credenciales incorrectas. Por favor, verifique su usuario y contraseña.",
     logoutSuccess: "Sesión cerrada correctamente. Hasta luego.",
     sessionExpired:
-      "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+      "Su sesión ha expirado. Por favor, inicie sesión nuevamente.",
     accessDenied:
-      "No tienes permisos para realizar esta acción. Contacta al administrador.",
+      "No tiene permisos para realizar esta acción. Contacte al administrador.",
   },
 
   // Validaciones
   validation: {
-    requiredFields: "Por favor, completa todos los campos obligatorios.",
+    requiredFields: "Por favor, complete todos los campos obligatorios.",
     invalidEmail:
-      "Por favor, ingresa una dirección de correo electrónico válida.",
-    invalidPhone: "Por favor, ingresa un número de teléfono válido.",
-    invalidDate: "Por favor, selecciona una fecha válida.",
+      "Por favor, ingrese una dirección de correo electrónico válida.",
+    invalidPhone: "Por favor, ingrese un número de teléfono válido.",
+    invalidDate: "Por favor, seleccione una fecha válida.",
     passwordMismatch:
-      "Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente.",
+      "Las contraseñas no coinciden. Por favor, verifique e intente nuevamente.",
     weakPassword:
       "La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas y números.",
   },
@@ -143,22 +142,22 @@ const STANDARD_MESSAGES = {
   // Archivos
   files: {
     uploadSuccess: "Archivo subido correctamente.",
-    uploadError: "Error al subir el archivo. Por favor, intenta nuevamente.",
+    uploadError: "Error al subir el archivo. Por favor, intente nuevamente.",
     downloadSuccess: "Descarga iniciada correctamente.",
     downloadError:
-      "Error al descargar el archivo. Por favor, intenta nuevamente.",
+      "Error al descargar el archivo. Por favor, intente nuevamente.",
     deleteSuccess: "Archivo eliminado correctamente.",
-    deleteError: "Error al eliminar el archivo. Por favor, intenta nuevamente.",
+    deleteError: "Error al eliminar el archivo. Por favor, intente nuevamente.",
   },
 
   // Sistema
   system: {
     loading: "Procesando...",
     networkError:
-      "Error de conexión. Por favor, verifica tu internet e intenta nuevamente.",
-    serverError: "Error del servidor. Por favor, intenta más tarde.",
+      "Error de conexión. Por favor, verifique su conexión a internet e intente nuevamente.",
+    serverError: "Error del servidor. Por favor, intente más tarde.",
     maintenance:
-      "El sistema está en mantenimiento. Por favor, intenta más tarde.",
+      "El sistema está en mantenimiento. Por favor, intente más tarde.",
   },
 };
 
@@ -218,7 +217,7 @@ export const AlertService = {
   confirm: (title, text, options = {}) =>
     showAlert("question", title, text, options),
 
-  loading: (title = "Procesando...", text = "Por favor espera...") =>
+  loading: (title = "Procesando...", text = "Por favor, espere...") =>
     Swal.fire({
       ...BASE_CONFIG,
       title,
@@ -271,7 +270,7 @@ export const CommonAlerts = {
   loginError: () =>
     AlertService.error(
       "Error de acceso",
-      "Credenciales incorrectas. Por favor, verifica tu usuario y contraseña."
+      "Credenciales incorrectas. Por favor, verifique su usuario y contraseña."
     ),
 
   logoutSuccess: () =>
@@ -295,20 +294,20 @@ export const CommonAlerts = {
   fileUploadError: () =>
     AlertService.error(
       "Error de subida",
-      "No se pudo subir el archivo. Por favor, intenta nuevamente."
+      "No se pudo subir el archivo. Por favor, intente nuevamente."
     ),
 
   // Sistema
   networkError: () =>
     AlertService.error(
       "Error de conexión",
-      "No se pudo conectar con el servidor. Por favor, verifica tu internet e intenta nuevamente."
+      "No se pudo conectar con el servidor. Por favor, verifique su conexión a internet e intente nuevamente."
     ),
 
   serverError: () =>
     AlertService.error(
       "Error del servidor",
-      "Ocurrió un error en el servidor. Por favor, intenta más tarde."
+      "Ocurrió un error en el servidor. Por favor, intente más tarde."
     ),
 };
 

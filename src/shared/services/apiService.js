@@ -57,10 +57,21 @@ const makeHttpRequest = async (url, options = {}) => {
       console.log('❌ [makeHttpRequest] Error HTTP:', response.status);
       const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
       console.log('❌ [makeHttpRequest] Error response data:', errorData);
+      
+      // Convertir headers a objeto plano para facilitar el acceso
+      const headersObj = {};
+      if (response.headers) {
+        response.headers.forEach((value, key) => {
+          headersObj[key] = value;
+        });
+      }
+      
       const error = new Error(`HTTP error! status: ${response.status}`);
       error.response = {
         status: response.status,
-        data: errorData
+        statusText: response.statusText,
+        data: errorData,
+        headers: headersObj // Headers como objeto plano para fácil acceso
       };
       throw error;
     }

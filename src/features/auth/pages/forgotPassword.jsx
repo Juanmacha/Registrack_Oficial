@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { BiEnvelope, BiLeftArrowAlt } from "react-icons/bi";
 import authApiService from '../services/authApiService.js';
 import alertService from '../../../utils/alertService.js';
+import { sanitizeEmail } from '../../../shared/utils/sanitizer.js';
+import { manejarErrorAPI, obtenerMensajeErrorUsuario } from '../../../shared/utils/errorHandler.js';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -36,7 +38,9 @@ const ForgotPassword = () => {
     setError("");
     
     try {
-      const result = await authApiService.forgotPassword(email);
+      // Sanitizar email antes de enviar
+      const sanitizedEmail = sanitizeEmail(email);
+      const result = await authApiService.forgotPassword(sanitizedEmail);
       console.log('📥 [ForgotPassword] Resultado recibido:', result);
       
       if (result.success) {
@@ -65,12 +69,30 @@ const ForgotPassword = () => {
       }
     } catch (error) {
       console.log('💥 [ForgotPassword] Error capturado:', error);
-      await alertService.error(
-        "Error de conexión",
-        "No se pudo conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.",
-        { confirmButtonText: "Reintentar" }
-      );
-      setError("Error al enviar la solicitud. Intenta de nuevo.");
+      
+      // Manejar errores de la API
+      const errorInfo = manejarErrorAPI(error, error.response);
+      const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
+      
+      // Si es rate limit, mostrar mensaje específico
+      if (errorInfo.tipo === 'RATE_LIMIT') {
+        const rateLimitMessage = errorInfo.waitTimeMinutes 
+          ? `${errorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`
+          : errorMessage;
+        
+        setError(rateLimitMessage);
+        await alertService.warning(
+          "Demasiados intentos",
+          rateLimitMessage
+        );
+      } else {
+        await alertService.error(
+          "Error de conexión",
+          errorMessage,
+          { confirmButtonText: "Reintentar" }
+        );
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -102,8 +124,18 @@ const ForgotPassword = () => {
 
             {/* Error Message */}
             {error && (
-              <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600 text-sm text-center">{error}</p>
+              <div className={`mb-6 p-3 border rounded-lg ${
+                error.includes('Demasiados intentos') || error.includes('espera')
+                  ? 'bg-yellow-50 border-yellow-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className={`text-sm text-center ${
+                  error.includes('Demasiados intentos') || error.includes('espera')
+                    ? 'text-yellow-800' 
+                    : 'text-red-600'
+                }`}>
+                  {error}
+                </p>
               </div>
             )}
 
