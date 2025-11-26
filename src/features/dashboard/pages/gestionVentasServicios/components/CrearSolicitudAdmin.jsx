@@ -41,7 +41,7 @@ const FORMULARIOS_POR_SERVICIO = {
 
 const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId }) => {
   const { getToken, user } = useAuth();
-  
+
   // Estados del formulario
   const [form, setForm] = useState({
     tipoSolicitante: '',
@@ -156,7 +156,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         return idCliente.toString() === idClienteSeleccionado.toString();
       });
       setClienteSeleccionado(cliente || null);
-      
+
       // Pre-llenar datos del cliente si está disponible
       if (cliente) {
         setForm(prev => ({
@@ -241,14 +241,14 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
   // Función de validación
   const validate = () => {
     const newErrors = {};
-    
+
     console.log("🔧 [CrearSolicitudAdmin] Validando form:", form);
-    
+
     // ✅ VALIDACIÓN CRÍTICA: id_cliente es OBLIGATORIO para admin/empleado
     if (!idClienteSeleccionado || idClienteSeleccionado === '') {
       newErrors.id_cliente = 'Debes seleccionar un cliente para crear la solicitud';
     }
-    
+
     // ✅ Validación específica según el tipo de servicio
     // "Búsqueda de Antecedentes" NO tiene tipoSolicitante, solo campos básicos
     if (tipoSolicitud === 'Búsqueda de Antecedentes') {
@@ -259,7 +259,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         if (typeof value === 'string') return value.trim() === '';
         return !value;
       };
-      
+
       // Validar campos requeridos para Búsqueda de Antecedentes
       if (isEmpty(form.tipoDocumento)) {
         newErrors.tipoDocumento = 'El tipo de documento es requerido';
@@ -305,7 +305,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       if (!form.nombreMarca || form.nombreMarca.trim() === '') {
         newErrors.nombreMarca = 'El nombre de la marca es requerido';
       }
-      
+
       // Función auxiliar para validar campos (maneja strings y números)
       const isEmpty = (value) => {
         if (value === null || value === undefined) return true;
@@ -313,7 +313,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         if (typeof value === 'string') return value.trim() === '';
         return !value;
       };
-      
+
       // Validar campos condicionales según el tipo de solicitante
       if (form.tipoSolicitante === 'Titular') {
         if (isEmpty(form.tipoPersona)) {
@@ -355,7 +355,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         }
       }
     }
-    
+
     console.log("🔧 [CrearSolicitudAdmin] Errores generados:", newErrors);
     return newErrors;
   };
@@ -364,20 +364,20 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
     // ✅ CRÍTICO: Prevenir comportamiento por defecto del formulario
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Prevenir múltiples envíos
     if (isSubmitting) {
       console.log("🔧 [CrearSolicitudAdmin] Ya se está enviando, ignorando...");
       return;
     }
-    
+
     console.log("🔧 [CrearSolicitudAdmin] handleSubmit iniciado");
-    
+
     setIsSubmitting(true);
-    
+
     const newErrors = validate();
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length > 0) {
       console.log("🔧 [CrearSolicitudAdmin] Errores de validación:", newErrors);
       setIsSubmitting(false);
@@ -387,9 +387,9 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       }
       return;
     }
-    
+
     console.log("🔧 [CrearSolicitudAdmin] Validación exitosa");
-    
+
     try {
       // Obtener token
       const token = getToken();
@@ -403,7 +403,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
 
       // Convertir archivos a base64 antes de enviar
       const formToSave = { ...form };
-      
+
       // Lista completa de campos de archivo según todos los formularios
       const fileFields = [
         'certificadoCamara',
@@ -417,7 +417,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         'documentosOposicion',
         'soportes',
       ];
-      
+
       // Convertir todos los campos de archivo a base64
       for (const field of fileFields) {
         if (formToSave[field] instanceof File) {
@@ -432,7 +432,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
           }
         }
       }
-      
+
       // También verificar si hay otros campos que puedan ser archivos (búsqueda dinámica)
       for (const [key, value] of Object.entries(formToSave)) {
         if (value instanceof File && !fileFields.includes(key)) {
@@ -453,7 +453,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
         setErrors(prev => ({ ...prev, id_cliente: 'Cliente requerido' }));
         return;
       }
-      
+
       formToSave.id_cliente = parseInt(idClienteSeleccionado); // Asegurar que sea número
       console.log("🔧 [CrearSolicitudAdmin] Agregando id_cliente:", formToSave.id_cliente);
 
@@ -471,22 +471,22 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       console.log("🔧 [CrearSolicitudAdmin] Obteniendo servicios para buscar ID...");
       const servicios = await serviciosApiService.getServicios();
       console.log("🔧 [CrearSolicitudAdmin] Servicios obtenidos:", servicios.length);
-      
+
       // Buscar el servicio por nombre (normalizar para comparación)
       const normalizarNombre = (nombre) => nombre.toLowerCase().trim();
       const servicioEncontrado = servicios.find(s => {
         const nombreServicio = s.nombre || s.nombre_servicio || '';
         return normalizarNombre(nombreServicio) === normalizarNombre(servicioAPI) ||
-               normalizarNombre(nombreServicio) === normalizarNombre(tipoSolicitud);
+          normalizarNombre(nombreServicio) === normalizarNombre(tipoSolicitud);
       });
-      
+
       if (!servicioEncontrado) {
         console.error("❌ [CrearSolicitudAdmin] No se encontró el servicio:", servicioAPI);
         console.error("❌ [CrearSolicitudAdmin] Servicios disponibles:", servicios.map(s => ({ id: s.id, nombre: s.nombre })));
         AlertService.error('Error', `No se pudo encontrar el servicio "${servicioAPI}". Por favor, verifica que el servicio existe.`);
         return;
       }
-      
+
       const servicioId = parseInt(servicioEncontrado.id || servicioEncontrado.id_servicio);
       console.log("✅ [CrearSolicitudAdmin] ID del servicio encontrado:", servicioId, "para:", servicioEncontrado.nombre);
 
@@ -502,9 +502,9 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       // ✅ Manejar respuesta: Admin/Empleado - La solicitud se activa automáticamente
       const data = resultado.data || resultado;
       const estado = data.estado || resultado.estado || 'Solicitud Recibida';
-      
+
       AlertService.success(
-        'Solicitud Creada y Activada', 
+        'Solicitud Creada y Activada',
         `La solicitud ha sido creada exitosamente y activada automáticamente con estado "${estado}". El cliente ha sido notificado por email.`
       );
 
@@ -530,10 +530,10 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
     } catch (err) {
       console.error("❌ [CrearSolicitudAdmin] Error al guardar:", err);
       console.error("❌ [CrearSolicitudAdmin] Stack trace:", err.stack);
-      
+
       const errorMessage = err.message || err.response?.data?.mensaje || err.response?.data?.message || 'Error desconocido';
       let detailedMessage = `No se pudo crear la solicitud: ${errorMessage}`;
-      
+
       // Mensajes más específicos según el tipo de error
       if (errorMessage.includes('id_cliente')) {
         detailedMessage = 'Error: Se requiere seleccionar un cliente válido. Por favor, selecciona un cliente de la lista.';
@@ -542,9 +542,9 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       } else if (errorMessage.includes('token') || errorMessage.includes('autenticación')) {
         detailedMessage = 'Error de autenticación: Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
       }
-      
+
       AlertService.error("Error al crear solicitud", detailedMessage);
-      
+
       // ✅ IMPORTANTE: No propagar el error para evitar refresh del navegador
       return;
     }
@@ -556,13 +556,13 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
   // Función para manejar el cierre del modal con confirmación si hay datos
   const handleClose = () => {
     // Verificar si hay datos ingresados
-    const hasData = idClienteSeleccionado || 
-                    Object.values(form).some(value => {
-                      if (Array.isArray(value)) return value.length > 0 && value.some(item => Object.values(item).some(v => v));
-                      if (value && typeof value === 'object') return Object.keys(value).length > 0;
-                      return value && value !== '';
-                    });
-    
+    const hasData = idClienteSeleccionado ||
+      Object.values(form).some(value => {
+        if (Array.isArray(value)) return value.length > 0 && value.some(item => Object.values(item).some(v => v));
+        if (value && typeof value === 'object') return Object.keys(value).length > 0;
+        return value && value !== '';
+      });
+
     if (hasData && !isSubmitting) {
       AlertService.confirm(
         '¿Cerrar formulario?',
@@ -625,7 +625,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
       onClose={handleClose}
       title="Crear Solicitud (Administrador)"
       headerGradient="blue"
-      headerIcon={<FilePlus className="w-5 h-5 text-white" />}
+      headerIcon={<FilePlus className="w-5 h-5 text-blue-600" />}
       maxWidth="3xl"
       footerActions={footerActions}
       closeOnBackdropClick={!isSubmitting}
@@ -656,26 +656,27 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
                   });
                 }
               }}
-              className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${
-                errors.id_cliente 
-                  ? 'border-red-400 focus:ring-red-300' 
-                  : !idClienteSeleccionado 
-                    ? 'border-yellow-400' 
+              className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${errors.id_cliente
+                  ? 'border-red-400 focus:ring-red-300'
+                  : !idClienteSeleccionado
+                    ? 'border-yellow-400'
                     : 'border-gray-300'
-              }`}
+                }`}
               required
             >
               <option value="">Seleccionar cliente...</option>
               {clientes.map((cliente) => {
-                const nombreCompleto = cliente.nombreCompleto || 
+                const nombreCompleto = cliente.nombreCompleto ||
                   `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() ||
-                  cliente.nombre || 
-                  cliente.razonSocial || 
+                  cliente.nombre ||
+                  cliente.razonSocial ||
                   `Cliente #${cliente.id_cliente || cliente.id}`;
                 const idCliente = cliente.id_cliente || cliente.id;
+                const tipoDoc = cliente.tipo_documento || cliente.tipoDocumento || 'CC';
+                const documento = cliente.documento || cliente.numeroDocumento || '';
                 return (
                   <option key={idCliente} value={idCliente}>
-                    {nombreCompleto} {cliente.email ? `(${cliente.email})` : ''}
+                    {nombreCompleto} {documento ? `- ${tipoDoc} ${documento}` : ''}
                   </option>
                 );
               })}
@@ -683,18 +684,51 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
             {errors.id_cliente && (
               <p className="text-red-600 text-xs mt-1">{errors.id_cliente}</p>
             )}
-            
-            {/* Mostrar información del cliente seleccionado */}
+
+            {/* Mostrar información del cliente seleccionado - Simple inline */}
             {clienteSeleccionado && (
-              <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg">
-                <p className="text-sm font-semibold text-gray-700 mb-1">
-                  ✅ Cliente seleccionado:
-                </p>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p><strong>Nombre:</strong> {clienteSeleccionado.nombreCompleto || `${clienteSeleccionado.nombre || ''} ${clienteSeleccionado.apellido || ''}`.trim() || 'N/A'}</p>
-                  {clienteSeleccionado.email && <p><strong>Email:</strong> {clienteSeleccionado.email}</p>}
-                  {clienteSeleccionado.documento && <p><strong>Documento:</strong> {clienteSeleccionado.documento}</p>}
-                  {clienteSeleccionado.telefono && <p><strong>Teléfono:</strong> {clienteSeleccionado.telefono}</p>}
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Cliente Seleccionado
+                  </p>
+                  <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">
+                    ✓ Activo
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 mb-0.5">Nombre Completo</p>
+                    <p className="text-gray-800">
+                      {clienteSeleccionado.nombreCompleto || 
+                       `${clienteSeleccionado.nombre || ''} ${clienteSeleccionado.apellido || ''}`.trim() || 
+                       clienteSeleccionado.razonSocial || 
+                       'N/A'}
+                    </p>
+                  </div>
+                  {clienteSeleccionado.email && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-0.5">Correo Electrónico</p>
+                      <p className="text-gray-800">{clienteSeleccionado.email}</p>
+                    </div>
+                  )}
+                  {clienteSeleccionado.documento && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-0.5">
+                        {clienteSeleccionado.tipo_documento || clienteSeleccionado.tipoDocumento || 'CC'}
+                      </p>
+                      <p className="text-gray-800">{clienteSeleccionado.documento}</p>
+                    </div>
+                  )}
+                  {clienteSeleccionado.telefono && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-0.5">Teléfono</p>
+                      <p className="text-gray-800">{clienteSeleccionado.telefono}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -715,7 +749,7 @@ const CrearSolicitudAdmin = ({ isOpen, onClose, onGuardar, tipoSolicitud, servic
               Paso 2: Completa los datos de la solicitud
             </p>
           </div>
-          
+
           <FormularioComponente
             isOpen={true}
             onClose={onClose}

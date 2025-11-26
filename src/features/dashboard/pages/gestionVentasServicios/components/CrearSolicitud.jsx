@@ -47,7 +47,7 @@ const FORMULARIOS_POR_SERVICIO = {
 
 const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId }) => {
   const { getToken, user } = useAuth();
-  
+
   // Estados del formulario
   const [form, setForm] = useState({
     tipoSolicitante: '',
@@ -101,7 +101,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
   useEffect(() => {
     const cargarClientes = async () => {
       const esAdminOEmpleado = isAdminOrEmployee(user);
-      
+
       if (isOpen && esAdminOEmpleado) {
         try {
           setCargandoClientes(true);
@@ -189,9 +189,9 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
   // Función de validación
   const validate = () => {
     const newErrors = {};
-    
+
     console.log("🔧 [CrearSolicitud] Validando form:", form);
-    
+
     // Validar solo campos básicos requeridos que siempre deben estar
     if (!form.tipoSolicitante || form.tipoSolicitante.trim() === '') {
       newErrors.tipoSolicitante = 'El tipo de solicitante es requerido';
@@ -202,7 +202,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
     if (!form.nombreMarca || form.nombreMarca.trim() === '') {
       newErrors.nombreMarca = 'El nombre de la marca es requerido';
     }
-    
+
     // Validar campos condicionales según el tipo de solicitante
     if (form.tipoSolicitante === 'Titular') {
       if (!form.tipoPersona || form.tipoPersona.trim() === '') {
@@ -243,7 +243,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
         newErrors.apellidos = 'Los apellidos son requeridos';
       }
     }
-    
+
     console.log("🔧 [CrearSolicitud] Errores generados:", newErrors);
     return newErrors;
   };
@@ -253,24 +253,24 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
     console.log("🔧 [CrearSolicitud] Form actual:", form);
     console.log("🔧 [CrearSolicitud] Form keys:", Object.keys(form));
     e.preventDefault();
-    
+
     const newErrors = validate();
     console.log("🔧 [CrearSolicitud] Errores de validación encontrados:", newErrors);
     console.log("🔧 [CrearSolicitud] Número de errores:", Object.keys(newErrors).length);
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length > 0) {
       console.log("🔧 [CrearSolicitud] Errores de validación:", newErrors);
       // ✅ NO MOSTRAR ALERT, DEJAR QUE LOS ERRORES SE MUESTREN EN EL FORMULARIO
       return;
     }
     console.log("🔧 [CrearSolicitud] Validación exitosa");
-    
+
     try {
       // Obtener token y rol del usuario
       const token = getToken();
       const userRole = user?.rol || user?.role;
-      
+
       if (!token) {
         AlertService.error('Error', 'No hay sesión activa. Por favor, inicia sesión.');
         return;
@@ -280,7 +280,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
 
       // Convertir archivos a base64 antes de enviar
       const formToSave = { ...form };
-      
+
       // ✅ Lista completa de campos de archivo según todos los formularios
       const fileFields = [
         'certificadoCamara',
@@ -294,7 +294,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
         'documentosOposicion',
         'soportes',
       ];
-      
+
       // Convertir todos los campos de archivo a base64
       for (const field of fileFields) {
         if (formToSave[field] instanceof File) {
@@ -309,7 +309,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
           }
         }
       }
-      
+
       // También verificar si hay otros campos que puedan ser archivos (búsqueda dinámica)
       for (const [key, value] of Object.entries(formToSave)) {
         if (value instanceof File && !fileFields.includes(key)) {
@@ -327,10 +327,10 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
       // ✅ LÓGICA DE ROLES según la documentación de la API (Enero 2026)
       // Clientes: NO enviar id_cliente (se usa automáticamente del token)
       // Admin/Empleados: DEBE enviar id_cliente (obligatorio)
-      
+
       const esCliente = userRole === 'cliente';
       const esAdminOEmpleado = userRole === 'administrador' || userRole === 'empleado';
-      
+
       if (esAdminOEmpleado) {
         // Admin/Empleado: DEBE enviar id_cliente
         const idCliente = idClienteSeleccionado || formToSave.id_cliente;
@@ -382,19 +382,19 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
           monto_a_pagar: montoAPagar,
           servicio: servicioAPI
         });
-        
+
         // Mostrar mensaje y opción de pago
         AlertService.info(
           'Solicitud Creada - Pendiente de Pago',
           `Tu solicitud ha sido creada con estado "Pendiente de Pago". Debes procesar el pago de $${montoAPagar?.toLocaleString('es-CO') || 'N/A'} para activarla.`
         );
-        
+
         // Mostrar pasarela de pago
         setMostrarPasarela(true);
       } else {
         // Admin/Empleado o solicitud activada automáticamente
         AlertService.success(
-          'Solicitud Creada y Activada', 
+          'Solicitud Creada y Activada',
           `La solicitud ha sido creada exitosamente${esAdminOEmpleado ? ' y activada automáticamente' : ''}. Se han enviado notificaciones por email.`
         );
 
@@ -413,7 +413,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
       console.error("❌ [CrearSolicitud] Error al guardar:", err);
       const errorMessage = err.message || err.response?.data?.mensaje || err.response?.data?.message || 'Error desconocido';
       let detailedMessage = `No se pudo crear la solicitud: ${errorMessage}`;
-      
+
       // Mensajes más específicos según el tipo de error
       if (errorMessage.includes('id_cliente')) {
         detailedMessage = 'Error: Se requiere seleccionar un cliente válido. Por favor, selecciona un cliente de la lista.';
@@ -422,7 +422,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
       } else if (errorMessage.includes('token') || errorMessage.includes('autenticación')) {
         detailedMessage = 'Error de autenticación: Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
       }
-      
+
       AlertService.error("Error al crear solicitud", detailedMessage);
     }
   };
@@ -442,7 +442,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
         setProcesandoPago(false);
         return;
       }
-      
+
       // ✅ Usar URL base de la configuración
       const baseURL = API_CONFIG.BASE_URL || API_CONFIG.baseURL || (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
 
@@ -470,10 +470,10 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
 
       // ✅ Verificar si la solicitud fue activada según la estructura de respuesta de la API
       const solicitudActivada = resultado.data?.solicitud_activada || resultado.solicitud_activada;
-      
+
       if (solicitudActivada === true) {
         console.log("✅ [CrearSolicitud] Pago procesado y solicitud activada:", resultado);
-        
+
         AlertService.success(
           'Pago Procesado Exitosamente',
           'Tu solicitud ha sido activada y está en proceso. Se han enviado notificaciones por email.'
@@ -513,17 +513,17 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
   // Cuando el pago es exitoso (versión anterior para compatibilidad)
   const handlePagoExitoso = async (pago) => {
     console.log("🔧 [CrearSolicitud] handlePagoExitoso iniciado (modo legacy)");
-    
+
     // Si hay una solicitud creada pendiente de pago, procesarla
     if (solicitudCreada && solicitudCreada.orden_id) {
       await handleProcesarPago();
       return;
     }
-    
+
     // Modo legacy: comportamiento anterior
     setMostrarPasarela(false);
     setPagoDemo(pago);
-    
+
     // Este flujo legacy ya no se usa con el nuevo sistema
     AlertService.info(
       'Pago Realizado',
@@ -540,7 +540,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
         onClose={onClose}
         title="Crear Solicitud"
         headerGradient="blue"
-        headerIcon={<FilePlus className="w-5 h-5 text-white" />}
+        headerIcon={<FilePlus className="w-5 h-5 text-blue-600" />}
         maxWidth="3xl"
         footerActions={[
           {
@@ -579,26 +579,27 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
                           });
                         }
                       }}
-                      className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${
-                        errors.id_cliente 
-                          ? 'border-red-400 focus:ring-red-300' 
-                          : !idClienteSeleccionado 
-                            ? 'border-yellow-400' 
+                      className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${errors.id_cliente
+                          ? 'border-red-400 focus:ring-red-300'
+                          : !idClienteSeleccionado
+                            ? 'border-yellow-400'
                             : 'border-gray-300'
-                      }`}
+                        }`}
                       required
                     >
                       <option value="">Seleccionar cliente...</option>
                       {clientes.map((cliente) => {
-                        const nombreCompleto = cliente.nombreCompleto || 
+                        const nombreCompleto = cliente.nombreCompleto ||
                           `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() ||
-                          cliente.nombre || 
-                          cliente.razonSocial || 
+                          cliente.nombre ||
+                          cliente.razonSocial ||
                           `Cliente #${cliente.id_cliente || cliente.id}`;
                         const idCliente = cliente.id_cliente || cliente.id;
+                        const tipoDoc = cliente.tipo_documento || cliente.tipoDocumento || 'CC';
+                        const documento = cliente.documento || cliente.numeroDocumento || '';
                         return (
                           <option key={idCliente} value={idCliente}>
-                            {nombreCompleto} {cliente.email ? `(${cliente.email})` : ''}
+                            {nombreCompleto} {documento ? `- ${tipoDoc} ${documento}` : ''}
                           </option>
                         );
                       })}
@@ -631,15 +632,15 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
               removeClase={removeClase}
             />
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-              <button 
-                type="button" 
-                onClick={onClose} 
+              <button
+                type="button"
+                onClick={onClose}
                 className="px-6 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 text-gray-700 font-semibold transition-colors"
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
               >
                 Guardar y Pagar
@@ -657,8 +658,8 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
             <h2 className="text-2xl font-bold text-center mb-4 text-green-700 flex items-center gap-2">
               <span className="inline-block bg-green-100 rounded-full p-2">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M9 12l2 2l4-4"/>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9 12l2 2l4-4" />
                 </svg>
               </span>
               Procesar Pago

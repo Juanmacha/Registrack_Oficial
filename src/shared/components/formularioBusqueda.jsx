@@ -3,6 +3,7 @@ import { PAISES } from '../../shared/utils/paises.js';
 import Swal from 'sweetalert2';
 import ValidationService from '../../utils/validationService.js';
 import FileUpload from './FileUpload.jsx';
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste } from '../../shared/utils/numericInputFilter.js';
 
 // ✅ Actualizado según especificación: valores válidos según FORMULARIOS_COMPLETOS_SOLICITUDES_SERVICIO.md
 const tiposDocumento = [
@@ -12,6 +13,136 @@ const tiposDocumento = [
   'NIT',
   'Tarjeta de Identidad'
 ];
+
+// ✅ Categorías de Productos y Servicios para búsqueda de antecedentes
+const CATEGORIAS_PRODUCTOS_SERVICIOS = [
+  // PRODUCTOS
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Alimentos y bebidas', items: [
+    'Alimentos procesados', 'Snacks y pasabocas', 'Productos de panadería', 'Productos lácteos',
+    'Carnes y embutidos', 'Pescados y mariscos', 'Frutas y verduras', 'Conservas y enlatados',
+    'Salsas, aderezos y condimentos', 'Bebidas no alcohólicas', 'Cervezas', 'Bebidas alcohólicas (licores, vinos)'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Cosméticos y cuidado personal', items: [
+    'Maquillaje', 'Perfumería', 'Cremas y tratamientos para la piel', 'Shampoos y cuidado del cabello',
+    'Aseo personal (jabones, desodorantes)', 'Productos de spa y bienestar', 'Productos de barbería / barber shop'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Productos farmacéuticos y de salud', items: [
+    'Medicamentos', 'Vitaminas y suplementos', 'Productos naturistas', 'Productos para cuidado médico',
+    'Insolaciones y primeros auxilios'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Limpieza y hogar', items: [
+    'Detergentes', 'Limpiadores para el hogar', 'Aromatizantes', 'Desinfectantes', 'Productos biodegradables'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Moda y accesorios', items: [
+    'Ropa', 'Zapatos', 'Bolsos y mochilas', 'Accesorios de moda', 'Ropa deportiva',
+    'Ropa interior', 'Ropa para niños', 'Uniformes'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Juguetes y artículos infantiles', items: [
+    'Juguetería', 'Juegos didácticos', 'Cuidado y accesorios para bebés'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Tecnología y electrónica', items: [
+    'Computadores y laptops', 'Teléfonos y dispositivos móviles', 'Accesorios electrónicos',
+    'Equipos de audio y sonido', 'Cámaras y fotografía', 'Hardware especializado', 'Componentes electrónicos'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Equipos médicos y de laboratorio', items: [
+    'Insumos médicos', 'Equipos hospitalarios', 'Equipos odontológicos', 'Material de laboratorio'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Herramientas y ferretería', items: [
+    'Herramientas manuales', 'Herramientas eléctricas', 'Materiales de construcción',
+    'Maquinaria industrial', 'Equipos de soldadura', 'Equipos de seguridad industrial'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Automotriz', items: [
+    'Repuestos de autos', 'Accesorios automotrices', 'Llantas', 'Herramientas de taller automotriz'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Hogar y decoración', items: [
+    'Muebles', 'Electrodomésticos', 'Decoración', 'Iluminación', 'Artículos de cocina', 'Artículos de baño'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Papelería y oficina', items: [
+    'Cuadernos y hojas', 'Artículos de oficina', 'Impresoras', 'Tintas y tóner', 'Material escolar'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Mascotas', items: [
+    'Alimentos para mascotas', 'Juguetes para mascotas', 'Accesorios y cuidado'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Arte y entretenimiento', items: [
+    'Instrumentos musicales', 'Material artístico', 'Productos para manualidades', 'Artículos de fiesta'
+  ]},
+  { categoria: 'PRODUCTOS', tipo: 'producto', subcategoria: 'Otros productos específicos', items: [
+    'Productos químicos', 'Material agrícola', 'Productos de caucho o plástico',
+    'Productos metalmecánicos', 'Artículos militares o tácticos', 'Productos de impresión 3D'
+  ]},
+  // SERVICIOS
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Publicidad y marketing', items: [
+    'Marketing digital', 'Gestión de redes', 'Publicidad tradicional', 'Branding',
+    'Producción de contenido', 'Consultorías de marketing'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios profesionales y consultoría', items: [
+    'Consultoría empresarial', 'Consultoría contable', 'Consultoría financiera',
+    'Recursos humanos', 'Coaching y capacitación', 'Outsourcing profesional'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios legales', items: [
+    'Asesoría jurídica', 'Marcas y patentes', 'Derecho civil', 'Derecho laboral',
+    'Derecho mercantil', 'Servicios notariales'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios financieros', items: [
+    'Servicios bancarios', 'Fintech', 'Créditos y préstamos', 'Seguros', 'Cobranzas'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Construcción y mantenimiento', items: [
+    'Obras civiles', 'Remodelaciones', 'Fontanería', 'Electricidad', 'Carpintería',
+    'Plomería', 'Paisajismo', 'Mantenimiento de edificios', 'Limpieza profesional'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Transporte y logística', items: [
+    'Envíos', 'Mensajería', 'Transporte terrestre', 'Transporte aéreo', 'Carga pesada',
+    'Logística internacional', 'Importación y exportación'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Telecomunicaciones', items: [
+    'Internet y redes', 'Telefonía', 'Cable / TV', 'Servicios satelitales'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Tecnología y software', items: [
+    'Desarrollo web', 'Desarrollo móvil', 'Desarrollo de software a medida', 'Hosting y dominios',
+    'Ciberseguridad', 'Consultoría TI', 'Soporte técnico', 'Venta de software como servicio (SaaS)'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Educación y formación', items: [
+    'Cursos virtuales', 'Cursos presenciales', 'Tutorías', 'Escuelas deportivas', 'Capacitaciones empresariales'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Entretenimiento y cultura', items: [
+    'Organización de eventos', 'Alquiler de sonido e iluminación', 'Espectáculos en vivo',
+    'Producción audiovisual', 'Fotografía y video', 'Gestión de influencers'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Gastronomía y turismo', items: [
+    'Restaurantes', 'Cafeterías', 'Bares', 'Food trucks', 'Hoteles', 'Hostales',
+    'Guías turísticos', 'Agencias de viajes'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Belleza y cuidado personal', items: [
+    'Salones de belleza', 'Barberías', 'Spa', 'Masajes', 'Estética', 'Uñas', 'Servicios dermatológicos estéticos'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios para mascotas', items: [
+    'Veterinaria', 'Peluquería canina', 'Guarderías', 'Adiestramiento'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios médicos', items: [
+    'Clínicas', 'Consultorios médicos', 'Odontología', 'Laboratorios clínicos',
+    'Fisioterapia', 'Terapias alternativas', 'Servicios de ambulancia'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios agrícolas', items: [
+    'Asesorías agrícolas', 'Producción agrícola', 'Servicios pecuarios', 'Servicios ambientales'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Seguridad', items: [
+    'Vigilancia privada', 'Monitoreo de alarmas', 'Seguridad electrónica', 'Escoltas'
+  ]},
+  { categoria: 'SERVICIOS', tipo: 'servicio', subcategoria: 'Servicios funerarios', items: [
+    'Funerarias', 'Cremación', 'Traslados'
+  ]}
+];
+
+// Aplanar todas las opciones para el buscador
+const OPCIONES_PRODUCTOS_SERVICIOS = CATEGORIAS_PRODUCTOS_SERVICIOS.flatMap(cat => 
+  cat.items.map(item => ({
+    label: `${cat.subcategoria} - ${item}`,
+    value: `${cat.subcategoria} - ${item}`,
+    categoria: cat.categoria,
+    subcategoria: cat.subcategoria,
+    item: item
+  }))
+);
 
 const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsqueda de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, handleChange: propHandleChange, handleClaseChange: propHandleClaseChange, addClase: propAddClase, removeClase: propRemoveClase, renderForm = true, renderModal = true }) => {
   console.log('🔧 [FormularioBusqueda] Componente montado, isOpen:', isOpen);
@@ -43,6 +174,11 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     comentarios: []
   });
   const [localErrors, setLocalErrors] = useState({});
+  
+  // Estados para el buscador de productos/servicios
+  const [busquedaProductoServicio, setBusquedaProductoServicio] = useState('');
+  const [mostrarListaProductosServicios, setMostrarListaProductosServicios] = useState(false);
+  const [opcionSeleccionada, setOpcionSeleccionada] = useState(null);
 
   // Usar props si están disponibles, sino usar estado local
   // Asegurar que todos los campos tengan valores por defecto para evitar warnings de inputs no controlados
@@ -103,8 +239,79 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
         comentarios: []
       });
       setErrors({});
+      // Limpiar buscador de productos/servicios
+      setBusquedaProductoServicio('');
+      setMostrarListaProductosServicios(false);
+      setOpcionSeleccionada(null);
     }
   }, [isOpen, tipoSolicitud]);
+
+  // Sincronizar búsqueda con el valor del formulario
+  useEffect(() => {
+    if (form.tipoProductoServicio && !opcionSeleccionada) {
+      const opcion = OPCIONES_PRODUCTOS_SERVICIOS.find(op => op.value === form.tipoProductoServicio);
+      if (opcion) {
+        setOpcionSeleccionada(opcion);
+        setBusquedaProductoServicio(opcion.label);
+      } else {
+        // Si el valor no está en las opciones, mantenerlo como texto libre
+        setBusquedaProductoServicio(form.tipoProductoServicio);
+      }
+    } else if (!form.tipoProductoServicio) {
+      setBusquedaProductoServicio('');
+      setOpcionSeleccionada(null);
+    }
+  }, [form.tipoProductoServicio]);
+
+  // Función para normalizar texto (búsqueda sin acentos)
+  const normalizarTexto = (texto) => {
+    if (!texto) return '';
+    return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // Filtrar opciones según la búsqueda
+  const opcionesFiltradas = OPCIONES_PRODUCTOS_SERVICIOS.filter(opcion => {
+    if (!busquedaProductoServicio.trim()) return true;
+    const textoBusqueda = normalizarTexto(busquedaProductoServicio);
+    const labelNormalizado = normalizarTexto(opcion.label);
+    const subcategoriaNormalizada = normalizarTexto(opcion.subcategoria);
+    const itemNormalizado = normalizarTexto(opcion.item);
+    return labelNormalizado.includes(textoBusqueda) || 
+           subcategoriaNormalizada.includes(textoBusqueda) ||
+           itemNormalizado.includes(textoBusqueda);
+  });
+
+  // Manejar selección de opción desde el buscador
+  const handleSeleccionarOpcion = (opcion) => {
+    setOpcionSeleccionada(opcion);
+    setForm(prev => ({ 
+      ...prev, 
+      tipoProductoServicio: opcion.value 
+    }));
+    setBusquedaProductoServicio(opcion.label);
+    setMostrarListaProductosServicios(false);
+    
+    // Limpiar error del campo
+    if (errors.tipoProductoServicio) {
+      setErrors(prev => ({ ...prev, tipoProductoServicio: undefined }));
+    }
+  };
+
+  // Manejar cambio en el input de búsqueda
+  const handleBusquedaProductoServicioChange = (e) => {
+    const valor = e.target.value;
+    setBusquedaProductoServicio(valor);
+    setMostrarListaProductosServicios(true);
+    
+    // Si se limpia el input, limpiar también la selección
+    if (!valor.trim()) {
+      setOpcionSeleccionada(null);
+      setForm(prev => ({ ...prev, tipoProductoServicio: '' }));
+    } else {
+      // Si el usuario escribe texto libre, actualizar el formulario
+      setForm(prev => ({ ...prev, tipoProductoServicio: valor }));
+    }
+  };
 
   const validate = (customForm) => {
     const f = customForm || form;
@@ -198,7 +405,7 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
   };
 
   // Usar props si están disponibles, sino usar funciones locales
-  const handleChange = propHandleChange || (e => {
+  const handleChangeBase = propHandleChange || (e => {
     const { name, value, type, files } = e.target;
     let newValue;
     
@@ -227,10 +434,32 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     });
   });
 
+  // Handler principal que envuelve el base
+  const handleChange = handleChangeBase;
+
+  // Wrappers para campos numéricos
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleChangeBase);
+  };
+
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleChangeBase);
+  };
+
+  const handleCodigoPostalChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleChangeBase); // Código postal solo números
+  };
+
   const handleClaseChange = propHandleClaseChange || ((i, field, value) => {
     setForm(f => {
       const clases = [...f.clases];
-      clases[i][field] = value;
+      if (field === 'numero') {
+        // Solo permitir números y máximo 2 dígitos
+        const soloNumeros = value.replace(/[^0-9]/g, '');
+        clases[i][field] = soloNumeros.length <= 2 ? soloNumeros : soloNumeros.substring(0, 2);
+      } else {
+        clases[i][field] = value;
+      }
       return { ...f, clases };
     });
     setErrors(prev => ({ ...prev, [`clase_${field}_${i}`]: '' }));
@@ -317,7 +546,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                 type="text" 
                 name="numeroDocumento" 
                 value={form.numeroDocumento} 
-                onChange={handleChange} 
+                onChange={handleDocumentNumberChangeWrapper}
+                onPaste={(e) => handleNumericPaste(e, {})}
                 className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.numeroDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
                 placeholder="Ej: 1234567890" 
               />
@@ -401,7 +631,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                 type="text" 
                 name="telefono" 
                 value={form.telefono} 
-                onChange={handleChange} 
+                onChange={handlePhoneChangeWrapper}
+                onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })}
                 className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.telefono ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
                 placeholder="Ej: 3001234567" 
               />
@@ -469,7 +700,7 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
               <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                 Código Postal              </label>
-              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
+              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleCodigoPostalChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
               {errors.codigoPostal && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.codigoPostal}</p>}
             </div>
             <div>
@@ -479,12 +710,104 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
               <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.nombreMarca ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Nombre de la marca a buscar" />
               {errors.nombreMarca && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.nombreMarca}</p>}
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Tipo de Producto/Servicio *              </label>
-              <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Productos tecnológicos" />
-              {errors.tipoProductoServicio && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.tipoProductoServicio}</p>}
+                Tipo de Producto/Servicio *
+              </label>
+              
+              {/* Input de búsqueda */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Ej: Alimentos, Tecnología, Consultoría, Restaurantes... o escriba libremente"
+                  value={busquedaProductoServicio}
+                  onChange={handleBusquedaProductoServicioChange}
+                  onFocus={() => setMostrarListaProductosServicios(true)}
+                  onBlur={() => {
+                    // Delay para permitir click en la lista
+                    setTimeout(() => setMostrarListaProductosServicios(false), 200);
+                  }}
+                  className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
+                    errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                />
+                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                
+                {/* Botón para limpiar búsqueda */}
+                {busquedaProductoServicio && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusquedaProductoServicio('');
+                      setOpcionSeleccionada(null);
+                      setForm(prev => ({ ...prev, tipoProductoServicio: '' }));
+                      setMostrarListaProductosServicios(false);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <i className="bi bi-x-circle"></i>
+                  </button>
+                )}
+              </div>
+
+              {/* Lista desplegable de opciones filtradas */}
+              {mostrarListaProductosServicios && opcionesFiltradas.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                  {opcionesFiltradas.map((opcion, index) => (
+                    <div
+                      key={index}
+                      onClick={() => handleSeleccionarOpcion(opcion)}
+                      className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                        opcionSeleccionada?.value === opcion.value ? 'bg-blue-100' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800 text-sm">{opcion.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {opcion.categoria === 'PRODUCTOS' ? '🛍️ Producto' : '🧰 Servicio'}
+                          </p>
+                        </div>
+                        {opcionSeleccionada?.value === opcion.value && (
+                          <i className="bi bi-check-circle text-blue-600 ml-2"></i>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Mensaje cuando no hay resultados */}
+              {mostrarListaProductosServicios && busquedaProductoServicio.trim() && opcionesFiltradas.length === 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg p-4">
+                  <p className="text-sm text-gray-500 text-center">
+                    No se encontraron opciones que coincidan con "{busquedaProductoServicio}"
+                  </p>
+                  <p className="text-xs text-gray-400 text-center mt-2">
+                    Puedes escribir libremente el tipo de producto o servicio
+                  </p>
+                </div>
+              )}
+
+              {errors.tipoProductoServicio && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                  <span>⚠</span>{errors.tipoProductoServicio}
+                </p>
+              )}
+
+              {/* Mostrar opción seleccionada */}
+              {opcionSeleccionada && !mostrarListaProductosServicios && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-gray-700">
+                    <i className="bi bi-check-circle text-blue-600 mr-1"></i>
+                    Seleccionado: <span className="font-semibold">{opcionSeleccionada.item}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {opcionSeleccionada.subcategoria}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           {/* Clases de la Marca (Opcional) - Se mapea a clase_niza */}
@@ -503,7 +826,21 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
             <div className="space-y-2">
               {form.clases.map((clase, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    placeholder="N° Clase" 
+                    value={clase.numero} 
+                    onChange={e => handleClaseNumeroChange(i, e)}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                      const soloNumeros = pastedText.replace(/\D/g, '').slice(0, 2);
+                      handleClaseChange(i, 'numero', soloNumeros);
+                    }} 
+                    maxLength={2}
+                    className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" 
+                  />
                   <input type="text" placeholder="Descripción (opcional)" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
                   <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-lg">×</button>
                   {errors[`clase_numero_${i}`] && <span className="text-xs text-red-600">{errors[`clase_numero_${i}`]}</span>}
@@ -653,7 +990,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                     type="text" 
                     name="numeroDocumento" 
                     value={form.numeroDocumento} 
-                    onChange={handleChange} 
+                    onChange={handleDocumentNumberChangeWrapper}
+                    onPaste={(e) => handleNumericPaste(e, {})}
                     className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.numeroDocumento ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
                     placeholder="Ej: 1234567890" 
                   />
@@ -741,7 +1079,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                     type="text" 
                     name="telefono" 
                     value={form.telefono} 
-                    onChange={handleChange} 
+                    onChange={handlePhoneChangeWrapper}
+                    onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })}
                     className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white shadow-sm hover:shadow-md hover:border-gray-300 font-medium ${errors.telefono ? 'border-red-400 focus:ring-red-300 bg-red-50/50' : 'border-gray-200'}`} 
                     placeholder="Ej: 3001234567" 
                   />
@@ -813,7 +1152,7 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                     Código Postal
                   </label>
-                  <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
+                  <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleCodigoPostalChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.codigoPostal ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: 110111" />
                   {errors.codigoPostal && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.codigoPostal}</p>}
                 </div>
                 <div>
@@ -824,13 +1163,104 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                   <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.nombreMarca ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Nombre de la marca a buscar" />
                   {errors.nombreMarca && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.nombreMarca}</p>}
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                     Tipo de Producto/Servicio *
                   </label>
-                  <input type="text" name="tipoProductoServicio" value={form.tipoProductoServicio} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`} placeholder="Ej: Productos tecnológicos" />
-                  {errors.tipoProductoServicio && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><span>⚠</span>{errors.tipoProductoServicio}</p>}
+                  
+                  {/* Input de búsqueda */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar producto o servicio..."
+                      value={busquedaProductoServicio}
+                      onChange={handleBusquedaProductoServicioChange}
+                      onFocus={() => setMostrarListaProductosServicios(true)}
+                      onBlur={() => {
+                        // Delay para permitir click en la lista
+                        setTimeout(() => setMostrarListaProductosServicios(false), 200);
+                      }}
+                      className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
+                        errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    />
+                    <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    
+                    {/* Botón para limpiar búsqueda */}
+                    {busquedaProductoServicio && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBusquedaProductoServicio('');
+                          setOpcionSeleccionada(null);
+                          setForm(prev => ({ ...prev, tipoProductoServicio: '' }));
+                          setMostrarListaProductosServicios(false);
+                        }}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <i className="bi bi-x-circle"></i>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista desplegable de opciones filtradas */}
+                  {mostrarListaProductosServicios && opcionesFiltradas.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                      {opcionesFiltradas.map((opcion, index) => (
+                        <div
+                          key={index}
+                          onClick={() => handleSeleccionarOpcion(opcion)}
+                          className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                            opcionSeleccionada?.value === opcion.value ? 'bg-blue-100' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-800 text-sm">{opcion.label}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {opcion.categoria === 'PRODUCTOS' ? 'Producto' : 'Servicio'}
+                              </p>
+                            </div>
+                            {opcionSeleccionada?.value === opcion.value && (
+                              <i className="bi bi-check-circle text-blue-600 ml-2"></i>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mensaje cuando no hay resultados */}
+                  {mostrarListaProductosServicios && busquedaProductoServicio.trim() && opcionesFiltradas.length === 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg p-4">
+                      <p className="text-sm text-gray-500 text-center">
+                        No se encontraron opciones que coincidan con "{busquedaProductoServicio}"
+                      </p>
+                      <p className="text-xs text-gray-400 text-center mt-2">
+                        Puedes escribir libremente el tipo de producto o servicio
+                      </p>
+                    </div>
+                  )}
+
+                  {errors.tipoProductoServicio && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <span>⚠</span>{errors.tipoProductoServicio}
+                    </p>
+                  )}
+
+                  {/* Mostrar opción seleccionada */}
+                  {opcionSeleccionada && !mostrarListaProductosServicios && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs font-medium text-gray-700">
+                        <i className="bi bi-check-circle text-blue-600 mr-1"></i>
+                        Seleccionado: <span className="font-semibold">{opcionSeleccionada.item}</span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {opcionSeleccionada.subcategoria}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Clases de la Marca (Opcional) - Se mapea a clase_niza */}
@@ -849,7 +1279,21 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                 <div className="space-y-2">
                   {form.clases.map((clase, i) => (
                     <div key={i} className="flex gap-2 items-center">
-                      <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
+                      <input 
+                    type="text" 
+                    inputMode="numeric"
+                    placeholder="N° Clase" 
+                    value={clase.numero} 
+                    onChange={e => handleClaseNumeroChange(i, e)}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                      const soloNumeros = pastedText.replace(/\D/g, '').slice(0, 2);
+                      handleClaseChange(i, 'numero', soloNumeros);
+                    }} 
+                    maxLength={2}
+                    className="w-24 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" 
+                  />
                       <input type="text" placeholder="Descripción (opcional)" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400" />
                       <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-lg">×</button>
                       {errors[`clase_numero_${i}`] && <span className="text-xs text-red-600">{errors[`clase_numero_${i}`]}</span>}

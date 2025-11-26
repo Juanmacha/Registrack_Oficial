@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { PAISES } from '../../shared/utils/paises.js';
 import Swal from 'sweetalert2';
 import FileUpload from './FileUpload.jsx';
+import { handlePhoneChange, handleNumericPaste } from '../../shared/utils/numericInputFilter.js';
 
-const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ampliación de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true }) => {
+const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ampliación de Marca', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true, renderModal = true }) => {
   // Estado local como fallback
   const [localForm, setLocalForm] = useState({
     // ✅ Sección 1: Información del Titular
@@ -94,9 +95,14 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
     if (!f.nombreMarca) e.nombreMarca = 'Requerido';
     else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9 .,&-]{2,100}$/.test(f.nombreMarca)) e.nombreMarca = 'Solo letras, números y básicos, 2-100 caracteres';
     if (!f.claseNizaActual) e.claseNizaActual = 'Requerido';
-    else if (!/^[0-9]{1,3}$/.test(f.claseNizaActual)) e.claseNizaActual = 'Clase Niza inválida (1-3 dígitos)';
+    else if (!/^[0-9]{1,2}$/.test(f.claseNizaActual)) e.claseNizaActual = 'Clase Niza inválida (1-2 dígitos)';
     if (!f.nuevasClasesNiza) e.nuevasClasesNiza = 'Requerido';
-    else if (!/^[0-9, ]+$/.test(f.nuevasClasesNiza)) e.nuevasClasesNiza = 'Formato inválido (ej: 28, 35)';
+    else {
+      // Validar que cada número tenga 1-2 dígitos
+      const numeros = f.nuevasClasesNiza.split(',').map(n => n.trim()).filter(n => n);
+      const todosValidos = numeros.every(n => /^[0-9]{1,2}$/.test(n));
+      if (!todosValidos) e.nuevasClasesNiza = 'Cada clase debe tener 1-2 dígitos (ej: 28, 35)';
+    }
     if (!f.descripcionNuevosProductosServicios) e.descripcionNuevosProductosServicios = 'Requerido';
     else if (f.descripcionNuevosProductosServicios.length < 10) e.descripcionNuevosProductosServicios = 'Mínimo 10 caracteres';
     
@@ -116,7 +122,7 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
     return e;
   };
 
-  const handleChange = e => {
+  const handleChangeBase = e => {
     const { name, value, type, files } = e.target;
     let newValue;
     
@@ -138,6 +144,43 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
     });
   };
 
+  // Handler principal
+  const handleChange = handleChangeBase;
+
+  // Wrapper para teléfono
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleChangeBase);
+  };
+
+  // Manejo especial para documentoNitTitular con validación en tiempo real (6-20 dígitos)
+  const handleDocumentoNitTitularChange = (e) => {
+    const { value } = e.target;
+    // Solo permitir números
+    const soloNumeros = value.replace(/[^0-9]/g, '');
+    
+    // Actualizar el formulario
+    setForm(f => {
+      const updatedForm = { ...f, documentoNitTitular: soloNumeros };
+      
+      // Validar en tiempo real
+      const newErrors = { ...errors };
+      
+      if (!soloNumeros) {
+        newErrors.documentoNitTitular = 'El documento/NIT es requerido';
+      } else if (soloNumeros.length < 6) {
+        newErrors.documentoNitTitular = `El documento/NIT debe tener entre 6-20 dígitos (actual: ${soloNumeros.length})`;
+      } else if (soloNumeros.length > 20) {
+        newErrors.documentoNitTitular = 'El documento/NIT no puede tener más de 20 dígitos';
+      } else {
+        // Si está en el rango válido, limpiar el error
+        delete newErrors.documentoNitTitular;
+      }
+      
+      setErrors(newErrors);
+      return updatedForm;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('🔧 [FormularioAmpliacion] handleSubmit llamado');
@@ -152,6 +195,241 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
       console.log('🔧 [FormularioAmpliacion] Formulario con errores:', newErrors);
     }
   };
+
+  // Si no se debe renderizar el modal, solo retornar el contenido del formulario
+  if (!renderModal) {
+    const FormWrapper = renderForm ? 'form' : 'div';
+    const wrapperProps = renderForm 
+      ? { onSubmit: handleSubmit, className: "space-y-6" }
+      : { className: "space-y-6" };
+    
+    return (
+      <FormWrapper {...wrapperProps}>
+        {/* Sección 1: Información General */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información General
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitud *</label>
+              <input
+                type="text"
+                name="tipoSolicitud"
+                value={form.tipoSolicitud}
+                readOnly
+                className="w-full border-2 rounded-xl px-4 py-3 bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 2: Información del Titular */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información del Titular
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Documento/NIT del Titular *</label>
+              <input 
+                type="text" 
+                name="documentoNitTitular" 
+                value={form.documentoNitTitular} 
+                onChange={handleDocumentoNitTitularChange}
+                onBlur={() => {
+                  // Validación final al perder el foco
+                  const newErrors = validate(form);
+                  setErrors(newErrors);
+                }}
+                placeholder="Ej: 9001234567"
+                maxLength={20}
+                className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.documentoNitTitular ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+              />
+              {errors.documentoNitTitular && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <span>⚠</span>{errors.documentoNitTitular}
+                </p>
+              )}
+              {!errors.documentoNitTitular && form.documentoNitTitular && form.documentoNitTitular.length >= 6 && form.documentoNitTitular.length <= 20 && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <span>✓</span>Documento/NIT válido
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico *</label>
+              <input type="email" name="email" value={form.email} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.email ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
+              <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Dirección *</label>
+              <input type="text" name="direccion" value={form.direccion} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.direccion ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.direccion && <p className="text-xs text-red-600 mt-1">{errors.direccion}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
+              <div className="flex items-center gap-2">
+                <select name="pais" value={form.pais} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.pais ? 'border-red-400' : 'border-gray-300'}`}>
+                  <option value="">Seleccionar</option>
+                  {PAISES.map(p => (
+                    <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
+                  ))}
+                </select>
+                {form.pais && PAISES.find(p => p.nombre === form.pais) && (
+                  <img
+                    src={PAISES.find(p => p.nombre === form.pais).bandera}
+                    alt={form.pais}
+                    title={form.pais}
+                    className="w-7 h-5 rounded shadow border border-gray-300"
+                  />
+                )}
+              </div>
+              {errors.pais && <p className="text-xs text-red-600 mt-1">{errors.pais}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ciudad *</label>
+              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.ciudad ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: Bogotá" />
+              {errors.ciudad && <p className="text-xs text-red-600 mt-1">{errors.ciudad}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Código Postal</label>
+              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3" placeholder="Ej: 110111" />
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 3: Información del Registro Existente */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información del Registro Existente
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Registro Existente *</label>
+              <input type="text" name="numeroRegistroExistente" value={form.numeroRegistroExistente} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroRegistroExistente ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 2020-567890" />
+              {errors.numeroRegistroExistente && <p className="text-xs text-red-600 mt-1">{errors.numeroRegistroExistente}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre de la Marca *</label>
+              <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombreMarca ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.nombreMarca && <p className="text-xs text-red-600 mt-1">{errors.nombreMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Clase Niza Actual *</label>
+              <input 
+                type="text" 
+                name="claseNizaActual" 
+                value={form.claseNizaActual} 
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  if (value.length <= 2) {
+                    handleChange({ ...e, target: { ...e.target, value } });
+                  }
+                }}
+                maxLength={2}
+                className={`w-full border-2 rounded-xl px-4 py-3 ${errors.claseNizaActual ? 'border-red-400' : 'border-gray-300'}`} 
+                placeholder="Ej: 25" 
+              />
+              {errors.claseNizaActual && <p className="text-xs text-red-600 mt-1">{errors.claseNizaActual}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Nuevas Clases Niza *</label>
+              <input 
+                type="text" 
+                name="nuevasClasesNiza" 
+                value={form.nuevasClasesNiza} 
+                onChange={(e) => {
+                  // Permitir números, comas y espacios
+                  let value = e.target.value.replace(/[^0-9, ]/g, '');
+                  
+                  // Validar que cada número tenga máximo 2 dígitos
+                  const partes = value.split(',');
+                  const partesValidas = partes.map((parte) => {
+                    // Remover espacios al inicio y final
+                    const num = parte.trim();
+                    // Si el número tiene más de 2 dígitos, cortarlo a 2
+                    if (num.length > 2) {
+                      return num.substring(0, 2);
+                    }
+                    return num;
+                  });
+                  
+                  // Reconstruir el valor manteniendo las comas
+                  value = partesValidas.join(',');
+                  
+                  handleChange({ ...e, target: { ...e.target, value } });
+                }}
+                className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nuevasClasesNiza ? 'border-red-400' : 'border-gray-300'}`} 
+                placeholder="Ej: 23, 24, 25" 
+              />
+              {errors.nuevasClasesNiza && <p className="text-xs text-red-600 mt-1">{errors.nuevasClasesNiza}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Descripción de Nuevos Productos/Servicios *</label>
+              <textarea
+                name="descripcionNuevosProductosServicios"
+                value={form.descripcionNuevosProductosServicios}
+                onChange={handleChange}
+                rows="4"
+                placeholder="Describa los nuevos productos o servicios (mínimo 10 caracteres)..."
+                className={`w-full border-2 rounded-xl px-4 py-3 ${errors.descripcionNuevosProductosServicios ? 'border-red-400' : 'border-gray-300'}`}
+              />
+              {errors.descripcionNuevosProductosServicios && <p className="text-xs text-red-600 mt-1">{errors.descripcionNuevosProductosServicios}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 4: Documentos Requeridos */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Documentos Requeridos
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FileUpload
+              name="soportes"
+              value={form.soportes}
+              onChange={handleChange}
+              label="Soportes *"
+              required={true}
+              accept=".pdf,.jpg,.jpeg,.png"
+              error={errors.soportes}
+            />
+          </div>
+        </div>
+
+        {/* Botones - Solo mostrar si renderForm es true */}
+        {renderForm && (
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+            >
+              Enviar Solicitud
+            </button>
+          </div>
+        )}
+      </FormWrapper>
+    );
+  }
 
   if (!isOpen) return null;
 
@@ -204,12 +482,12 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
             return (
               <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información General
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitud *</label>
                   <input
@@ -224,12 +502,12 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
             </div>
 
             {/* Sección 2: Información del Titular */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información del Titular
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Documento/NIT del Titular *</label>
                   <input type="text" name="documentoNitTitular" value={form.documentoNitTitular} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.documentoNitTitular ? 'border-red-400' : 'border-gray-300'}`} placeholder="6-20 dígitos" />
@@ -242,7 +520,7 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
-                  <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+                  <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
                   {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
                 </div>
                 <div className="md:col-span-2">
@@ -283,12 +561,12 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
             </div>
 
             {/* Sección 3: Información del Registro Existente */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información del Registro Existente
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Registro Existente *</label>
                   <input type="text" name="numeroRegistroExistente" value={form.numeroRegistroExistente} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroRegistroExistente ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 2020-567890" />
@@ -306,7 +584,34 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Nuevas Clases Niza *</label>
-                  <input type="text" name="nuevasClasesNiza" value={form.nuevasClasesNiza} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nuevasClasesNiza ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 28, 35" />
+                  <input 
+                    type="text" 
+                    name="nuevasClasesNiza" 
+                    value={form.nuevasClasesNiza} 
+                    onChange={(e) => {
+                      // Permitir números, comas y espacios
+                      let value = e.target.value.replace(/[^0-9, ]/g, '');
+                      
+                      // Validar que cada número tenga máximo 2 dígitos
+                      const partes = value.split(',');
+                      const partesValidas = partes.map((parte) => {
+                        // Remover espacios al inicio y final
+                        const num = parte.trim();
+                        // Si el número tiene más de 2 dígitos, cortarlo a 2
+                        if (num.length > 2) {
+                          return num.substring(0, 2);
+                        }
+                        return num;
+                      });
+                      
+                      // Reconstruir el valor manteniendo las comas
+                      value = partesValidas.join(',');
+                      
+                      handleChange({ ...e, target: { ...e.target, value } });
+                    }}
+                    className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nuevasClasesNiza ? 'border-red-400' : 'border-gray-300'}`} 
+                    placeholder="Ej: 23, 24, 25" 
+                  />
                   {errors.nuevasClasesNiza && <p className="text-xs text-red-600 mt-1">{errors.nuevasClasesNiza}</p>}
                 </div>
                 <div className="md:col-span-2">
@@ -325,12 +630,12 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
             </div>
 
             {/* Sección 4: Documentos Requeridos */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Documentos Requeridos
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FileUpload
                   name="soportes"
                   value={form.soportes}

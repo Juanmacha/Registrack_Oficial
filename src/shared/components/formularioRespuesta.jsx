@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PAISES } from '../../shared/utils/paises.js';
 import Swal from 'sweetalert2';
 import FileUpload from './FileUpload.jsx';
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste } from '../../shared/utils/numericInputFilter.js';
 
 // ✅ Actualizado según especificación
 const tiposDocumento = [
@@ -12,7 +13,7 @@ const tiposDocumento = [
   'Tarjeta de Identidad'
 ];
 
-const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Respuesta a Oposición', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true }) => {
+const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Respuesta a Oposición', form: propForm, setForm: propSetForm, errors: propErrors, setErrors: propSetErrors, renderForm = true, renderModal = true }) => {
   // Estado local como fallback
   const [localForm, setLocalForm] = useState({
     // ✅ Sección 1: Información del Solicitante (siempre requerida)
@@ -152,7 +153,7 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
     return e;
   };
 
-  const handleChange = e => {
+  const handleChangeBase = e => {
     const { name, value, type, files } = e.target;
     let newValue;
     
@@ -174,6 +175,52 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
     });
   };
 
+  // Handler principal
+  const handleChange = handleChangeBase;
+
+  // Wrappers para campos numéricos
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleChangeBase);
+  };
+
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleChangeBase);
+  };
+
+  // Manejo especial para NIT con validación en tiempo real (10 dígitos exactos)
+  const handleNitChange = (e) => {
+    const { value } = e.target;
+    // Solo permitir números
+    const soloNumeros = value.replace(/[^0-9]/g, '');
+    
+    // Actualizar el formulario
+    setForm(f => {
+      const updatedForm = { ...f, nit: soloNumeros };
+      
+      // Validar en tiempo real
+      const newErrors = { ...errors };
+      
+      if (!soloNumeros) {
+        newErrors.nit = 'El NIT es requerido';
+      } else if (soloNumeros.length < 10) {
+        newErrors.nit = `El NIT debe tener exactamente 10 dígitos (actual: ${soloNumeros.length})`;
+      } else if (soloNumeros.length > 10) {
+        newErrors.nit = 'El NIT no puede tener más de 10 dígitos';
+      } else {
+        const nitNum = parseInt(soloNumeros);
+        if (nitNum < 1000000000 || nitNum > 9999999999) {
+          newErrors.nit = 'NIT debe estar entre 1000000000 y 9999999999';
+        } else {
+          // Si está completo y válido, limpiar el error
+          delete newErrors.nit;
+        }
+      }
+      
+      setErrors(newErrors);
+      return updatedForm;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('🔧 [FormularioRespuesta] handleSubmit llamado');
@@ -188,6 +235,226 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
       console.log('🔧 [FormularioRespuesta] Formulario con errores:', newErrors);
     }
   };
+
+  // Si no se debe renderizar el modal, solo retornar el contenido del formulario
+  if (!renderModal) {
+    const FormWrapper = renderForm ? 'form' : 'div';
+    const wrapperProps = renderForm 
+      ? { onSubmit: handleSubmit, className: "space-y-6" }
+      : { className: "space-y-6" };
+    
+    return (
+      <FormWrapper {...wrapperProps}>
+        {/* Sección 1: Información General */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información General
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitud *</label>
+              <input
+                type="text"
+                name="tipoSolicitud"
+                value={form.tipoSolicitud}
+                readOnly
+                className="w-full border-2 rounded-xl px-4 py-3 bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 2: Información del Solicitante */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información del Solicitante
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
+              <input type="text" name="nombres" value={form.nombres} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombres ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.nombres && <p className="text-xs text-red-600 mt-1">{errors.nombres}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Apellidos *</label>
+              <input type="text" name="apellidos" value={form.apellidos} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.apellidos ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.apellidos && <p className="text-xs text-red-600 mt-1">{errors.apellidos}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Documento *</label>
+              <select name="tipoDocumento" value={form.tipoDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.tipoDocumento ? 'border-red-400' : 'border-gray-300'}`}>
+                <option value="">Seleccionar</option>
+                {tiposDocumento.map(t => <option key={t}>{t}</option>)}
+              </select>
+              {errors.tipoDocumento && <p className="text-xs text-red-600 mt-1">{errors.tipoDocumento}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
+              <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleDocumentNumberChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.numeroDocumento && <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico *</label>
+              <input type="email" name="email" value={form.email} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.email ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
+              <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Dirección *</label>
+              <input type="text" name="direccion" value={form.direccion} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.direccion ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.direccion && <p className="text-xs text-red-600 mt-1">{errors.direccion}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
+              <div className="flex items-center gap-2">
+                <select name="pais" value={form.pais} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.pais ? 'border-red-400' : 'border-gray-300'}`}>
+                  <option value="">Seleccionar</option>
+                  {PAISES.map(p => (
+                    <option key={p.codigo} value={p.nombre}>{p.nombre}</option>
+                  ))}
+                </select>
+                {form.pais && PAISES.find(p => p.nombre === form.pais) && (
+                  <img
+                    src={PAISES.find(p => p.nombre === form.pais).bandera}
+                    alt={form.pais}
+                    title={form.pais}
+                    className="w-7 h-5 rounded shadow border border-gray-300"
+                  />
+                )}
+              </div>
+              {errors.pais && <p className="text-xs text-red-600 mt-1">{errors.pais}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+              <input type="text" name="ciudad" value={form.ciudad} onChange={handleChange} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3" placeholder="Ej: Bogotá" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Código Postal</label>
+              <input type="text" name="codigoPostal" value={form.codigoPostal} onChange={handleChange} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3" placeholder="Ej: 110111" />
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 3: Información de la Empresa */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información de la Empresa
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Razón Social *</label>
+              <input type="text" name="razonSocial" value={form.razonSocial} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.razonSocial ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.razonSocial && <p className="text-xs text-red-600 mt-1">{errors.razonSocial}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa *</label>
+              <input 
+                type="text" 
+                name="nit" 
+                value={form.nit} 
+                onChange={handleNitChange}
+                onBlur={() => {
+                  // Validación final al perder el foco
+                  const newErrors = validate(form);
+                  setErrors(newErrors);
+                }}
+                placeholder="Ej: 9001234567"
+                maxLength={10}
+                className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.nit ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-300'
+                }`}
+              />
+              {errors.nit && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <span>⚠</span>{errors.nit}
+                </p>
+              )}
+              {!errors.nit && form.nit && form.nit.length === 10 && parseInt(form.nit) >= 1000000000 && parseInt(form.nit) <= 9999999999 && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <span>✓</span>NIT válido
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Representante Legal *</label>
+              <input type="text" name="representanteLegal" value={form.representanteLegal} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.representanteLegal ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.representanteLegal && <p className="text-xs text-red-600 mt-1">{errors.representanteLegal}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 4: Información de las Marcas */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Información de las Marcas
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre de la Marca *</label>
+              <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombreMarca ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.nombreMarca && <p className="text-xs text-red-600 mt-1">{errors.nombreMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Expediente de la Marca *</label>
+              <input type="text" name="numeroExpedienteMarca" value={form.numeroExpedienteMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroExpedienteMarca ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 2021-345678" />
+              {errors.numeroExpedienteMarca && <p className="text-xs text-red-600 mt-1">{errors.numeroExpedienteMarca}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Marca Opositora *</label>
+              <input type="text" name="marcaOpositora" value={form.marcaOpositora} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.marcaOpositora ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.marcaOpositora && <p className="text-xs text-red-600 mt-1">{errors.marcaOpositora}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 5: Documentos Requeridos */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            Documentos Requeridos
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FileUpload
+              name="poderAutorizacion"
+              value={form.poderAutorizacion}
+              onChange={handleChange}
+              label="Poder de Autorización *"
+              required={true}
+              accept=".pdf,.jpg,.jpeg,.png"
+              error={errors.poderAutorizacion}
+            />
+          </div>
+        </div>
+
+        {/* Botones - Solo mostrar si renderForm es true */}
+        {renderForm && (
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+            >
+              Enviar Solicitud
+            </button>
+          </div>
+        )}
+      </FormWrapper>
+    );
+  }
 
   if (!isOpen) return null;
 
@@ -240,12 +507,12 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
             return (
               <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información General
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitud *</label>
                   <input
@@ -260,12 +527,12 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
             </div>
 
             {/* Sección 2: Información del Solicitante */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información del Solicitante
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
                   <input type="text" name="nombres" value={form.nombres} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombres ? 'border-red-400' : 'border-gray-300'}`} />
@@ -286,7 +553,7 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
-                  <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
+                  <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleDocumentNumberChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
                   {errors.numeroDocumento && <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>}
                 </div>
                 <div>
@@ -296,7 +563,7 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
-                  <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+                  <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
                   {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
                 </div>
                 <div className="md:col-span-2">
@@ -336,12 +603,12 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
             </div>
 
             {/* Sección 3: Información de la Empresa */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información de la Empresa
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Razón Social *</label>
                   <input type="text" name="razonSocial" value={form.razonSocial} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.razonSocial ? 'border-red-400' : 'border-gray-300'}`} />
@@ -361,12 +628,12 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
             </div>
 
             {/* Sección 4: Información de las Marcas */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información de las Marcas
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre de la Marca *</label>
                   <input type="text" name="nombreMarca" value={form.nombreMarca} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nombreMarca ? 'border-red-400' : 'border-gray-300'}`} />
@@ -386,12 +653,12 @@ const FormularioRespuesta = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Resp
             </div>
 
             {/* Sección 5: Documentos Requeridos */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Documentos Requeridos
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FileUpload
                   name="poderAutorizacion"
                   value={form.poderAutorizacion}

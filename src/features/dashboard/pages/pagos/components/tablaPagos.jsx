@@ -648,7 +648,7 @@ const Tablapagos = () => {
       <div className="flex items-center justify-between px-4 mb-4 w-full">
         <input
           type="text"
-          placeholder="Buscar por ID, cliente, servicio, usuario, empresa, expediente, método, referencia, transaction ID..."
+          placeholder="Buscar por ID pago, cliente, servicio, método de pago, referencia, número de comprobante..."
           className="form-control w-50 h-9 text-sm border border-gray-300 rounded-md px-3"
           value={busqueda}
           onChange={handleBusquedaChange}

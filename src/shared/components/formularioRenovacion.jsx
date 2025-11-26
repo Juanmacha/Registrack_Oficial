@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PAISES } from '../../shared/utils/paises.js';
 import Swal from 'sweetalert2';
 import FileUpload from './FileUpload.jsx';
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste } from '../../shared/utils/numericInputFilter.js';
 
 // ✅ Actualizado según especificación
 const tiposDocumento = [
@@ -199,7 +200,7 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
     return e;
   };
 
-  const handleChange = e => {
+  const handleChangeBase = e => {
     const { name, value, type, files } = e.target;
     let newValue;
     
@@ -223,10 +224,62 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
     });
   };
 
+  // Handler principal
+  const handleChange = handleChangeBase;
+
+  // Wrappers para campos numéricos
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleChangeBase);
+  };
+
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleChangeBase);
+  };
+
+  // Manejo especial para NIT con validación en tiempo real (10 dígitos exactos)
+  const handleNitChange = (e) => {
+    const { value } = e.target;
+    // Solo permitir números
+    const soloNumeros = value.replace(/[^0-9]/g, '');
+    
+    // Actualizar el formulario
+    setForm(f => {
+      const updatedForm = { ...f, nit: soloNumeros };
+      
+      // Validar en tiempo real
+      const newErrors = { ...errors };
+      
+      if (!soloNumeros) {
+        newErrors.nit = 'El NIT es requerido';
+      } else if (soloNumeros.length < 10) {
+        newErrors.nit = `El NIT debe tener exactamente 10 dígitos (actual: ${soloNumeros.length})`;
+      } else if (soloNumeros.length > 10) {
+        newErrors.nit = 'El NIT no puede tener más de 10 dígitos';
+      } else {
+        const nitNum = parseInt(soloNumeros);
+        if (nitNum < 1000000000 || nitNum > 9999999999) {
+          newErrors.nit = 'NIT debe estar entre 1000000000 y 9999999999';
+        } else {
+          // Si está completo y válido, limpiar el error
+          delete newErrors.nit;
+        }
+      }
+      
+      setErrors(newErrors);
+      return updatedForm;
+    });
+  };
+
   const handleClaseChange = (i, field, value) => {
     setForm(f => {
       const clases = [...f.clases];
-      clases[i][field] = value;
+      if (field === 'numero') {
+        // Solo permitir números y máximo 2 dígitos
+        const soloNumeros = value.replace(/[^0-9]/g, '');
+        clases[i][field] = soloNumeros.length <= 2 ? soloNumeros : soloNumeros.substring(0, 2);
+      } else {
+        clases[i][field] = value;
+      }
       return { ...f, clases };
     });
     setErrors(prev => ({ ...prev, [`clase_${field}_${i}`]: '' }));
@@ -267,12 +320,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
     return (
       <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información General
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
                   <select 
@@ -292,12 +345,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
 
             {/* Sección 2: Datos del Solicitante */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   {esJuridica ? 'Datos de la Empresa' : 'Datos del Solicitante'}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Campos comunes */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
@@ -319,7 +372,7 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
-                    <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
+                    <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleDocumentNumberChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
                     {errors.numeroDocumento && <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>}
                   </div>
                   <div>
@@ -329,7 +382,7 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
-                    <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+                    <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
                     {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
                   </div>
                   <div className="md:col-span-2">
@@ -356,8 +409,32 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa *</label>
-                        <input type="text" name="nit" value={form.nit} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nit ? 'border-red-400' : 'border-gray-300'}`} placeholder="10 dígitos (sin guión)" />
-                        {errors.nit && <p className="text-xs text-red-600 mt-1">{errors.nit}</p>}
+                        <input 
+                          type="text" 
+                          name="nit" 
+                          value={form.nit} 
+                          onChange={handleNitChange}
+                          onBlur={() => {
+                            // Validación final al perder el foco
+                            const newErrors = validate(form);
+                            setErrors(newErrors);
+                          }}
+                          placeholder="Ej: 9001234567"
+                          maxLength={10}
+                          className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            errors.nit ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors.nit && (
+                          <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                            <span>⚠</span>{errors.nit}
+                          </p>
+                        )}
+                        {!errors.nit && form.nit && form.nit.length === 10 && parseInt(form.nit) >= 1000000000 && parseInt(form.nit) <= 9999999999 && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                            <span>✓</span>NIT válido
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Representante Legal *</label>
@@ -371,12 +448,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
             )}
             {/* Sección 3: Información de la Marca */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   Información de la Marca
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
                     <div className="flex items-center gap-2">
@@ -421,7 +498,15 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                     <div className="space-y-2">
                       {form.clases?.map((clase, i) => (
                         <div key={i} className="flex gap-2 items-center">
-                          <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border-2 border-gray-300 rounded-xl px-3 py-2" />
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            placeholder="N° Clase" 
+                            value={clase.numero} 
+                            onChange={e => handleClaseChange(i, 'numero', e.target.value)} 
+                            maxLength={2}
+                            className="w-24 border-2 border-gray-300 rounded-xl px-3 py-2" 
+                          />
                           <input type="text" placeholder="Descripción" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border-2 border-gray-300 rounded-xl px-3 py-2" />
                           {form.clases.length > 1 && (
                             <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-xl font-bold">×</button>
@@ -441,12 +526,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
 
             {/* Sección 4: Documentos */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   Documentos Requeridos
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileUpload
                     name="certificadoRenovacion"
                     value={form.certificadoRenovacion}
@@ -532,12 +617,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
             return (
               <FormWrapper {...wrapperProps}>
             {/* Sección 1: Información General */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Información General
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
                   <select 
@@ -557,12 +642,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
 
             {/* Sección 2: Datos del Solicitante */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   {esJuridica ? 'Datos de la Empresa' : 'Datos del Solicitante'}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Campos comunes */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres *</label>
@@ -584,7 +669,7 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento *</label>
-                    <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
+                    <input type="text" name="numeroDocumento" value={form.numeroDocumento} onChange={handleDocumentNumberChangeWrapper} onPaste={(e) => handleNumericPaste(e, {})} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.numeroDocumento ? 'border-red-400' : 'border-gray-300'}`} />
                     {errors.numeroDocumento && <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>}
                   </div>
                   <div>
@@ -594,7 +679,7 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono *</label>
-                    <input type="text" name="telefono" value={form.telefono} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
+                    <input type="text" name="telefono" value={form.telefono} onChange={handlePhoneChangeWrapper} onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.telefono ? 'border-red-400' : 'border-gray-300'}`} />
                     {errors.telefono && <p className="text-xs text-red-600 mt-1">{errors.telefono}</p>}
                   </div>
                   <div className="md:col-span-2">
@@ -621,8 +706,32 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">NIT de la Empresa *</label>
-                        <input type="text" name="nit" value={form.nit} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.nit ? 'border-red-400' : 'border-gray-300'}`} placeholder="10 dígitos (sin guión)" />
-                        {errors.nit && <p className="text-xs text-red-600 mt-1">{errors.nit}</p>}
+                        <input 
+                          type="text" 
+                          name="nit" 
+                          value={form.nit} 
+                          onChange={handleNitChange}
+                          onBlur={() => {
+                            // Validación final al perder el foco
+                            const newErrors = validate(form);
+                            setErrors(newErrors);
+                          }}
+                          placeholder="Ej: 9001234567"
+                          maxLength={10}
+                          className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            errors.nit ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors.nit && (
+                          <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                            <span>⚠</span>{errors.nit}
+                          </p>
+                        )}
+                        {!errors.nit && form.nit && form.nit.length === 10 && parseInt(form.nit) >= 1000000000 && parseInt(form.nit) <= 9999999999 && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                            <span>✓</span>NIT válido
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Representante Legal *</label>
@@ -636,12 +745,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
             )}
             {/* Sección 3: Información de la Marca */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   Información de la Marca
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
                     <div className="flex items-center gap-2">
@@ -686,7 +795,15 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
                     <div className="space-y-2">
                       {form.clases?.map((clase, i) => (
                         <div key={i} className="flex gap-2 items-center">
-                          <input type="number" min="1" max="45" placeholder="N° Clase" value={clase.numero} onChange={e => handleClaseChange(i, 'numero', e.target.value)} className="w-24 border-2 border-gray-300 rounded-xl px-3 py-2" />
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            placeholder="N° Clase" 
+                            value={clase.numero} 
+                            onChange={e => handleClaseChange(i, 'numero', e.target.value)} 
+                            maxLength={2}
+                            className="w-24 border-2 border-gray-300 rounded-xl px-3 py-2" 
+                          />
                           <input type="text" placeholder="Descripción" value={clase.descripcion} onChange={e => handleClaseChange(i, 'descripcion', e.target.value)} className="flex-1 border-2 border-gray-300 rounded-xl px-3 py-2" />
                           {form.clases.length > 1 && (
                             <button type="button" onClick={() => removeClase(i)} className="text-red-500 hover:text-red-700 text-xl font-bold">×</button>
@@ -706,12 +823,12 @@ const FormularioRenovacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Ren
 
             {/* Sección 4: Documentos */}
             {form.tipoSolicitante && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/60">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   Documentos Requeridos
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileUpload
                     name="certificadoRenovacion"
                     value={form.certificadoRenovacion}

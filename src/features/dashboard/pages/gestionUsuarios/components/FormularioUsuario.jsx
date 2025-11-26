@@ -3,6 +3,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { validarUsuario } from "../services/validarUsuario";
 import rolesApiService from "../../gestionRoles/services/rolesApiService";
 import { validatePasswordStrength, getPasswordRequirementsShort } from "../../../../../shared/utils/passwordValidator.js";
+import { handleDocumentNumberChange, handleNumericPaste } from "../../../../../shared/utils/numericInputFilter.js";
 
 const FormularioUsuario = ({
   nuevoUsuario,
@@ -191,6 +192,11 @@ const FormularioUsuario = ({
     }
   };
 
+  // Handler específico para número de documento con filtrado numérico
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleInputChangeRealtime);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setFormSubmitted(true);
@@ -263,7 +269,8 @@ const FormularioUsuario = ({
                 type="text"
                 name="documentNumber"
                 value={nuevoUsuario.documentNumber}
-                onChange={handleInputChangeRealtime}
+                onChange={handleDocumentNumberChangeWrapper}
+                onPaste={(e) => handleNumericPaste(e, {})}
                 onBlur={handleBlur}
                 className={`w-full px-3 py-2 border rounded-lg shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 ${mostrarError('documentNumber') ? 'border-red-500' : 'border-gray-300'}`}
                 required

@@ -1,15 +1,37 @@
 // Configuración de la API
+
+// URLs disponibles
+const PROD_BASE_URL = 'https://api-registrack-2.onrender.com';
+const LOCAL_BASE_URL = 'http://localhost:3000';
+
+// Determinar qué URL usar:
+// 1. Si VITE_USE_LOCAL_API está en 'true', usar localhost (útil si Render está caído)
+// 2. Si está en desarrollo, usar proxy (cadena vacía)
+// 3. Si está en producción, usar Render
+const getBaseURL = () => {
+  // Forzar uso de localhost si la variable de entorno está configurada
+  if (import.meta.env.VITE_USE_LOCAL_API === 'true') {
+    return LOCAL_BASE_URL;
+  }
+  
+  // Lógica original: proxy en desarrollo, Render en producción
+  return import.meta.env.DEV ? '' : PROD_BASE_URL;
+};
+
 const API_CONFIG = {
   // ✅ URL base de la API - Usa proxy en desarrollo, URL completa en producción
   // En desarrollo (npm run dev): Vite proxy redirige /api a la API real
   // En producción: Se usa la URL completa del backend
-  baseURL: import.meta.env.DEV 
-    ? ''  // En desarrollo, usar proxy (ruta relativa /api)
-    : 'https://api-registrack-2.onrender.com',  // En producción, URL completa
+  // Para usar localhost como respaldo: definir VITE_USE_LOCAL_API=true en .env
+  baseURL: getBaseURL(),
   
-  BASE_URL: import.meta.env.DEV 
-    ? ''  // En desarrollo, usar proxy
-    : 'https://api-registrack-2.onrender.com',  // En producción
+  BASE_URL: getBaseURL(),
+  
+  // URLs disponibles para referencia
+  URLS: {
+    PROD: PROD_BASE_URL,
+    LOCAL: LOCAL_BASE_URL
+  },
   
   // Endpoints de autenticación
   ENDPOINTS: {

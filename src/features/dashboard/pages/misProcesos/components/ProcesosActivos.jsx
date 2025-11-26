@@ -2,96 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Timeline from './Timeline.jsx';
 import { obtenerFechaCreacion, obtenerFechaSolicitud } from '../services/procesosService.js';
 import { PAISES } from '../../../../../shared/utils/paises.js';
-import { usePayments } from '../../../../../shared/contexts/PaymentContext';
-import { generarComprobantePDF } from '../../../../../shared/utils/generarComprobantePDF';
 import seguimientoApiService from '../../gestionVentasServicios/services/seguimientoApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
-
-// Componente para mostrar el modal de historial de pagos
-const HistorialPagosModal = ({ proceso, isOpen, onClose }) => {
-  if (!isOpen || !proceso) return null;
-  
-  const { pagos } = usePayments();
-  
-  // Buscar pagos asociados al proceso por nombreMarca, tipoDocumento y numeroDocumento
-  const pagosAsociados = pagos.filter(p =>
-    p.nombreMarca === proceso.nombreMarca &&
-    p.tipoDocumento === proceso.tipoDocumento &&
-    p.numeroDocumento === proceso.numeroDocumento
-  );
-  
-  const handleDescargarComprobante = (pago) => {
-    generarComprobantePDF({
-      servicioOposicion: pago.servicioOposicion,
-      nombreMarca: pago.nombreMarca,
-      nombreRepresentante: pago.nombreRepresentante,
-      tipoDocumento: pago.tipoDocumento,
-      numeroDocumento: pago.numeroDocumento,
-      fechaPago: pago.fechaPago,
-      valorTotal: pago.valorTotal,
-      gastoLegal: pago.gastoLegal,
-      honorarios: pago.honorarios,
-      numeroTransaccion: pago.numeroTransaccion,
-    });
-  };
-  
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-80 backdrop-blur-sm" style={{margin: 0, padding: 0}}>
-      <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full p-8 relative border border-green-200 max-h-[90vh] overflow-hidden">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-700 hover:text-red-600 text-sm font-medium focus:outline-none bg-white border border-gray-300 rounded-lg shadow px-3 py-1 transition-colors" aria-label="Cerrar">Cerrar</button>
-        
-        <h2 className="text-2xl font-bold mb-4 text-green-800 flex items-center gap-2">
-          <i className="bi bi-cash-coin text-green-600"></i>
-          Historial de Pagos
-        </h2>
-        
-        <div className="mb-4">
-          <div><span className="font-semibold">Marca:</span> {proceso.nombreMarca || '-'}</div>
-          <div><span className="font-semibold">Expediente:</span> {proceso.expediente || '-'}</div>
-          <div><span className="font-semibold">Tipo de Solicitud:</span> {proceso.tipoSolicitud || '-'}</div>
-        </div>
-        
-        {pagosAsociados.length > 0 ? (
-          <div className="overflow-auto max-h-[60vh]">
-            <table className="w-full text-sm rounded-lg border border-gray-200">
-              <thead>
-                <tr className="bg-gray-50 text-left text-gray-600 font-semibold border-b">
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Monto</th>
-                  <th className="px-4 py-3">Método</th>
-                  <th className="px-4 py-3">Transacción</th>
-                  <th className="px-4 py-3">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagosAsociados.map((pago, index) => (
-                  <tr key={pago.numeroTransaccion || index} className="border-b hover:bg-green-50">
-                    <td className="px-4 py-3">{pago.fechaPago}</td>
-                    <td className="px-4 py-3 font-semibold">${pago.valorTotal?.toLocaleString?.() || ''}</td>
-                    <td className="px-4 py-3">Demo</td>
-                    <td className="px-4 py-3">{pago.numeroTransaccion}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDescargarComprobante(pago)}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-semibold flex items-center gap-1"
-                      >
-                        <i className="bi bi-download"></i> Comprobante
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No se encontraron pagos asociados a este proceso.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // Componente para mostrar el modal de seguimientos
 const SeguimientosModal = ({ proceso, isOpen, onClose }) => {
@@ -402,21 +314,8 @@ const SeguimientosModal = ({ proceso, isOpen, onClose }) => {
 };
 
 const ProcesosActivos = ({ procesos, servicios }) => {
-  const [modalPagosAbierto, setModalPagosAbierto] = useState(false);
   const [modalSeguimientosAbierto, setModalSeguimientosAbierto] = useState(false);
   const [procesoSeleccionado, setProcesoSeleccionado] = useState(null);
-  
-  // Función para mostrar el modal de historial de pagos
-  const mostrarHistorialPagos = (proceso) => {
-    setProcesoSeleccionado(proceso);
-    setModalPagosAbierto(true);
-  };
-  
-  // Función para cerrar el modal de historial de pagos
-  const cerrarHistorialPagos = () => {
-    setModalPagosAbierto(false);
-    setProcesoSeleccionado(null);
-  };
 
   // Función para mostrar el modal de seguimientos
   const mostrarSeguimientos = (proceso) => {
@@ -536,26 +435,12 @@ const ProcesosActivos = ({ procesos, servicios }) => {
                     <i className="bi bi-clock-history"></i>
                     Ver seguimientos
                   </button>
-                  <button
-                    className="px-4 py-2 rounded-lg bg-white border border-green-600 text-green-700 font-semibold shadow-sm hover:bg-green-50 hover:border-green-700 transition-all text-sm flex items-center gap-2"
-                    onClick={() => mostrarHistorialPagos(proc)}
-                  >
-                    <i className="bi bi-cash-coin"></i>
-                    Ver historial de pagos
-                  </button>
                 </div>
               </div>
             </div>
           </div>
         );
       })}
-      
-      {/* Modal de historial de pagos */}
-      <HistorialPagosModal 
-        proceso={procesoSeleccionado} 
-        isOpen={modalPagosAbierto} 
-        onClose={cerrarHistorialPagos} 
-      />
       
       {/* Modal de seguimientos */}
       <SeguimientosModal 

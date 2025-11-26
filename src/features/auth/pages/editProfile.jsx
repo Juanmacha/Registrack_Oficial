@@ -23,7 +23,9 @@ const EditProfile = () => {
         confirmPassword: "",
         firstName: usuario.nombre || usuario.firstName || '',
         lastName: usuario.apellido || usuario.lastName || '',
-        email: usuario.correo || usuario.email || ''
+        email: usuario.correo || usuario.email || '',
+        documentType: usuario.tipo_documento || usuario.documentType || '',
+        documentNumber: usuario.documento || usuario.documentNumber || ''
       });
     }
   }, [usuario]);
@@ -69,7 +71,9 @@ const EditProfile = () => {
         nombre: formData.firstName,
         apellido: formData.lastName,
         correo: formData.email,
-        telefono: formData.phone || formData.telefono
+        telefono: formData.phone || formData.telefono,
+        tipoDocumento: formData.documentType,
+        documento: formData.documentNumber
       };
 
       // Solo incluir contraseña si se proporcionó
@@ -163,9 +167,13 @@ const EditProfile = () => {
               value={formData.documentType || ''}
               onChange={handleChange}
             >
-              <option value="">Seleccionar...</option>
-              <option value="CC">Cédula</option>
-              <option value="TI">Tarjeta de Identidad</option>
+              <option value="">Tipo de documento</option>
+              <option value="CC">Cédula de ciudadanía</option>
+              <option value="TI">Tarjeta de identidad</option>
+              <option value="CE">Cédula de extranjería</option>
+              <option value="PA">Pasaporte</option>
+              <option value="PEP">Permiso Especial</option>
+              <option value="NIT">NIT</option>
             </select>
             {errors.documentType && <p className="text-sm text-red-500">{errors.documentType}</p>}
           </div>
@@ -188,7 +196,7 @@ const EditProfile = () => {
         <div className="grid md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block font-medium">Correo Electrónico *</label>
-            <input
+            <input  
               type="email"
               value={formData.email || ''}
               readOnly

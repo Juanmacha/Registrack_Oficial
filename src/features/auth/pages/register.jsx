@@ -6,6 +6,7 @@ import alertService from "../../../utils/alertService";
 import { validatePasswordStrength, getPasswordRequirementsShort } from "../../../shared/utils/passwordValidator.js";
 import { sanitizeRegisterData } from "../../../shared/utils/sanitizer.js";
 import { manejarErrorAPI, obtenerMensajeErrorUsuario } from "../../../shared/utils/errorHandler.js";
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste, handleDocumentNumberKeyDown, handlePhoneKeyDown } from "../../../shared/utils/numericInputFilter.js";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -84,6 +85,16 @@ const Register = () => {
       [name]: value,
     }));
     validate(name, value);
+  };
+
+  // Handler específico para campos numéricos (documentNumber)
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleChange);
+  };
+
+  // Handler específico para teléfono (permite +, espacios, guiones, paréntesis)
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleChange);
   };
 
   const isFormValid = () => {
@@ -354,7 +365,9 @@ const Register = () => {
                       type="tel"
                       placeholder="Teléfono (opcional)"
                       value={formData.phone}
-                      onChange={handleChange}
+                      onChange={handlePhoneChangeWrapper}
+                      onKeyDown={handlePhoneKeyDown}
+                      onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -398,7 +411,9 @@ const Register = () => {
                       name="documentNumber"
                       placeholder="Número de documento"
                       value={formData.documentNumber}
-                      onChange={handleChange}
+                      onChange={handleDocumentNumberChangeWrapper}
+                      onKeyDown={handleDocumentNumberKeyDown}
+                      onPaste={(e) => handleNumericPaste(e, {})}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>

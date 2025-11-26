@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { IoClose } from 'react-icons/io5';
 
 /**
  * Componente base para todos los modales del sistema
@@ -142,8 +142,10 @@ const BaseModal = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1">
                     {headerIcon && (
-                      <div className="bg-white bg-opacity-20 p-2 rounded-full flex-shrink-0">
-                        {headerIcon}
+                      <div className="bg-white bg-opacity-40 p-3 rounded-full flex-shrink-0 flex items-center justify-center shadow-lg" style={{ minWidth: '48px', minHeight: '48px', width: '48px', height: '48px' }}>
+                        <div className="flex items-center justify-center w-full h-full">
+                          {headerIcon}
+                        </div>
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -159,10 +161,11 @@ const BaseModal = ({
                   {showCloseButton && (
                     <button
                       onClick={onClose}
-                      className="flex-shrink-0 ml-4 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition-all duration-200 active:scale-95"
+                      className="flex-shrink-0 ml-4 bg-white bg-opacity-40 hover:bg-opacity-60 rounded-full p-2 transition-all duration-200 active:scale-95 flex items-center justify-center shadow-lg"
+                      style={{ minWidth: '50px', minHeight: '50px', width: '50px', height: '50px' }}
                       aria-label="Cerrar modal"
                     >
-                      <X className="w-5 h-5 text-white" />
+                      <IoClose className="w-10 h-10 text-gray-800 font-bold" style={{ strokeWidth: '3' }} />
                     </button>
                   )}
                 </div>

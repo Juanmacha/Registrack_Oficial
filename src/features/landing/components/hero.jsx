@@ -519,9 +519,9 @@ const Hero = () => {
         
         cerrarModal();
         
-        // Recargar página o navegar a Mis Procesos
+        // Navegar a Mis Procesos en lugar de recargar
         setTimeout(() => {
-          window.location.reload();
+          navigate('/dashboard/misProcesos');
         }, 1500);
       }
     } catch (error) {
@@ -765,9 +765,9 @@ const Hero = () => {
         setSolicitudCreada(null);
         cerrarModal();
 
-        // Recargar página después de un breve delay
+        // Navegar a Mis Procesos en lugar de recargar
         setTimeout(() => {
-          window.location.reload();
+          navigate('/dashboard/misProcesos');
         }, 1500);
       } else {
         console.warn("⚠️ [Hero] Pago procesado pero formato de respuesta inesperado:", resultado);
@@ -781,8 +781,9 @@ const Hero = () => {
         setSolicitudCreada(null);
         cerrarModal();
         
+        // Navegar a Mis Procesos en lugar de recargar
         setTimeout(() => {
-          window.location.reload();
+          navigate('/dashboard/misProcesos');
         }, 1500);
       }
     } catch (err) {

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BiEditAlt, BiCheck, BiX, BiArrowBack } from "react-icons/bi";
+import { FiChevronDown } from "react-icons/fi";
 import { useAuth } from "../../../shared/contexts/authContext";
 import { isAdminOrEmployee } from "../../../shared/utils/roleUtils";
 import alertService from "../../../utils/alertService";
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste } from "../../../shared/utils/numericInputFilter.js";
 
 const ProfileContent = () => {
   const { user: usuario, updateUser, loading: authLoading } = useAuth();
@@ -15,11 +17,15 @@ const ProfileContent = () => {
     firstName: '',
     lastName: '',
     email: '',
-    phone: ''
+    phone: '',
+    documentType: '',
+    documentNumber: ''
   });
   const [originalData, setOriginalData] = useState({});
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isDocumentTypeOpen, setIsDocumentTypeOpen] = useState(false);
+  const documentTypeRef = useRef(null);
 
   // Determinar el rol del usuario
   const userRole = usuario?.rol?.nombre || usuario?.role || usuario?.rol || 'cliente';
@@ -50,13 +56,32 @@ const ProfileContent = () => {
         firstName: firstName,
         lastName: lastName,
         email: usuario.correo || usuario.email || '',
-        phone: usuario.telefono || usuario.phone || ''
+        phone: usuario.telefono || usuario.phone || '',
+        documentType: usuario.tipo_documento || usuario.documentType || '',
+        documentNumber: usuario.documento || usuario.documentNumber || ''
       };
       
       setFormData(userData);
       setOriginalData(userData);
     }
   }, [usuario, isEditing]);
+
+  // Cerrar el dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (documentTypeRef.current && !documentTypeRef.current.contains(event.target)) {
+        setIsDocumentTypeOpen(false);
+      }
+    };
+
+    if (isDocumentTypeOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDocumentTypeOpen]);
 
   const fullName = formData.name || `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Usuario';
   const initials = fullName.split(' ').map(n => n.charAt(0)).join('').toUpperCase().slice(0, 2);
@@ -71,6 +96,14 @@ const ProfileContent = () => {
 
     if (!data.lastName.trim()) {
       newErrors.lastName = 'El apellido es requerido';
+    }
+
+    if (!data.documentType?.trim()) {
+      newErrors.documentType = 'El tipo de documento es requerido';
+    }
+
+    if (!data.documentNumber?.trim()) {
+      newErrors.documentNumber = 'El número de documento es requerido';
     }
 
     if (!data.email.trim()) {
@@ -105,9 +138,49 @@ const ProfileContent = () => {
     }
   };
 
+  // Handler específico para campos numéricos (documentNumber)
+  const handleDocumentNumberChangeWrapper = (e) => {
+    handleDocumentNumberChange(e, handleInputChange);
+  };
+
+  // Handler específico para teléfono (permite +, espacios, guiones, paréntesis)
+  const handlePhoneChangeWrapper = (e) => {
+    handlePhoneChange(e, handleInputChange);
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
     setErrors({});
+  };
+
+  const documentTypeOptions = [
+    { value: '', label: 'Tipo de documento' },
+    { value: 'CC', label: 'Cédula de ciudadanía' },
+    { value: 'TI', label: 'Tarjeta de identidad' },
+    { value: 'CE', label: 'Cédula de extranjería' },
+    { value: 'PA', label: 'Pasaporte' },
+    { value: 'PEP', label: 'Permiso Especial' },
+    { value: 'NIT', label: 'NIT' }
+  ];
+
+  const handleDocumentTypeSelect = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      documentType: value
+    }));
+    setIsDocumentTypeOpen(false);
+    // Limpiar error del campo
+    if (errors.documentType) {
+      setErrors(prev => ({
+        ...prev,
+        documentType: ''
+      }));
+    }
+  };
+
+  const getDocumentTypeLabel = () => {
+    const option = documentTypeOptions.find(opt => opt.value === formData.documentType);
+    return option ? option.label : 'Tipo de documento';
   };
 
   const handleCancel = () => {
@@ -129,7 +202,9 @@ const ProfileContent = () => {
       const updatedData = {
         nombre: formData.firstName,
         apellido: formData.lastName,
-        correo: formData.email
+        correo: formData.email,
+        tipoDocumento: formData.documentType,
+        documento: formData.documentNumber
       };
 
       // Incluir teléfono si se proporciona
@@ -215,7 +290,7 @@ const ProfileContent = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
       {/* Botón de volver atrás para clientes */}
       {isClient && (
         <div className="px-6 pt-4 pb-2">
@@ -257,7 +332,7 @@ const ProfileContent = () => {
       </div>
 
       {/* Contenido del formulario */}
-      <div className="p-6">
+      <div className="p-6" style={{ overflow: 'visible' }}>
         {/* Sección de información personal */}
         <div className="mb-6">
           <div className="flex items-center mb-4">
@@ -270,7 +345,7 @@ const ProfileContent = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ overflow: 'visible' }}>
             {/* Primera fila: Nombre y Apellido */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -324,7 +399,85 @@ const ProfileContent = () => {
               </div>
             </div>
 
-            {/* Segunda fila: Email y Teléfono */}
+            {/* Segunda fila: Tipo de Documento y Número de Documento */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative" ref={documentTypeRef}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-card-text text-gray-400 mr-2"></i>
+                  Tipo de Documento <span className="text-red-500">*</span>
+                </label>
+                {!isEditing ? (
+                  <div className="w-full px-2 py-1.5 text-sm border rounded-lg bg-gray-50 cursor-not-allowed border-gray-200">
+                    {getDocumentTypeLabel()}
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => isEditing && setIsDocumentTypeOpen(!isDocumentTypeOpen)}
+                      disabled={!isEditing}
+                      className={`w-full px-2 py-1.5 text-sm border rounded-lg shadow-sm transition-all text-left flex items-center justify-between ${
+                        errors.documentType 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                          : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      } ${!isEditing ? 'bg-gray-50 cursor-not-allowed border-gray-200' : ''}`}
+                    >
+                      <span className={formData.documentType ? '' : 'text-gray-400'}>
+                        {getDocumentTypeLabel()}
+                      </span>
+                      <FiChevronDown className={`text-gray-400 transition-transform duration-200 ${isDocumentTypeOpen ? 'rotate-180' : ''}`} style={{ width: '1rem', height: '1rem', flexShrink: 0 }} />
+                    </button>
+                    {isDocumentTypeOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                        {documentTypeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleDocumentTypeSelect(option.value)}
+                            className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${
+                              formData.documentType === option.value ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                            } ${option.value === '' ? 'text-gray-400' : ''}`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                {errors.documentType && (
+                  <p className="text-red-600 text-xs mt-1">{errors.documentType}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <i className="bi bi-123 text-gray-400 mr-2"></i>
+                  Número de Documento <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="documentNumber"
+                  value={formData.documentNumber || ''}
+                  onChange={handleDocumentNumberChangeWrapper}
+                  onPaste={(e) => handleNumericPaste(e, {})}
+                  disabled={!isEditing}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
+                    isEditing
+                      ? errors.documentNumber 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 bg-white'
+                        : 'border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  }`}
+                  placeholder="Ingresa tu número de documento"
+                />
+                {errors.documentNumber && (
+                  <p className="text-red-600 text-xs mt-1">{errors.documentNumber}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Tercera fila: Email y Teléfono */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -361,7 +514,8 @@ const ProfileContent = () => {
                   type="tel" 
                   name="phone"
                   value={formData.phone || ''}
-                  onChange={handleInputChange}
+                  onChange={handlePhoneChangeWrapper}
+                  onPaste={(e) => handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true })}
                   disabled={!isEditing}
                   className={`w-full px-3 py-2 border rounded-lg shadow-sm transition-all ${
                     isEditing

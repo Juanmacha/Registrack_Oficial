@@ -47,7 +47,7 @@ const ViewProfile = () => {
     return (
       <div className="min-h-screen bg-gray-100">
         <ClientNavbar title="Mi Perfil" />
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 py-8" style={{ overflow: 'visible' }}>
           <ProfileContent />
         </div>
       </div>
@@ -58,7 +58,7 @@ const ViewProfile = () => {
   // el AdminLayout ya maneja el sidebar, solo renderizamos el contenido
   if (isAdminRoute) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8" style={{ overflow: 'visible' }}>
         <ProfileContent />
       </div>
     );
@@ -68,7 +68,7 @@ const ViewProfile = () => {
   // (esto no debería ocurrir, pero por si acaso)
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8" style={{ overflow: 'visible' }}>
         <ProfileContent />
       </div>
     </div>

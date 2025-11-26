@@ -129,10 +129,8 @@ const PagosPendientesCard = ({ proceso, onPagoExitoso }) => {
         onPagoExitoso();
       }
       
-      // Recargar página después de un breve delay para mostrar los cambios
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // No recargar la página, solo cerrar el modal
+      // Los datos se actualizarán mediante onPagoExitoso
     } catch (error) {
       console.error('❌ [PagosPendientesCard] Error al procesar pago:', error);
       await alertService.error(

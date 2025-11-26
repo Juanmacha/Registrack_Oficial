@@ -217,8 +217,8 @@ const GestionClientes = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-2 sm:px-4 mb-4 w-full">
           <input
             type="text"
-            placeholder="Buscar"
-            className="form-control w-full sm:w-64 h-9 text-sm border border-gray-300 rounded-md px-3"
+            placeholder="Buscar por nombre, apellido, documento, email, teléfono, marca, razón social..."
+            className="form-control w-50 h-9 text-sm border border-gray-300 rounded-md px-3"
             value={busqueda}
             onChange={(e) => {
               setBusqueda(e.target.value);

@@ -43,6 +43,7 @@ import { FaCalendarAlt, FaUser, FaPhone, FaFileAlt, FaBriefcase, FaDownload, FaS
 import { Dialog } from "@headlessui/react";
 import * as XLSX from "xlsx";
 import "../../../../styles/fullcalendar-custom.css";
+import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste, handleDocumentNumberKeyDown, handlePhoneKeyDown } from "../../../../shared/utils/numericInputFilter.js";
 
 
 const Calendario = () => {
@@ -97,6 +98,14 @@ const Calendario = () => {
   const [clientes, setClientes] = useState([]);
   const [cargandoClientes, setCargandoClientes] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [busquedaCliente, setBusquedaCliente] = useState("");
+  const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
+  const clienteSearchRef = useRef(null);
+  
+  // ✅ Estados para buscador de empleados
+  const [busquedaEmpleado, setBusquedaEmpleado] = useState("");
+  const [mostrarListaEmpleados, setMostrarListaEmpleados] = useState(false);
+  const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState(null);
   
   // Función para refrescar citas cuando se crea desde solicitud
   const handleCitaCreadaDesdeSolicitud = async () => {
@@ -121,6 +130,66 @@ const Calendario = () => {
     }
   };
 
+  // ✅ Función para normalizar texto para búsqueda
+  const normalizarTexto = (texto) => {
+    if (!texto) return '';
+    return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // ✅ Función para filtrar clientes según búsqueda
+  const clientesFiltrados = clientes.filter((cliente) => {
+    if (!busquedaCliente.trim()) return true;
+    
+    const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
+    const documento = cliente.documento || '';
+    const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || '';
+    const correo = cliente.correo || cliente.email || '';
+    const telefono = cliente.telefono || '';
+    
+    const textoBusqueda = `${nombreCompleto} ${documento} ${tipoDoc} ${correo} ${telefono}`;
+    return normalizarTexto(textoBusqueda).includes(normalizarTexto(busquedaCliente));
+  });
+
+  // ✅ Función para filtrar empleados según búsqueda
+  const empleadosFiltrados = empleadosActivos.filter((emp) => {
+    if (!busquedaEmpleado.trim()) return true;
+    
+    const nombreCompleto = emp.nombreCompleto || '';
+    const documento = emp.cedula || emp.documento || '';
+    
+    const textoBusqueda = `${nombreCompleto} ${documento}`;
+    return normalizarTexto(textoBusqueda).includes(normalizarTexto(busquedaEmpleado));
+  });
+
+  // ✅ Manejar selección de empleado desde el buscador
+  const handleSeleccionarEmpleado = (empleado) => {
+    setEmpleadoSeleccionado(empleado);
+    setFormData(prev => ({ 
+      ...prev, 
+      asesor: empleado.nombreCompleto 
+    }));
+    setBusquedaEmpleado(`${empleado.nombreCompleto} ${empleado.cedula ? `- ${empleado.cedula}` : ''}`);
+    setMostrarListaEmpleados(false);
+    
+    // Limpiar error del campo
+    if (errores.asesor) {
+      setErrores(prev => ({ ...prev, asesor: undefined }));
+    }
+  };
+
+  // ✅ Manejar cambio en el input de búsqueda de empleado
+  const handleBusquedaEmpleadoChange = (e) => {
+    const valor = e.target.value;
+    setBusquedaEmpleado(valor);
+    setMostrarListaEmpleados(true);
+    
+    // Si se limpia el input, limpiar también la selección
+    if (!valor.trim()) {
+      setEmpleadoSeleccionado(null);
+      setFormData(prev => ({ ...prev, asesor: '' }));
+    }
+  };
+
   // ✅ Función para autocompletar datos del cliente seleccionado
   const autocompletarDatosCliente = (cliente) => {
     if (!cliente) {
@@ -133,10 +202,17 @@ const Calendario = () => {
         tipoDocumento: "",
         telefono: "",
       }));
+      setBusquedaCliente("");
+      setMostrarListaClientes(false);
       return;
     }
     
     setClienteSeleccionado(cliente);
+    const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
+    const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || 'CC';
+    const documento = cliente.documento || '';
+    setBusquedaCliente(`${nombreCompleto} - ${tipoDoc} ${documento}`);
+    setMostrarListaClientes(false);
     setFormData(prev => ({
       ...prev,
       nombre: cliente.nombre || '',
@@ -151,6 +227,20 @@ const Calendario = () => {
     }));
   };
 
+  // ✅ Cerrar lista de clientes al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (clienteSearchRef.current && !clienteSearchRef.current.contains(event.target)) {
+        setMostrarListaClientes(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // ✅ Cargar clientes cuando se abre el modal
   useEffect(() => {
     if (showModal && !modoReprogramar) {
@@ -159,6 +249,8 @@ const Calendario = () => {
       // Limpiar al cerrar el modal
       setClienteSeleccionado(null);
       setClientes([]);
+      setBusquedaCliente("");
+      setMostrarListaClientes(false);
     }
   }, [showModal, modoReprogramar]);
 
@@ -956,6 +1048,10 @@ const Calendario = () => {
       asesor: "",
       detalle: "",
     });
+    // Limpiar estados del buscador de empleados
+    setBusquedaEmpleado("");
+    setMostrarListaEmpleados(false);
+    setEmpleadoSeleccionado(null);
     
     setErrores({});
     setTouched({});
@@ -968,6 +1064,11 @@ const Calendario = () => {
     setModalDate(null);
     setClienteSeleccionado(null); // ✅ Resetear cliente seleccionado
     setClientes([]); // ✅ Limpiar lista de clientes
+    setBusquedaCliente(""); // ✅ Limpiar búsqueda de cliente
+    setMostrarListaClientes(false); // ✅ Ocultar lista de clientes
+    setBusquedaEmpleado(""); // ✅ Limpiar búsqueda de empleado
+    setMostrarListaEmpleados(false); // ✅ Ocultar lista de empleados
+    setEmpleadoSeleccionado(null); // ✅ Resetear empleado seleccionado
     setFormData({
       nombre: "",
       apellido: "",
@@ -1083,6 +1184,26 @@ const Calendario = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setTouched(prev => ({ ...prev, [name]: true }));
     setErrores(validarCampos({ ...formData, [name]: value }));
+  };
+
+  // Handler específico para número de documento (cedula) con filtrado numérico
+  const handleDocumentNumberChangeWrapper = (e) => {
+    // Solo aplicar filtrado si el campo NO es readonly
+    if (!e.target.readOnly) {
+      handleDocumentNumberChange(e, handleInputChange);
+    } else {
+      handleInputChange(e);
+    }
+  };
+
+  // Handler específico para teléfono con filtrado numérico
+  const handlePhoneChangeWrapper = (e) => {
+    // Solo aplicar filtrado si el campo NO es readonly
+    if (!e.target.readOnly) {
+      handlePhoneChange(e, handleInputChange);
+    } else {
+      handleInputChange(e);
+    }
   };
 
   const handleBlur = (e) => {
@@ -1351,7 +1472,7 @@ const Calendario = () => {
 
             {/* Formulario en dos columnas */}
             <form onSubmit={handleGuardarCita} className="p-4 space-y-4">
-              {/* ✅ Selector de Clientes (solo en modo crear) */}
+              {/* ✅ Selector de Clientes con Búsqueda (solo en modo crear) */}
               {!modoReprogramar && (
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1369,23 +1490,98 @@ const Calendario = () => {
                       </p>
                     </div>
                   ) : (
-                    <select
-                      value={clienteSeleccionado?.id_cliente || ''}
-                      onChange={(e) => {
-                        const idSeleccionado = parseInt(e.target.value);
-                        const cliente = clientes.find(c => c.id_cliente === idSeleccionado);
-                        autocompletarDatosCliente(cliente);
-                      }}
-                      className="w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      required
-                    >
-                      <option value="">Seleccionar cliente...</option>
-                      {clientes.map((cliente) => (
-                        <option key={cliente.id_cliente} value={cliente.id_cliente}>
-                          {cliente.nombre} {cliente.apellido} - {cliente.tipoDocumento || cliente.tipo_documento || 'CC'} {cliente.documento}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative" ref={clienteSearchRef}>
+                      {/* Input de búsqueda */}
+                      <div className="relative">
+                        <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={busquedaCliente}
+                          onChange={(e) => {
+                            setBusquedaCliente(e.target.value);
+                            setMostrarListaClientes(true);
+                            if (!e.target.value) {
+                              setClienteSeleccionado(null);
+                              autocompletarDatosCliente(null);
+                            }
+                          }}
+                          onFocus={() => setMostrarListaClientes(true)}
+                          placeholder="Buscar cliente por nombre, documento, email o teléfono..."
+                          className="w-full border-2 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          required={!clienteSeleccionado}
+                        />
+                        {clienteSeleccionado && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setClienteSeleccionado(null);
+                              setBusquedaCliente("");
+                              autocompletarDatosCliente(null);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
+                            title="Limpiar selección"
+                          >
+                            <FaTrash className="text-sm" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Lista desplegable de clientes filtrados */}
+                      {mostrarListaClientes && clientesFiltrados.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {clientesFiltrados.map((cliente) => {
+                            const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
+                            const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || 'CC';
+                            const documento = cliente.documento || '';
+                            const textoMostrar = `${nombreCompleto} - ${tipoDoc} ${documento}`;
+                            const esSeleccionado = clienteSeleccionado?.id_cliente === cliente.id_cliente;
+                            
+                            return (
+                              <button
+                                key={cliente.id_cliente}
+                                type="button"
+                                onClick={() => autocompletarDatosCliente(cliente)}
+                                className={`w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors ${
+                                  esSeleccionado ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium">{nombreCompleto}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {tipoDoc} {documento}
+                                      {cliente.correo || cliente.email ? ` • ${cliente.correo || cliente.email}` : ''}
+                                      {cliente.telefono ? ` • ${cliente.telefono}` : ''}
+                                    </div>
+                                  </div>
+                                  {esSeleccionado && (
+                                    <FaSearch className="text-blue-600" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Mensaje cuando no hay resultados */}
+                      {mostrarListaClientes && busquedaCliente.trim() && clientesFiltrados.length === 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg p-4">
+                          <p className="text-sm text-gray-500 text-center">
+                            No se encontraron clientes que coincidan con "{busquedaCliente}"
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Validación visual si es requerido y no hay selección */}
+                      {!clienteSeleccionado && (
+                        <input
+                          type="hidden"
+                          value=""
+                          required
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1495,7 +1691,17 @@ const Calendario = () => {
                   <input
                     type="text"
                     name="cedula"
-                    onChange={handleInputChange}
+                    onChange={handleDocumentNumberChangeWrapper}
+                    onKeyDown={(e) => {
+                      if (!e.target.readOnly) {
+                        handleDocumentNumberKeyDown(e);
+                      }
+                    }}
+                    onPaste={(e) => {
+                      if (!e.target.readOnly) {
+                        handleNumericPaste(e, {});
+                      }
+                    }}
                     onBlur={handleBlur}
                     className="w-full px-2 py-1.5 border rounded-md shadow-sm bg-gray-100 focus:ring-2 focus:ring-blue-500 text-sm"
                     value={formData.cedula}
@@ -1530,7 +1736,17 @@ const Calendario = () => {
                         <input
                           type="text"
                           name="telefono"
-                          onChange={handleInputChange}
+                          onChange={handlePhoneChangeWrapper}
+                          onKeyDown={(e) => {
+                            if (!e.target.readOnly) {
+                              handlePhoneKeyDown(e);
+                            }
+                          }}
+                          onPaste={(e) => {
+                            if (!e.target.readOnly) {
+                              handleNumericPaste(e, { allowPlus: true, allowSpaces: true, allowDashes: true, allowParentheses: true });
+                            }
+                          }}
                           onBlur={handleBlur}
                           className={`w-full px-2 py-1.5 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 text-sm ${
                             esTelefonoReadonly ? 'bg-gray-100' : 'bg-white'
@@ -1616,8 +1832,8 @@ const Calendario = () => {
                   </select>
                   {touched.horaFin && errores.horaFin && <p className="text-red-600 text-xs mt-1">{errores.horaFin}</p>}
                 </div>
-                {/* Asesor */}
-                <div>
+                {/* Asesor - Buscador */}
+                <div className="relative">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     <FaUser className="inline text-gray-400 mr-1" /> Asesor <span className="text-gray-500">*</span>
                     {loadingEmpleados && (
@@ -1626,23 +1842,80 @@ const Calendario = () => {
                       </span>
                     )}
                   </label>
-                  <select
-                    name="asesor"
-                    onChange={handleInputChange}
-                    onBlur={handleBlur}
-                    disabled={loadingEmpleados || (!modoReprogramar ? false : !modoReprogramar ? false : false)}
-                    className={`w-full px-2 py-1.5 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 text-sm ${loadingEmpleados ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    value={formData.asesor}
-                  >
-                    <option value="">
-                      {loadingEmpleados ? 'Cargando empleados...' : 'Seleccionar...'}
-                    </option>
-                    {empleadosActivos.map(e => (
-                      <option key={e.id_empleado || e.cedula} value={e.nombreCompleto}>
-                        {e.nombreCompleto} {e.cedula ? `- ${e.cedula}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  
+                  {/* Input de búsqueda */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar empleado por nombre o documento..."
+                      value={busquedaEmpleado}
+                      onChange={handleBusquedaEmpleadoChange}
+                      onFocus={() => setMostrarListaEmpleados(true)}
+                      onBlur={() => {
+                        // Delay para permitir click en la lista
+                        setTimeout(() => setMostrarListaEmpleados(false), 200);
+                      }}
+                      disabled={loadingEmpleados || empleadosActivos.length === 0}
+                      className={`w-full px-2 py-1.5 pl-8 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm ${
+                        loadingEmpleados || empleadosActivos.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                      } ${touched.asesor && errores.asesor ? 'border-red-500' : 'border-gray-300'}`}
+                    />
+                    <i className="bi bi-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    
+                    {/* Botón para limpiar búsqueda */}
+                    {busquedaEmpleado && !loadingEmpleados && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBusquedaEmpleado('');
+                          setEmpleadoSeleccionado(null);
+                          setFormData(prev => ({ ...prev, asesor: '' }));
+                          setMostrarListaEmpleados(false);
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <i className="bi bi-x-circle text-xs"></i>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista desplegable de empleados filtrados */}
+                  {mostrarListaEmpleados && !loadingEmpleados && empleadosFiltrados.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {empleadosFiltrados.map(emp => (
+                        <div
+                          key={emp.id_empleado || emp.cedula}
+                          onClick={() => handleSeleccionarEmpleado(emp)}
+                          className={`px-3 py-2 cursor-pointer hover:bg-blue-50 transition-colors text-sm ${
+                            empleadoSeleccionado?.id_empleado === emp.id_empleado ? 'bg-blue-100' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-800">{emp.nombreCompleto}</p>
+                              {emp.cedula && (
+                                <p className="text-xs text-gray-500">CC {emp.cedula}</p>
+                              )}
+                            </div>
+                            {empleadoSeleccionado?.id_empleado === emp.id_empleado && (
+                              <i className="bi bi-check-circle text-blue-600"></i>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mensaje cuando no hay resultados */}
+                  {mostrarListaEmpleados && !loadingEmpleados && busquedaEmpleado.trim() && empleadosFiltrados.length === 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
+                      <p className="text-xs text-gray-500 text-center">
+                        No se encontraron empleados que coincidan con "{busquedaEmpleado}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Mensajes de estado */}
                   {loadingEmpleados && empleadosActivos.length === 0 && (
                     <p className="text-blue-600 text-xs mt-1 flex items-center">
                       <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
@@ -1656,6 +1929,19 @@ const Calendario = () => {
                     </p>
                   )}
                   {touched.asesor && errores.asesor && <p className="text-red-600 text-xs mt-1">{errores.asesor}</p>}
+
+                  {/* Mostrar empleado seleccionado */}
+                  {empleadoSeleccionado && !mostrarListaEmpleados && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-xs font-medium text-gray-700">
+                        <i className="bi bi-check-circle text-blue-600 mr-1"></i>
+                        Asesor seleccionado: <span className="font-semibold">{empleadoSeleccionado.nombreCompleto}</span>
+                      </p>
+                      {empleadoSeleccionado.cedula && (
+                        <p className="text-xs text-gray-500 mt-0.5">CC {empleadoSeleccionado.cedula}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Detalle */}
                 <div className="md:col-span-2">
@@ -1709,6 +1995,14 @@ const Calendario = () => {
               asesor: citaSeleccionada.asesor,
               detalle: citaSeleccionada.detalle,
             });
+            // Establecer empleado seleccionado si existe
+            if (citaSeleccionada.asesor && empleadosActivos.length > 0) {
+              const empleado = empleadosActivos.find(emp => emp.nombreCompleto === citaSeleccionada.asesor);
+              if (empleado) {
+                setEmpleadoSeleccionado(empleado);
+                setBusquedaEmpleado(`${empleado.nombreCompleto} ${empleado.cedula ? `- ${empleado.cedula}` : ''}`);
+              }
+            }
           }}
           onAnular={handleAnularCitaModal}
           puedeReprogramar={puedeModificar && citaSeleccionada?.estado !== "Cita anulada"}

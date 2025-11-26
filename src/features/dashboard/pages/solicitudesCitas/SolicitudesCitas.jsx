@@ -122,7 +122,7 @@ const SolicitudesCitas = () => {
         <div className="flex items-center justify-between px-4 mb-4 w-full">
           <input
             type="text"
-            placeholder="Buscar"
+            placeholder="Buscar por nombre cliente, apellido, email, tipo de cita, estado, descripción..."
             className="form-control w-50 h-9 text-sm border border-gray-300 rounded-md px-3"
             value={busqueda}
             onChange={(e) => {
@@ -251,12 +251,14 @@ const SolicitudesCitas = () => {
                         <div className="flex items-center space-x-2">
                           <i className="bi bi-card-text text-gray-400"></i>
                           <span className="text-gray-600">Documento:</span>
-                          <span className="font-medium text-gray-800">{selectedSolicitud.cliente?.documento || 'N/A'}</span>
+                          <span className="font-medium text-gray-800">
+                            {selectedSolicitud.cliente?.tipo_documento || selectedSolicitud.cliente?.tipoDocumento || 'CC'} {selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento || 'N/A'}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <i className="bi bi-telephone text-gray-400"></i>
                           <span className="text-gray-600">Teléfono:</span>
-                          <span className="font-medium text-gray-800">{selectedSolicitud.telefono || "No disponible"}</span>
+                          <span className="font-medium text-gray-800">{selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono || "No disponible"}</span>
                         </div>
                       </div>
                     </div>

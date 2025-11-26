@@ -95,11 +95,49 @@ const ListaCitas = () => {
 
   const citasFiltradas = citas.filter((cita) => {
     const cliente = cita.cliente?.nombre || '';
-    const empleado = cita.empleado?.nombre || '';
+    // Buscar cédula/documento del cliente en múltiples campos posibles y convertir a string
+    // Manejar valores null/undefined correctamente
+    let cedulaCliente = '';
+    if (cita.cliente?.documento) {
+      cedulaCliente = String(cita.cliente.documento);
+    } else if (cita.cliente?.cedula) {
+      cedulaCliente = String(cita.cliente.cedula);
+    } else if (cita.cliente?.numero_documento) {
+      cedulaCliente = String(cita.cliente.numero_documento);
+    } else if (cita.cliente?.numeroDocumento) {
+      cedulaCliente = String(cita.cliente.numeroDocumento);
+    } else if (cita.cliente?.numero_cedula) {
+      cedulaCliente = String(cita.cliente.numero_cedula);
+    } else if (cita.cliente?.numeroCedula) {
+      cedulaCliente = String(cita.cliente.numeroCedula);
+    } else if (cita.documento) {
+      cedulaCliente = String(cita.documento);
+    } else if (cita.cedula) {
+      cedulaCliente = String(cita.cedula);
+    }
+    
+    // Buscar nombre del empleado/asesor
+    const empleado = cita.empleado?.nombre || cita.empleado?.nombre_completo || '';
+    const apellidoEmpleado = cita.empleado?.apellido || '';
+    const nombreCompletoEmpleado = `${empleado} ${apellidoEmpleado}`.trim();
+    
+    // Buscar documento del empleado/asesor en múltiples campos posibles
+    let documentoEmpleado = '';
+    if (cita.empleado?.documento) {
+      documentoEmpleado = String(cita.empleado.documento);
+    } else if (cita.empleado?.cedula) {
+      documentoEmpleado = String(cita.empleado.cedula);
+    } else if (cita.empleado?.numero_documento) {
+      documentoEmpleado = String(cita.empleado.numero_documento);
+    } else if (cita.empleado?.numeroDocumento) {
+      documentoEmpleado = String(cita.empleado.numeroDocumento);
+    }
+    
     const tipo = cita.tipo || '';
     const estado = cita.estado || '';
     
-    const texto = `${cliente} ${empleado} ${tipo} ${estado}`;
+    // Incluir tanto documento del cliente como del empleado/asesor en la búsqueda
+    const texto = `${cliente} ${cedulaCliente} ${nombreCompletoEmpleado} ${documentoEmpleado} ${tipo} ${estado}`;
     const cumpleBusqueda = normalizarTexto(texto).includes(normalizarTexto(busqueda));
     const cumpleEstado = !filterEstado || cita.estado === filterEstado;
     const cumpleTipo = !filterTipo || cita.tipo === filterTipo;
@@ -270,230 +308,243 @@ const ListaCitas = () => {
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="mb-6 flex gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por cliente, empleado, tipo o estado..."
-                value={busqueda}
+        <div className="flex gap-6">
+          {/* Filtros a la izquierda */}
+          <div className="w-1/4 p-4 bg-white rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Filtros</h2>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cliente, documento cliente, asesor, documento asesor..."
+                  value={busqueda}
+                  onChange={(e) => {
+                    setBusqueda(e.target.value);
+                    setPaginaActual(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Estado de la Cita</label>
+              <select
+                value={filterEstado}
                 onChange={(e) => {
-                  setBusqueda(e.target.value);
+                  setFilterEstado(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos los estados</option>
+                {estadosCita.map(estado => (
+                  <option key={estado} value={estado}>{estado}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Cita</label>
+              <select
+                value={filterTipo}
+                onChange={(e) => {
+                  setFilterTipo(e.target.value);
+                  setPaginaActual(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos los tipos</option>
+                {tiposCita.map(tipo => (
+                  <option key={tipo} value={tipo}>{tipo}</option>
+                ))}
+              </select>
             </div>
           </div>
-          
-          <select
-            value={filterEstado}
-            onChange={(e) => {
-              setFilterEstado(e.target.value);
-              setPaginaActual(1);
-            }}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todos los estados</option>
-            {estadosCita.map(estado => (
-              <option key={estado} value={estado}>{estado}</option>
-            ))}
-          </select>
-          
-          <select
-            value={filterTipo}
-            onChange={(e) => {
-              setFilterTipo(e.target.value);
-              setPaginaActual(1);
-            }}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Todos los tipos</option>
-            {tiposCita.map(tipo => (
-              <option key={tipo} value={tipo}>{tipo}</option>
-            ))}
-          </select>
-        </div>
 
-        {/* Tabla */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Horario
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Modalidad
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Empleado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center">
-                        <FaSync className="animate-spin mr-2" />
-                        <span>Cargando citas...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : citasPagina.length > 0 ? (
-                  citasPagina.map((cita) => (
-                    <tr key={cita.id_cita || cita.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <FaUser className="h-5 w-5 text-blue-600" />
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {cita.cliente?.nombre || 'N/A'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {cita.cliente?.correo || 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cita.fecha ? new Date(cita.fecha).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <FaClock className="h-4 w-4 text-gray-400 mr-1" />
-                          {cita.hora_inicio} - {cita.hora_fin}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {normalizarTipoCita(cita.tipo)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cita.modalidad || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoBadge(cita.estado)}`}>
-                          {cita.estado || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cita.empleado?.nombre || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleReprogramar(cita)}
-                            className="text-blue-600 hover:text-blue-900 p-1"
-                            title="Reprogramar"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            onClick={() => handleAnular(cita)}
-                            className="text-red-600 hover:text-red-900 p-1"
-                            title="Anular"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </td>
+          {/* Tabla a la derecha */}
+          <div className="w-3/4">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cliente
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Horario
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tipo
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Modalidad
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Empleado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                      No hay citas programadas
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginación */}
-          {totalPaginas > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="flex-1 flex justify-between sm:hidden">
-                <button
-                  onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
-                  disabled={paginaActual === 1}
-                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
-                  disabled={paginaActual === totalPaginas}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Siguiente
-                </button>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="8" className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center">
+                            <FaSync className="animate-spin mr-2" />
+                            <span>Cargando citas...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : citasPagina.length > 0 ? (
+                      citasPagina.map((cita) => (
+                        <tr key={cita.id_cita || cita.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <FaUser className="h-5 w-5 text-blue-600" />
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {cita.cliente?.nombre || 'N/A'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {cita.cliente?.correo || 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {cita.fecha ? new Date(cita.fecha).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex items-center">
+                              <FaClock className="h-4 w-4 text-gray-400 mr-1" />
+                              {cita.hora_inicio} - {cita.hora_fin}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {normalizarTipoCita(cita.tipo)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {cita.modalidad || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoBadge(cita.estado)}`}>
+                              {cita.estado || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {cita.empleado?.nombre || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleReprogramar(cita)}
+                                className="text-blue-600 hover:text-blue-900 p-1"
+                                title="Reprogramar"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                onClick={() => handleAnular(cita)}
+                                className="text-red-600 hover:text-red-900 p-1"
+                                title="Anular"
+                              >
+                                <FaTrash />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No hay citas programadas
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Mostrando <span className="font-medium">{indiceInicio + 1}</span> a{' '}
-                    <span className="font-medium">{Math.min(indiceFin, citasFiltradas.length)}</span> de{' '}
-                    <span className="font-medium">{citasFiltradas.length}</span> resultados
-                  </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+
+              {/* Paginación */}
+              {totalPaginas > 1 && (
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                  <div className="flex-1 flex justify-between sm:hidden">
                     <button
                       onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
                       disabled={paginaActual === 1}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                     >
                       Anterior
                     </button>
-                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
-                      <button
-                        key={pagina}
-                        onClick={() => setPaginaActual(pagina)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          pagina === paginaActual
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pagina}
-                      </button>
-                    ))}
                     <button
                       onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
                       disabled={paginaActual === totalPaginas}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                     >
                       Siguiente
                     </button>
-                  </nav>
+                  </div>
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Mostrando <span className="font-medium">{indiceInicio + 1}</span> a{' '}
+                        <span className="font-medium">{Math.min(indiceFin, citasFiltradas.length)}</span> de{' '}
+                        <span className="font-medium">{citasFiltradas.length}</span> resultados
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                          disabled={paginaActual === 1}
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Anterior
+                        </button>
+                        {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
+                          <button
+                            key={pagina}
+                            onClick={() => setPaginaActual(pagina)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              pagina === paginaActual
+                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pagina}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                          disabled={paginaActual === totalPaginas}
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Siguiente
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

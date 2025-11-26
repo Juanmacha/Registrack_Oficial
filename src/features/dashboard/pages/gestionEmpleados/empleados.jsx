@@ -370,26 +370,23 @@ const Empleados = () => {
           <div className="w-full px-4">
             {/* === Barra superior === */}
             <div className="flex items-center justify-between px-4 mb-4 w-full">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  placeholder="Buscar empleados..."
-                  className="w-80 h-10 text-sm border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={busqueda}
-                  onChange={(e) => {
-                    setBusqueda(e.target.value);
-                    setPaginaActual(1);
-                  }}
-                />
-                
-                
-                {loading && (
-                  <div className="flex items-center gap-2 text-blue-600">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-xs">Cargando...</span>
-                  </div>
-                )}
-              </div>
+              <input
+                type="text"
+                placeholder="Buscar por nombre, apellido, documento, rol..."
+                className="form-control w-50 h-9 text-sm border border-gray-300 rounded-md px-3"
+                value={busqueda}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  setPaginaActual(1);
+                }}
+              />
+              
+              {loading && (
+                <div className="flex items-center gap-2 text-blue-600 mr-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-xs">Cargando...</span>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <DescargarExcelEmpleados empleados={datosEmpleados} />

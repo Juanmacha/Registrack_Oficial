@@ -9,12 +9,12 @@ import { useNavigate } from 'react-router-dom';
  * Modal de recuperación de pago después de un timeout
  * Permite verificar si la solicitud se creó y procesar el pago
  */
-const ModalRecuperacionPago = ({ 
-  isOpen, 
-  onClose, 
+const ModalRecuperacionPago = ({
+  isOpen,
+  onClose,
   tipoSolicitud = null,
   onPagoEncontrado,
-  onProcesarPago 
+  onProcesarPago
 }) => {
   const [verificando, setVerificando] = useState(false);
   const [solicitudEncontrada, setSolicitudEncontrada] = useState(null);
@@ -47,11 +47,11 @@ const ModalRecuperacionPago = ({
 
       if (solicitud) {
         const infoPago = extraerInfoPago(solicitud);
-        
+
         if (infoPago) {
           console.log('✅ [ModalRecuperacionPago] Solicitud encontrada:', infoPago);
           setSolicitudEncontrada(infoPago);
-          
+
           // Notificar al componente padre si hay callback
           if (onPagoEncontrado) {
             onPagoEncontrado(infoPago);
@@ -76,7 +76,7 @@ const ModalRecuperacionPago = ({
     if (!solicitudEncontrada) return;
 
     console.log('🔧 [ModalRecuperacionPago] Procesando pago para:', solicitudEncontrada);
-    
+
     // Si hay callback personalizado, usarlo
     if (onProcesarPago) {
       onProcesarPago(solicitudEncontrada);
@@ -131,7 +131,7 @@ const ModalRecuperacionPago = ({
       title="Recuperar Pago Pendiente"
       subtitle="Verificando si tu solicitud se creó correctamente..."
       headerGradient="orange"
-      headerIcon={<AlertCircle className="w-6 h-6 text-white" />}
+      headerIcon={<AlertCircle className="w-6 h-6 text-red-600" />}
       footerActions={footerActions}
       maxWidth="2xl"
       closeOnBackdropClick={!verificando}
@@ -170,7 +170,7 @@ const ModalRecuperacionPago = ({
                   <p className="text-gray-700 mb-4">
                     Tu solicitud se creó correctamente y está pendiente de pago. Puedes completar el pago ahora para activarla.
                   </p>
-                  
+
                   <div className="bg-white rounded-lg p-4 space-y-2 border border-green-100">
                     {solicitudEncontrada.nombreMarca && (
                       <div className="flex justify-between">

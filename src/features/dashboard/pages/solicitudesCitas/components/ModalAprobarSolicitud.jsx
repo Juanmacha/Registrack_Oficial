@@ -10,16 +10,37 @@ const ModalAprobarSolicitud = ({
   onSuccess 
 }) => {
   const [formData, setFormData] = useState({
-    horaFin: '',
+    horaCita: '',
     empleadoId: '',
     observacion: ''
   });
+
+  // Generar opciones de hora en bloques de 1 hora (igual que en la landing)
+  const generarOpcionesHora = () => {
+    const opciones = [];
+    for (let hora = 7; hora < 18; hora++) {
+      const horaInicio = hora.toString().padStart(2, '0') + ':00';
+      const horaFin = (hora + 1).toString().padStart(2, '0') + ':00';
+      opciones.push({
+        value: horaInicio,
+        label: `${horaInicio} - ${horaFin}`
+      });
+    }
+    return opciones;
+  };
+
+  const opcionesHora = generarOpcionesHora();
   
   const [empleados, setEmpleados] = useState([]);
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errores, setErrores] = useState({});
   const [touched, setTouched] = useState({});
+  
+  // Estados para el buscador de empleados
+  const [busquedaEmpleado, setBusquedaEmpleado] = useState('');
+  const [mostrarListaEmpleados, setMostrarListaEmpleados] = useState(false);
+  const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState(null);
 
   // Cargar empleados al abrir el modal
   useEffect(() => {
@@ -33,8 +54,32 @@ const ModalAprobarSolicitud = ({
           empleadoId: empleadoId.toString()
         }));
       }
+    } else {
+      // Limpiar al cerrar
+      setBusquedaEmpleado('');
+      setMostrarListaEmpleados(false);
+      setEmpleadoSeleccionado(null);
     }
   }, [isOpen, solicitud]);
+
+  // Actualizar empleado seleccionado cuando se cargan los empleados o cambia formData.empleadoId
+  useEffect(() => {
+    if (formData.empleadoId && empleados.length > 0) {
+      const empleado = empleados.find(emp => 
+        emp.id_empleado.toString() === formData.empleadoId.toString()
+      );
+      if (empleado) {
+        // Solo actualizar si es diferente al actual para evitar loops
+        if (!empleadoSeleccionado || empleadoSeleccionado.id_empleado !== empleado.id_empleado) {
+          setEmpleadoSeleccionado(empleado);
+          setBusquedaEmpleado(`${empleado.nombreCompleto} - ${empleado.tipo_documento || 'CC'} ${empleado.documento}`);
+        }
+      }
+    } else if (!formData.empleadoId && empleadoSeleccionado) {
+      setEmpleadoSeleccionado(null);
+      setBusquedaEmpleado('');
+    }
+  }, [formData.empleadoId, empleados]);
 
   const cargarEmpleados = async () => {
     setLoadingEmpleados(true);
@@ -53,7 +98,9 @@ const ModalAprobarSolicitud = ({
             id_empleado: emp.id_empleado,
             nombreCompleto: `${emp.nombre || ''} ${emp.apellido || ''}`.trim(),
             nombre: emp.nombre || '',
-            apellido: emp.apellido || ''
+            apellido: emp.apellido || '',
+            documento: emp.documento || '',
+            tipo_documento: emp.tipo_documento || 'CC'
           }));
         
         console.log('✅ [ModalAprobarSolicitud] Empleados cargados exitosamente:', empleadosActivos);
@@ -69,7 +116,9 @@ const ModalAprobarSolicitud = ({
             id_empleado: emp.id_empleado,
             nombreCompleto: `${emp.nombre || ''} ${emp.apellido || ''}`.trim(),
             nombre: emp.nombre || '',
-            apellido: emp.apellido || ''
+            apellido: emp.apellido || '',
+            documento: emp.documento || '',
+            tipo_documento: emp.tipo_documento || 'CC'
           }));
         
         console.log('✅ [ModalAprobarSolicitud] Empleados cargados exitosamente (array directo):', empleadosActivos);
@@ -90,16 +139,8 @@ const ModalAprobarSolicitud = ({
   const validarFormulario = () => {
     const errors = {};
     
-    if (!formData.horaFin) {
-      errors.horaFin = 'La hora de fin es requerida';
-    } else {
-      // Validar que hora de fin sea mayor que hora de inicio
-      if (solicitud?.hora_solicitada) {
-        const horaInicio = solicitud.hora_solicitada.split(':').slice(0, 2).join(':');
-        if (formData.horaFin <= horaInicio) {
-          errors.horaFin = 'La hora de fin debe ser posterior a la hora de inicio';
-        }
-      }
+    if (!formData.horaCita) {
+      errors.horaCita = 'La hora de la cita es requerida';
     }
     
     if (!formData.empleadoId) {
@@ -120,6 +161,52 @@ const ModalAprobarSolicitud = ({
     }
   };
 
+  // Función para normalizar texto (búsqueda sin acentos)
+  const normalizarTexto = (texto) => {
+    return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
+  // Filtrar empleados según la búsqueda
+  const empleadosFiltrados = empleados.filter(emp => {
+    if (!busquedaEmpleado.trim()) return true;
+    const textoBusqueda = normalizarTexto(busquedaEmpleado);
+    const nombreCompleto = normalizarTexto(emp.nombreCompleto || '');
+    const documento = (emp.documento || '').toString();
+    const tipoDoc = normalizarTexto(emp.tipo_documento || 'CC');
+    return nombreCompleto.includes(textoBusqueda) || 
+           documento.includes(textoBusqueda) ||
+           tipoDoc.includes(textoBusqueda);
+  });
+
+  // Manejar selección de empleado desde el buscador
+  const handleSeleccionarEmpleado = (empleado) => {
+    setEmpleadoSeleccionado(empleado);
+    setFormData(prev => ({ 
+      ...prev, 
+      empleadoId: empleado.id_empleado.toString() 
+    }));
+    setBusquedaEmpleado(`${empleado.nombreCompleto} - ${empleado.tipo_documento || 'CC'} ${empleado.documento}`);
+    setMostrarListaEmpleados(false);
+    
+    // Limpiar error del campo
+    if (errores.empleadoId) {
+      setErrores(prev => ({ ...prev, empleadoId: undefined }));
+    }
+  };
+
+  // Manejar cambio en el input de búsqueda
+  const handleBusquedaEmpleadoChange = (e) => {
+    const valor = e.target.value;
+    setBusquedaEmpleado(valor);
+    setMostrarListaEmpleados(true);
+    
+    // Si se limpia el input, limpiar también la selección
+    if (!valor.trim()) {
+      setEmpleadoSeleccionado(null);
+      setFormData(prev => ({ ...prev, empleadoId: '' }));
+    }
+  };
+
   const handleBlur = (e) => {
     const { name } = e.target;
     setTouched(prev => ({ ...prev, [name]: true }));
@@ -130,21 +217,25 @@ const ModalAprobarSolicitud = ({
     
     if (!validarFormulario()) {
       // Marcar todos los campos como touched para mostrar errores
-      setTouched({ horaFin: true, empleadoId: true });
+      setTouched({ horaCita: true, empleadoId: true });
       return;
     }
     
     setLoading(true);
     try {
+      // Calcular hora de fin automáticamente (1 hora después de la hora de inicio)
+      const [hora, minuto] = formData.horaCita.split(':').map(Number);
+      const horaFin = (hora + 1).toString().padStart(2, '0') + ':00';
+      
       await onSuccess(
         parseInt(formData.empleadoId),
-        formData.horaFin,
+        horaFin,
         formData.observacion || ''
       );
       
       // Limpiar formulario después de éxito
       setFormData({
-        horaFin: '',
+        horaCita: '',
         empleadoId: '',
         observacion: ''
       });
@@ -159,12 +250,15 @@ const ModalAprobarSolicitud = ({
 
   const cerrarModal = () => {
     setFormData({
-      horaFin: '',
+      horaCita: '',
       empleadoId: '',
       observacion: ''
     });
     setErrores({});
     setTouched({});
+    setBusquedaEmpleado('');
+    setMostrarListaEmpleados(false);
+    setEmpleadoSeleccionado(null);
     onClose();
   };
 
@@ -225,31 +319,37 @@ const ModalAprobarSolicitud = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Hora de Fin */}
+            {/* Hora de Cita */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <FaClock className="inline text-gray-400 mr-1" />
-                Hora de Fin <span className="text-red-500">*</span>
+                Hora de Cita <span className="text-red-500">*</span>
               </label>
-              <input
-                type="time"
-                name="horaFin"
-                value={formData.horaFin}
+              <select
+                name="horaCita"
+                value={formData.horaCita}
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 ${
-                  touched.horaFin && errores.horaFin ? 'border-red-500' : 'border-gray-300'
+                  touched.horaCita && errores.horaCita ? 'border-red-500' : 'border-gray-300'
                 }`}
                 required
                 disabled={loading}
-              />
-              {touched.horaFin && errores.horaFin && (
-                <p className="text-red-600 text-xs mt-1">{errores.horaFin}</p>
+              >
+                <option value="">Selecciona un horario</option>
+                {opcionesHora.map((opcion) => (
+                  <option key={opcion.value} value={opcion.value}>
+                    {opcion.label}
+                  </option>
+                ))}
+              </select>
+              {touched.horaCita && errores.horaCita && (
+                <p className="text-red-600 text-xs mt-1">{errores.horaCita}</p>
               )}
             </div>
             
-            {/* Empleado Asignado */}
-            <div>
+            {/* Empleado Asignado - Buscador */}
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <FaUser className="inline text-gray-400 mr-1" />
                 Empleado Asignado <span className="text-red-500">*</span>
@@ -259,26 +359,80 @@ const ModalAprobarSolicitud = ({
                   </span>
                 )}
               </label>
-              <select
-                name="empleadoId"
-                value={formData.empleadoId}
-                onChange={handleInputChange}
-                onBlur={handleBlur}
-                disabled={loadingEmpleados || loading || empleados.length === 0}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 ${
-                  loadingEmpleados || empleados.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                } ${touched.empleadoId && errores.empleadoId ? 'border-red-500' : 'border-gray-300'}`}
-                required
-              >
-                <option value="">
-                  {loadingEmpleados ? 'Cargando empleados...' : 'Seleccionar empleado...'}
-                </option>
-                {empleados.map(emp => (
-                  <option key={emp.id_empleado} value={emp.id_empleado}>
-                    {emp.nombreCompleto}
-                  </option>
-                ))}
-              </select>
+              
+              {/* Input de búsqueda */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={loadingEmpleados ? 'Cargando empleados...' : 'Buscar empleado por nombre o documento...'}
+                  value={busquedaEmpleado}
+                  onChange={handleBusquedaEmpleadoChange}
+                  onFocus={() => setMostrarListaEmpleados(true)}
+                  onBlur={() => {
+                    // Delay para permitir click en la lista
+                    setTimeout(() => setMostrarListaEmpleados(false), 200);
+                  }}
+                  disabled={loadingEmpleados || loading || empleados.length === 0}
+                  className={`w-full px-3 py-2 pl-10 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                    loadingEmpleados || empleados.length === 0 ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'bg-white'
+                  } ${touched.empleadoId && errores.empleadoId ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                
+                {/* Botón para limpiar búsqueda */}
+                {busquedaEmpleado && !loadingEmpleados && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusquedaEmpleado('');
+                      setEmpleadoSeleccionado(null);
+                      setFormData(prev => ({ ...prev, empleadoId: '' }));
+                      setMostrarListaEmpleados(false);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <i className="bi bi-x-circle"></i>
+                  </button>
+                )}
+              </div>
+
+              {/* Lista desplegable de empleados filtrados */}
+              {mostrarListaEmpleados && !loadingEmpleados && empleadosFiltrados.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {empleadosFiltrados.map(emp => (
+                    <div
+                      key={emp.id_empleado}
+                      onClick={() => handleSeleccionarEmpleado(emp)}
+                      className={`px-4 py-2 cursor-pointer hover:bg-blue-50 transition-colors ${
+                        empleadoSeleccionado?.id_empleado === emp.id_empleado ? 'bg-blue-100' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-800">{emp.nombreCompleto}</p>
+                          <p className="text-sm text-gray-500">
+                            {emp.tipo_documento || 'CC'} {emp.documento}
+                          </p>
+                        </div>
+                        {empleadoSeleccionado?.id_empleado === emp.id_empleado && (
+                          <i className="bi bi-check-circle text-blue-600"></i>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Mensaje cuando no hay resultados */}
+              {mostrarListaEmpleados && !loadingEmpleados && busquedaEmpleado.trim() && empleadosFiltrados.length === 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
+                  <p className="text-sm text-gray-500 text-center">
+                    No se encontraron empleados que coincidan con "{busquedaEmpleado}"
+                  </p>
+                </div>
+              )}
+
+              {/* Mensajes de estado */}
               {loadingEmpleados && empleados.length === 0 && (
                 <p className="text-blue-600 text-xs mt-1 flex items-center">
                   <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
@@ -293,6 +447,19 @@ const ModalAprobarSolicitud = ({
               )}
               {touched.empleadoId && errores.empleadoId && (
                 <p className="text-red-600 text-xs mt-1">{errores.empleadoId}</p>
+              )}
+
+              {/* Mostrar empleado seleccionado */}
+              {empleadoSeleccionado && !mostrarListaEmpleados && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm font-medium text-gray-700">
+                    <i className="bi bi-check-circle text-blue-600 mr-2"></i>
+                    Empleado seleccionado: <span className="font-semibold">{empleadoSeleccionado.nombreCompleto}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {empleadoSeleccionado.tipo_documento || 'CC'} {empleadoSeleccionado.documento}
+                  </p>
+                </div>
               )}
             </div>
             

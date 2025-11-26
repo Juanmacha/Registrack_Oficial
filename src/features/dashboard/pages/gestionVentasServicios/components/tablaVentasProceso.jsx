@@ -263,16 +263,28 @@ const TablaVentasProceso = ({ adquirir }) => {
     setLoadingEmpleados(true);
     try {
       const resultado = await empleadosApiService.getAllEmpleados();
-      if (resultado.success) {
-        // Filtrar solo empleados activos
-        const empleadosActivos = resultado.data.filter(e => e.estado_empleado === true || e.estado_empleado === 1);
-        setEmpleadosAPI(empleadosActivos);
-        console.log('✅ [TablaVentasProceso] Empleados cargados desde API:', empleadosActivos);
+      let empleadosData = [];
+      
+      if (resultado && resultado.success && Array.isArray(resultado.data)) {
+        empleadosData = resultado.data;
+      } else if (Array.isArray(resultado)) {
+        empleadosData = resultado;
       } else {
-        console.error('❌ [TablaVentasProceso] Error al cargar empleados:', resultado.message);
+        console.error('❌ [TablaVentasProceso] Formato de respuesta inesperado:', resultado);
         AlertService.error('Error', 'No se pudieron cargar los empleados');
         setEmpleadosAPI([]);
+        return;
       }
+      
+      // Filtrar solo empleados activos
+      const empleadosActivos = empleadosData.filter(e => {
+        const estadoEmpleado = e.estado_empleado === true || e.estado_empleado === 1;
+        const estadoUsuario = e.estado_usuario !== false && e.estado_usuario !== 'Inactivo';
+        return estadoEmpleado && estadoUsuario;
+      });
+      
+      setEmpleadosAPI(empleadosActivos);
+      console.log('✅ [TablaVentasProceso] Empleados cargados desde API:', empleadosActivos);
     } catch (error) {
       console.error('❌ [TablaVentasProceso] Error al cargar empleados:', error);
       AlertService.error('Error', 'No se pudieron cargar los empleados');
@@ -1199,7 +1211,7 @@ const TablaVentasProceso = ({ adquirir }) => {
                   <option value="">Sin asignar</option>
                   {empleadosAPI.map(emp => (
                     <option key={emp.id_empleado} value={emp.id_empleado}>
-                      {emp.nombre} {emp.apellido}
+                      {emp.nombre} {emp.apellido} {emp.documento ? `- ${emp.tipo_documento || 'CC'} ${emp.documento}` : ''}
                     </option>
                   ))}
                 </select>
