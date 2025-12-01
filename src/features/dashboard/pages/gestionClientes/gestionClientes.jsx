@@ -5,8 +5,8 @@ import FormularioCliente from "./components/FormularioCliente";
 import clientesApiService from "../../services/clientesApiService";
 import notificationService from "../../../../shared/services/NotificationService.js";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import excelService from '../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../shared/utils/excelStyles';
 import Swal from "sweetalert2";
 import DownloadButton from "../../../../shared/components/DownloadButton";
 
@@ -46,7 +46,19 @@ const GestionClientes = () => {
       console.log('✅ [GestionClientes] Clientes cargados:', clientesData);
     } catch (error) {
       console.error('❌ [GestionClientes] Error al cargar clientes:', error);
-      notificationService.createError('Error al cargar clientes: ' + error.message);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al cargar clientes: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setCargando(false);
     }
@@ -87,14 +99,39 @@ const GestionClientes = () => {
       await clientesApiService.changeClienteEstado(cliente.id, nuevoEstado);
       
       console.log('✅ [GestionClientes] Estado cambiado en API');
-      notificationService.updateSuccess('Estado del cliente actualizado correctamente');
       
       // Recargar datos
       await cargarClientes();
       
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Estado del cliente actualizado correctamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
+      
     } catch (error) {
       console.error('❌ [GestionClientes] Error al cambiar estado:', error);
-      notificationService.updateError('Error al cambiar estado: ' + error.message);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al cambiar estado: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 
@@ -171,13 +208,10 @@ const GestionClientes = () => {
         
         clienteGuardado = await clientesApiService.updateCliente(nuevoCliente.id, clienteData);
         console.log('✅ [GestionClientes] Cliente actualizado en API:', clienteGuardado);
-        
-        notificationService.updateSuccess('Cliente, usuario y empresa actualizados correctamente');
         } else {
         // Crear nuevo cliente
         clienteGuardado = await clientesApiService.createCliente(nuevoCliente);
         console.log('✅ [GestionClientes] Cliente creado en API');
-        notificationService.createSuccess('Cliente creado correctamente');
       }
       
       // Cerrar modal
@@ -186,28 +220,123 @@ const GestionClientes = () => {
       // Recargar datos
       await cargarClientes();
       
+      // Mostrar alerta de éxito
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: modoEdicion ? 'Cliente, usuario y empresa actualizados correctamente.' : 'Cliente creado correctamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
+      
     } catch (error) {
       console.error("❌ [GestionClientes] Error al guardar cliente:", error);
-      if (modoEdicion) {
-        notificationService.updateError('Error al actualizar cliente: ' + error.message);
-      } else {
-        notificationService.createError('Error al crear cliente: ' + error.message);
-      }
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: (modoEdicion ? 'Error al actualizar cliente: ' : 'Error al crear cliente: ') + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 
   const handleExportarExcel = async () => {
     try {
-      console.log('🔄 [GestionClientes] Descargando reporte Excel...');
+      console.log('🔄 [GestionClientes] Generando reporte Excel...');
       
-      await clientesApiService.downloadReporteExcel();
+      const encabezados = [
+        "ID", "Nombre", "Apellido", "Tipo Documento", "Documento", "Email", "Teléfono",
+        "Nit Empresa", "Nombre Empresa", "Marca", "Tipo Persona", "Origen", "Estado"
+      ];
       
-      console.log('✅ [GestionClientes] Reporte Excel descargado');
-      notificationService.createSuccess('Reporte Excel descargado exitosamente');
+      const datosExcel = clientesFiltrados.map(c => ({
+        "ID": c.id || '',
+        "Nombre": c.nombre || '',
+        "Apellido": c.apellido || '',
+        "Tipo Documento": c.tipoDocumento || '',
+        "Documento": c.documento || '',
+        "Email": c.email || '',
+        "Teléfono": c.telefono || '',
+        "Nit Empresa": c.nitEmpresa || '',
+        "Nombre Empresa": c.nombreEmpresa || '',
+        "Marca": c.marca || '',
+        "Tipo Persona": c.tipoPersona || '',
+        "Origen": c.origen || '',
+        "Estado": c.estado || ''
+      }));
+      
+      const anchosColumnas = [
+        ANCHOS_COLUMNA.ID,        // ID
+        ANCHOS_COLUMNA.NOMBRE,    // Nombre
+        ANCHOS_COLUMNA.NOMBRE,    // Apellido
+        ANCHOS_COLUMNA.TIPO,      // Tipo Documento
+        ANCHOS_COLUMNA.DOCUMENTO, // Documento
+        ANCHOS_COLUMNA.EMAIL,     // Email
+        ANCHOS_COLUMNA.TELEFONO,  // Teléfono
+        ANCHOS_COLUMNA.NIT,       // Nit Empresa
+        ANCHOS_COLUMNA.NOMBRE_EMPRESA, // Nombre Empresa
+        ANCHOS_COLUMNA.NOMBRE_MARCA,   // Marca
+        ANCHOS_COLUMNA.TIPO,      // Tipo Persona
+        ANCHOS_COLUMNA.TIPO,      // Origen
+        ANCHOS_COLUMNA.ESTADO     // Estado
+      ];
+
+      await excelService.generarExcel(
+        datosExcel,
+        encabezados,
+        {
+          nombreHoja: 'Clientes',
+          nombreArchivo: excelService.generarNombreArchivo('clientes'),
+          anchosColumnas,
+          titulo: 'Reporte de Clientes',
+          incluirLogo: true,
+          filasAlternadas: true
+        }
+      );
+      
+      console.log('✅ [GestionClientes] Reporte Excel generado');
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
       
     } catch (error) {
-      console.error('❌ [GestionClientes] Error al descargar reporte Excel:', error);
-      notificationService.createError('Error al descargar reporte: ' + error.message);
+      console.error('❌ [GestionClientes] Error al generar reporte Excel:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al descargar reporte: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 

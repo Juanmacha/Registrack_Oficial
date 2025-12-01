@@ -102,7 +102,9 @@ const ProfileContent = () => {
       newErrors.documentType = 'El tipo de documento es requerido';
     }
 
-    if (!data.documentNumber?.trim()) {
+    // Convertir documentNumber a string antes de usar trim
+    const documentNumberStr = data.documentNumber ? String(data.documentNumber) : '';
+    if (!documentNumberStr.trim()) {
       newErrors.documentNumber = 'El número de documento es requerido';
     }
 
@@ -199,6 +201,9 @@ const ProfileContent = () => {
 
     setIsSaving(true);
     try {
+      console.log('🔄 [ProfileContent] Iniciando actualización de perfil...');
+      console.log('🔄 [ProfileContent] Datos del formulario:', formData);
+      
       const updatedData = {
         nombre: formData.firstName,
         apellido: formData.lastName,
@@ -215,7 +220,12 @@ const ProfileContent = () => {
         updatedData.telefono = null;
       }
 
+      console.log('📤 [ProfileContent] Datos a enviar:', updatedData);
+      console.log('📤 [ProfileContent] Usuario actual:', usuario);
+
       const result = await updateUser(updatedData);
+      
+      console.log('📥 [ProfileContent] Resultado de updateUser:', result);
       
       if (result.success) {
         // Salir del modo edición primero
@@ -242,10 +252,15 @@ const ProfileContent = () => {
         );
       }
     } catch (error) {
-      console.error('Error al guardar perfil:', error);
+      console.error('❌ [ProfileContent] Error al guardar perfil:', error);
+      console.error('❌ [ProfileContent] Detalles del error:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      });
       await alertService.error(
         "Error",
-        "No se pudo actualizar el perfil. Inténtalo de nuevo.",
+        error.message || "No se pudo actualizar el perfil. Inténtalo de nuevo.",
         { confirmButtonText: "Entendido" }
       );
     } finally {

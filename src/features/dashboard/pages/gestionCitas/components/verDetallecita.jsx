@@ -3,6 +3,40 @@ import React from "react";
 const VerDetalleCita = ({ cita, isOpen, onClose, onReprogramar, onAnular, puedeReprogramar, puedeAnular }) => {
   if (!isOpen || !cita) return null;
 
+  // Función para convertir hora de formato 24h a formato 12h con AM/PM
+  const convertirHora12h = (hora24) => {
+    if (!hora24) return 'N/A';
+    
+    // Si ya está en formato 12h, retornarlo tal cual
+    if (hora24.includes('AM') || hora24.includes('PM') || hora24.includes('am') || hora24.includes('pm')) {
+      return hora24;
+    }
+    
+    // Extraer hora y minutos
+    let hora, minutos;
+    if (hora24.includes(':')) {
+      const partes = hora24.split(':');
+      hora = parseInt(partes[0], 10);
+      minutos = partes[1] ? parseInt(partes[1].split(' ')[0], 10) : 0;
+    } else {
+      // Si no tiene formato de hora, intentar parsear como número
+      const num = parseInt(hora24, 10);
+      if (isNaN(num)) return hora24;
+      hora = num;
+      minutos = 0;
+    }
+    
+    if (isNaN(hora) || hora < 0 || hora > 23) return hora24;
+    if (isNaN(minutos) || minutos < 0 || minutos > 59) minutos = 0;
+    
+    // Convertir a formato 12h
+    const periodo = hora >= 12 ? 'PM' : 'AM';
+    const hora12 = hora === 0 ? 12 : hora > 12 ? hora - 12 : hora;
+    const minutosStr = minutos.toString().padStart(2, '0');
+    
+    return `${hora12}:${minutosStr} ${periodo}`;
+  };
+
   const getEstadoBadge = (estado) => {
     const estadoLower = (estado || '').toLowerCase();
     if (estadoLower === "programada") {
@@ -98,12 +132,12 @@ const VerDetalleCita = ({ cita, isOpen, onClose, onReprogramar, onAnular, puedeR
                 <div className="flex items-center space-x-2 text-sm">
                   <i className="bi bi-clock text-gray-400"></i>
                   <span className="text-gray-600">Hora de Inicio:</span>
-                  <span className="font-medium text-gray-800">{cita.horaInicio}</span>
+                  <span className="font-medium text-gray-800">{convertirHora12h(cita.horaInicio)}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <i className="bi bi-clock-history text-gray-400"></i>
                   <span className="text-gray-600">Hora de Fin:</span>
-                  <span className="font-medium text-gray-800">{cita.horaFin}</span>
+                  <span className="font-medium text-gray-800">{convertirHora12h(cita.horaFin)}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <i className="bi bi-person-badge text-gray-400"></i>
@@ -173,7 +207,7 @@ const VerDetalleCita = ({ cita, isOpen, onClose, onReprogramar, onAnular, puedeR
                   <div className="flex items-center space-x-2 text-sm">
                     <i className="bi bi-clock text-blue-400"></i>
                     <span className="text-blue-600">Hora Solicitada:</span>
-                    <span className="font-medium text-blue-800">{cita.horaSolicitada}</span>
+                    <span className="font-medium text-blue-800">{convertirHora12h(cita.horaSolicitada)}</span>
                   </div>
                 )}
                 {cita.observacionAdmin && (

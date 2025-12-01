@@ -57,10 +57,21 @@ const CrearEmpleadoModal = ({
 
     if (Object.keys(nuevosErrores).length === 0) {
       handleSubmit(nuevoEmpleado);
-      notificationService.createSuccess('empleado');
       setShowModal(false);
     } else {
-      notificationService.createError('empleado');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: 'Por favor, corrija los errores en el formulario.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 

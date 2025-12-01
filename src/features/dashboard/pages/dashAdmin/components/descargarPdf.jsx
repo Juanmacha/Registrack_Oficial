@@ -169,11 +169,17 @@ const BotonDescargarPdf = ({ datos, nombreArchivo = "reporte.pdf", chartRef }) =
       // Cerrar loading y mostrar éxito
       await Swal.close();
       await Swal.fire({
-        icon: "success",
-        title: "¡Éxito!",
-        text: "Archivo PDF descargado exitosamente.",
-        timer: 2000,
-        showConfirmButton: false
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo PDF descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
       });
     } catch (error) {
       console.error("Error generando PDF:", error);

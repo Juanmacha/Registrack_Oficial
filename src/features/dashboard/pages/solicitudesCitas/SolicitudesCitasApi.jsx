@@ -455,14 +455,25 @@ const SolicitudesCitasApi = () => {
                     <label className="block text-sm font-medium text-gray-700">Cliente</label>
                     <p className="text-gray-900">{selectedSolicitud.cliente?.nombre || 'N/A'}</p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="text-gray-900">{selectedSolicitud.cliente?.correo || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Teléfono</label>
-                    <p className="text-gray-900">{selectedSolicitud.cliente?.telefono || 'N/A'}</p>
-                  </div>
+                  {/* Mostrar email solo si tiene valor real */}
+                  {(selectedSolicitud.cliente?.correo || selectedSolicitud.cliente?.email) && 
+                   selectedSolicitud.cliente?.correo !== 'N/A' && 
+                   selectedSolicitud.cliente?.email !== 'N/A' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Email</label>
+                      <p className="text-gray-900">{selectedSolicitud.cliente?.correo || selectedSolicitud.cliente?.email}</p>
+                    </div>
+                  )}
+                  {/* Mostrar teléfono solo si tiene valor real */}
+                  {selectedSolicitud.cliente?.telefono && 
+                   selectedSolicitud.cliente?.telefono !== 'N/A' && 
+                   selectedSolicitud.cliente?.telefono !== 'No disponible' &&
+                   selectedSolicitud.cliente?.telefono?.trim() !== '' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                      <p className="text-gray-900">{selectedSolicitud.cliente?.telefono}</p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Estado</label>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${

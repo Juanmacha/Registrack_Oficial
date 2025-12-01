@@ -15,15 +15,24 @@ const ModalAprobarSolicitud = ({
     observacion: ''
   });
 
-  // Generar opciones de hora en bloques de 1 hora (igual que en la landing)
+  // Generar opciones de hora en bloques de 1 hora (formato 12h AM/PM)
   const generarOpcionesHora = () => {
     const opciones = [];
     for (let hora = 7; hora < 18; hora++) {
       const horaInicio = hora.toString().padStart(2, '0') + ':00';
       const horaFin = (hora + 1).toString().padStart(2, '0') + ':00';
+      
+      // Convertir a formato 12h AM/PM para mostrar
+      const convertirHora12h = (hora24) => {
+        const [h, m] = hora24.split(':').map(Number);
+        const periodo = h >= 12 ? 'PM' : 'AM';
+        const hora12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+        return `${hora12}:${m.toString().padStart(2, '0')} ${periodo}`;
+      };
+      
       opciones.push({
-        value: horaInicio,
-        label: `${horaInicio} - ${horaFin}`
+        value: horaInicio, // Mantener valor en formato 24h para el backend
+        label: `${convertirHora12h(horaInicio)} - ${convertirHora12h(horaFin)}`
       });
     }
     return opciones;
@@ -221,15 +230,75 @@ const ModalAprobarSolicitud = ({
       return;
     }
     
+    // ✅ Validaciones del frontend según la documentación de la API (Enero 2026)
+    
+    // 1. Validación de días hábiles (lunes a viernes)
+    const fechaSolicitada = solicitud?.fecha_solicitada;
+    if (fechaSolicitada) {
+      const fechaObj = new Date(fechaSolicitada);
+      const diaSemana = fechaObj.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+      if (diaSemana === 0 || diaSemana === 6) {
+        await alertService.error(
+          "Día inválido",
+          "Las citas solo se pueden agendar de lunes a viernes."
+        );
+        return;
+      }
+    }
+    
+    // 2. Validación de horarios de atención (7:00 AM - 6:00 PM)
+    const horaInicioConSegundos = formData.horaCita.includes(':') && formData.horaCita.split(':').length === 2 
+      ? formData.horaCita + ':00' 
+      : formData.horaCita;
+    const [hora, minuto] = formData.horaCita.split(':').map(Number);
+    const horaFin = (hora + 1).toString().padStart(2, '0') + ':00';
+    const horaFinConSegundos = horaFin + ':00';
+    
+    const horaInicioObj = new Date(`2000-01-01T${horaInicioConSegundos}`);
+    const horaFinObj = new Date(`2000-01-01T${horaFinConSegundos}`);
+    const horaMinima = new Date('2000-01-01T07:00:00');
+    const horaMaxima = new Date('2000-01-01T18:00:00');
+    
+    if (horaInicioObj < horaMinima || horaFinObj > horaMaxima) {
+      await alertService.error(
+        "Horario inválido",
+        "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM."
+      );
+      return;
+    }
+    
+    // 3. Validación de duración (1 hora ±5 minutos = 55-65 minutos)
+    const duracionMinutos = (horaFinObj - horaInicioObj) / (1000 * 60);
+    if (duracionMinutos < 55 || duracionMinutos > 65) {
+      await alertService.error(
+        "Duración inválida",
+        "La cita debe durar aproximadamente 1 hora (entre 55 y 65 minutos)."
+      );
+      return;
+    }
+    
+    // 4. Validación de rango de fechas (máximo 1 año en el futuro)
+    if (fechaSolicitada) {
+      const fechaObj = new Date(fechaSolicitada);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaMaxima = new Date(hoy);
+      fechaMaxima.setFullYear(fechaMaxima.getFullYear() + 1);
+      
+      if (fechaObj > fechaMaxima) {
+        await alertService.error(
+          "Fecha inválida",
+          "La fecha no puede ser más de 1 año en el futuro."
+        );
+        return;
+      }
+    }
+    
     setLoading(true);
     try {
-      // Calcular hora de fin automáticamente (1 hora después de la hora de inicio)
-      const [hora, minuto] = formData.horaCita.split(':').map(Number);
-      const horaFin = (hora + 1).toString().padStart(2, '0') + ':00';
-      
       await onSuccess(
         parseInt(formData.empleadoId),
-        horaFin,
+        horaFinConSegundos,
         formData.observacion || ''
       );
       
@@ -373,11 +442,11 @@ const ModalAprobarSolicitud = ({
                     setTimeout(() => setMostrarListaEmpleados(false), 200);
                   }}
                   disabled={loadingEmpleados || loading || empleados.length === 0}
-                  className={`w-full px-3 py-2 pl-10 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                  className={`w-full pr-4 py-3.5 pl-24 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm leading-[1.5] ${
                     loadingEmpleados || empleados.length === 0 ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'bg-white'
                   } ${touched.empleadoId && errores.empleadoId ? 'border-red-500' : 'border-gray-300'}`}
                 />
-                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
                 
                 {/* Botón para limpiar búsqueda */}
                 {busquedaEmpleado && !loadingEmpleados && (

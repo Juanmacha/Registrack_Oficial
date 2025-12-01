@@ -60,6 +60,7 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 20;
+      const alturaPie = 35; // Altura del pie de página (aumentada para evitar superposición)
       let y = margin;
 
       // Colores
@@ -118,8 +119,8 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
       // Monto destacado
       doc.setFontSize(20);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colorVerde);
-      const monto = `$${(datos.monto || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      doc.setTextColor(...colorAzul); // Cambiado de verde a azul corporativo
+      const monto = `$${(datos.monto_pagado || datos.monto || datos.solicitud?.total_orden_servicio || datos.solicitud?.total_estimado || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       doc.text('Monto Pagado:', margin, y);
       doc.text(monto, pageWidth - margin, y, { align: 'right' });
       y += 12;
@@ -128,6 +129,10 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
+
+      // Calcular posición fija para los valores (alineación consistente)
+      const labelWidth = 70; // Ancho fijo para las etiquetas
+      const valueStartX = margin + labelWidth; // Posición de inicio para los valores
 
       const infoPago = [
         ['ID de Pago:', datos.id_pago || datos.id || 'N/A'],
@@ -143,7 +148,7 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
           doc.setFont('helvetica', 'bold');
           doc.text(label, margin, y);
           doc.setFont('helvetica', 'normal');
-          doc.text(String(value), margin + 60, y);
+          doc.text(String(value), valueStartX, y);
           y += 7;
         }
       });
@@ -344,27 +349,46 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
         y += 5;
       }
 
-      // Observaciones
-      if (datos.observaciones) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colorAzul);
-        doc.text('Observaciones', margin, y);
-        y += 8;
+      // Verificar espacio disponible antes del pie de página
+      const espacioDisponible = pageHeight - y - alturaPie;
+      
+      // Observaciones (solo si hay espacio suficiente)
+      if (datos.observaciones && espacioDisponible > 20) {
+        // Verificar que haya espacio suficiente para la sección de observaciones
+        if (y + 30 < pageHeight - alturaPie) {
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...colorAzul);
+          doc.text('Observaciones', margin, y);
+          y += 8;
 
-        doc.setDrawColor(...colorGris);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 8;
+          doc.setDrawColor(...colorGris);
+          doc.line(margin, y, pageWidth - margin, y);
+          y += 8;
 
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        const observaciones = doc.splitTextToSize(datos.observaciones, pageWidth - 2 * margin);
-        doc.text(observaciones, margin, y);
-        y += observaciones.length * 5 + 5;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(0, 0, 0);
+          
+          // Calcular cuánto espacio tenemos disponible
+          const espacioRestante = pageHeight - y - alturaPie - 5; // 5mm de margen
+          const observaciones = doc.splitTextToSize(datos.observaciones, pageWidth - 2 * margin);
+          const lineasVisibles = Math.floor(espacioRestante / 5);
+          const observacionesMostradas = observaciones.slice(0, Math.max(1, lineasVisibles));
+          
+          doc.text(observacionesMostradas, margin, y);
+          y += observacionesMostradas.length * 5 + 5;
+        }
       }
 
-      // Pie de página
+      // Asegurar que el contenido no se superponga con el pie de página
+      if (y > pageHeight - alturaPie - 5) {
+        y = pageHeight - alturaPie - 5;
+        console.warn('⚠️ [VerDetallePago] Contenido ajustado para evitar superposición con el pie de página');
+      }
+
+      // Pie de página (siempre al final de la página)
+      const pieYInicio = pageHeight - alturaPie;
       const fechaGeneracion = new Date().toLocaleString('es-CO', {
         year: 'numeric',
         month: 'long',
@@ -373,15 +397,22 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
         minute: '2-digit'
       });
 
+      // Línea divisoria antes del pie
       doc.setDrawColor(...colorGris);
-      doc.line(margin, pageHeight - 30, pageWidth - margin, pageHeight - 30);
+      doc.line(margin, pieYInicio, pageWidth - margin, pieYInicio);
+      
+      // Pie de página con fondo azul
+      doc.setFillColor(...colorAzul);
+      doc.rect(0, pieYInicio, pageWidth, alturaPie, 'F');
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'italic');
-      doc.setTextColor(...colorGris);
-      doc.text(`Comprobante generado el ${fechaGeneracion}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
-      doc.text('Este documento es un comprobante de pago válido', pageWidth / 2, pageHeight - 15, { align: 'center' });
-      doc.text('Registrack - Sistema de Gestión de Marcas', pageWidth / 2, pageHeight - 10, { align: 'center' });
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Comprobante generado el ${fechaGeneracion}`, pageWidth / 2, pieYInicio + 10, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Este documento es un comprobante de pago válido', pageWidth / 2, pieYInicio + 18, { align: 'center' });
+      doc.setFontSize(7);
+      doc.text('Registrack - Sistema de Gestión de Marcas', pageWidth / 2, pieYInicio + 25, { align: 'center' });
 
       // Guardar PDF
       const nombreArchivo = `comprobante_pago_${datos.id_pago || datos.id || 'N/A'}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -410,9 +441,15 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
         Swal.fire({
           icon: 'success',
           title: '¡Éxito!',
-          text: 'Comprobante generado correctamente',
-          timer: 2000,
-          showConfirmButton: false
+          text: 'Comprobante de pago descargado exitosamente.',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
         });
       }, 500);
       
@@ -451,7 +488,7 @@ const VerDetallePago = ({ datos, isOpen, onClose }) => {
                   </div>
                   <div>
                     <div className="font-medium text-gray-800 text-2xl">
-                      ${(datos.monto || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${(datos.monto_pagado || datos.monto || datos.solicitud?.total_orden_servicio || datos.solicitud?.total_estimado || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="text-sm text-gray-500">Monto del pago</div>
                   </div>

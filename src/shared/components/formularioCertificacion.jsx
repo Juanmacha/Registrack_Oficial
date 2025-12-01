@@ -642,7 +642,7 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
                           // Delay para permitir click en la lista
                           setTimeout(() => setMostrarListaProductosServicios(false), 200);
                         }}
-                        className={`w-full border-2 rounded-xl px-4 py-3 pl-10 ${errors.tipoProductoServicio ? 'border-red-400' : 'border-gray-300'}`}
+                        className={`w-full border-2 rounded-xl pr-4 py-3.5 pl-24 leading-[1.5] ${errors.tipoProductoServicio ? 'border-red-400' : 'border-gray-300'}`}
                       />
                       <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                       
@@ -1046,7 +1046,7 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
                               // Delay para permitir click en la lista
                               setTimeout(() => setMostrarListaProductosServicios(false), 200);
                             }}
-                            className={`w-full border-2 rounded-xl px-4 py-3 pl-10 ${errors.tipoProductoServicio ? 'border-red-400' : 'border-gray-300'}`}
+                            className={`w-full border-2 rounded-xl pr-4 py-3.5 pl-24 leading-[1.5] ${errors.tipoProductoServicio ? 'border-red-400' : 'border-gray-300'}`}
                           />
                           <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                           

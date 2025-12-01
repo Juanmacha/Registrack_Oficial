@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import excelService from '../../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../../shared/utils/excelStyles';
 import Swal from "sweetalert2";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
 import { useDashboardServicios } from "../../../hooks/useDashboardData";
@@ -187,7 +187,7 @@ const GraficaResumenServicios = () => {
     updatePeriodo(newPeriodo);
   };
 
-  const handleDescargarExcel = () => {
+  const handleDescargarExcel = async () => {
     if (!servicios || servicios.length === 0) {
       Swal.fire({
         icon: 'warning',
@@ -197,56 +197,94 @@ const GraficaResumenServicios = () => {
       return;
     }
 
-    // Preparar datos para Excel con todos los estados dinámicos
-    const dataExcel = servicios.map(servicio => {
-      const fila = {
-        Servicio: servicio.nombre,
-        "Total Solicitudes": servicio.totalSolicitudes,
-        "Porcentaje de Uso": servicio.porcentajeUso ? `${servicio.porcentajeUso.toFixed(2)}%` : '0%',
-        "Precio Base": servicio.precioBase ? formatCurrency(servicio.precioBase) : '$0'
+    try {
+      // Preparar datos para Excel con todos los estados dinámicos
+      const dataExcel = servicios.map(servicio => {
+        const fila = {
+          Servicio: servicio.nombre,
+          "Total Solicitudes": servicio.totalSolicitudes,
+          "Porcentaje de Uso": servicio.porcentajeUso ? `${servicio.porcentajeUso.toFixed(2)}%` : '0%',
+          "Precio Base": servicio.precioBase ? formatCurrency(servicio.precioBase) : '$0'
+        };
+        
+        // Agregar cada estado dinámico como columna
+        servicio.estados.forEach(estado => {
+          fila[estado.nombre] = estado.cantidad;
+        });
+        
+        return fila;
+      });
+      
+      // Agregar fila de totales
+      const totalesFila = {
+        Servicio: 'TOTALES',
+        "Total Solicitudes": totalSolicitudes,
+        "Porcentaje de Uso": '100%',
+        "Precio Base": '-'
       };
       
-      // Agregar cada estado dinámico como columna
-      servicio.estados.forEach(estado => {
-        fila[estado.nombre] = estado.cantidad;
+      // Sumar totales por estado
+      servicios.forEach(servicio => {
+        servicio.estados.forEach(estado => {
+          if (!totalesFila[estado.nombre]) {
+            totalesFila[estado.nombre] = 0;
+          }
+          totalesFila[estado.nombre] += estado.cantidad;
+        });
       });
       
-      return fila;
-    });
-    
-    // Agregar fila de totales
-    const totalesFila = {
-      Servicio: 'TOTALES',
-      "Total Solicitudes": totalSolicitudes,
-      "Porcentaje de Uso": '100%',
-      "Precio Base": '-'
-    };
-    
-    // Sumar totales por estado
-    servicios.forEach(servicio => {
-      servicio.estados.forEach(estado => {
-        if (!totalesFila[estado.nombre]) {
-          totalesFila[estado.nombre] = 0;
+      dataExcel.push(totalesFila);
+      
+      // Obtener encabezados dinámicos
+      const encabezadosBase = ["Servicio", "Total Solicitudes", "Porcentaje de Uso", "Precio Base"];
+      const estadosUnicos = [...new Set(servicios.flatMap(s => s.estados.map(e => e.nombre)))];
+      const encabezados = [...encabezadosBase, ...estadosUnicos];
+      
+      // Anchos de columna (base + estados)
+      const anchosBase = [
+        ANCHOS_COLUMNA.NOMBRE_SERVICIO, // Servicio
+        ANCHOS_COLUMNA.ID,              // Total Solicitudes
+        ANCHOS_COLUMNA.TIPO,            // Porcentaje de Uso
+        ANCHOS_COLUMNA.MONTO            // Precio Base
+      ];
+      const anchosEstados = estadosUnicos.map(() => ANCHOS_COLUMNA.ID);
+      const anchosColumnas = [...anchosBase, ...anchosEstados];
+
+      await excelService.generarExcel(
+        dataExcel,
+        encabezados,
+        {
+          nombreHoja: 'Resumen Servicios',
+          nombreArchivo: `resumen_servicios_${periodo}.xlsx`,
+          anchosColumnas,
+          titulo: `Resumen de Servicios - ${periodo}`,
+          incluirLogo: true,
+          filasAlternadas: true,
+          incluirFecha: false // Ya tiene fecha en el nombre
         }
-        totalesFila[estado.nombre] += estado.cantidad;
+      );
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
       });
-    });
-    
-    dataExcel.push(totalesFila);
-    
-    const hoja = XLSX.utils.json_to_sheet(dataExcel);
-    const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, hoja, "ResumenServicios");
-    const excelBuffer = XLSX.write(libro, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, `resumen_servicios_${periodo}.xlsx`);
-    Swal.fire({
-      icon: 'success',
-      title: '¡Éxito!',
-      text: 'Archivo Excel descargado exitosamente.',
-      timer: 2000,
-      showConfirmButton: false
-    });
+    } catch (error) {
+      console.error('Error al descargar Excel:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo descargar el archivo Excel.'
+      });
+    }
   };
 
   // Mostrar estado de carga

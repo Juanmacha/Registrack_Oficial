@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import notificationService from "../../../../../shared/services/NotificationService.js";
+import Swal from "sweetalert2";
 import rolesApiService from "../services/rolesApiService";
 
 const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRoles }) => {
@@ -104,27 +104,61 @@ const EditarRolModal = ({ rolEditable, setRolEditable, roles, setRoles, loadRole
       }
 
       console.log("✅ [EditarRol] ===== ACTUALIZACIÓN COMPLETADA =====");
-      notificationService.updateSuccess('rol');
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'El rol ha sido actualizado correctamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
     } catch (error) {
       console.error("❌ [EditarRol] ===== ERROR EN ACTUALIZACIÓN =====");
       console.error("❌ [EditarRol] Error completo:", error);
       console.error("❌ [EditarRol] Mensaje de error:", error.message);
       console.error("❌ [EditarRol] Stack:", error.stack);
-      notificationService.updateError(error.message || 'Error al actualizar el rol');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'Error al actualizar el rol.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 
   const handleCheckboxChange = (recurso, accion) => {
-    setFormData((prev) => ({
-      ...prev,
-      permisos: {
-        ...prev.permisos,
-        [recurso]: {
-          ...prev.permisos[recurso],
-          [accion]: !prev.permisos[recurso]?.[accion],
+    setFormData((prev) => {
+      const nuevoValor = !prev.permisos[recurso]?.[accion];
+      const permisosActualizados = {
+        ...prev.permisos[recurso],
+        [accion]: nuevoValor,
+      };
+      
+      // Si se activa crear, actualizar o eliminar, también activar leer automáticamente
+      if (nuevoValor && (accion === 'crear' || accion === 'actualizar' || accion === 'eliminar')) {
+        permisosActualizados.leer = true;
+      }
+      
+      return {
+        ...prev,
+        permisos: {
+          ...prev.permisos,
+          [recurso]: permisosActualizados,
         },
-      },
-    }));
+      };
+    });
   };
 
   const handleChange = (e) => {

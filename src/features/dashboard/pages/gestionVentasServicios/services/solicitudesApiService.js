@@ -816,7 +816,17 @@ class SolicitudesApiService {
       }
       return datosConvertidos;
     };
-    
+
+    // Helper para truncar tipo_producto_servicio a máximo 50 caracteres (límite de BD)
+    // Si el valor excede este límite, se truncará automáticamente
+    const truncarTipoProductoServicio = (value, maxLength = 50) => {
+      if (!value) return '';
+      const trimmed = String(value).trim();
+      if (trimmed.length <= maxLength) return trimmed;
+      console.warn(`⚠️ [SolicitudesApiService] tipo_producto_servicio truncado de ${trimmed.length} a ${maxLength} caracteres: "${trimmed.substring(0, maxLength)}..."`);
+      return trimmed.substring(0, maxLength);
+    };
+
     // Transformar según el tipo de servicio
     let datosAPI = {};
     
@@ -839,7 +849,7 @@ class SolicitudesApiService {
         const correo = toStringAndTrim(datosFrontend.email || datosFrontend.correo);
         const pais = toStringAndTrim(datosFrontend.pais || 'Colombia');
         const nombreABuscar = toStringAndTrim(datosFrontend.nombreMarca || datosFrontend.nombreABuscar);
-        const tipoProductoServicio = toStringAndTrim(datosFrontend.tipoProductoServicio || datosFrontend.categoria);
+        const tipoProductoServicio = truncarTipoProductoServicio(datosFrontend.tipoProductoServicio || datosFrontend.categoria);
         const logotipoBase64 = await this.convertirArchivoABase64(datosFrontend.logotipoMarca || datosFrontend.logotipo || '');
         
         // ✅ Logging detallado para debugging
@@ -984,7 +994,7 @@ class SolicitudesApiService {
           correo: (datosFrontend.email || datosFrontend.correo || '').trim(),
           pais: (datosFrontend.pais || 'Colombia').trim(),
           nombre_marca: datosFrontend.nombreMarca.trim(),
-          tipo_producto_servicio: (datosFrontend.tipoProductoServicio || datosFrontend.categoria || '').trim(),
+          tipo_producto_servicio: truncarTipoProductoServicio(datosFrontend.tipoProductoServicio || datosFrontend.categoria || ''),
           logotipo: logotipoBase64Cert || '',
           poder_autorizacion: poderAutorizacionBase64 || ''
         };

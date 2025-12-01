@@ -465,6 +465,15 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     setErrors(prev => ({ ...prev, [`clase_${field}_${i}`]: '' }));
   });
 
+  // Función para manejar el cambio en el número de clase directamente desde el evento
+  const handleClaseNumeroChange = (i, e) => {
+    const value = e.target.value;
+    // Solo permitir números y máximo 2 dígitos
+    const soloNumeros = value.replace(/[^0-9]/g, '');
+    const valorFinal = soloNumeros.length <= 2 ? soloNumeros : soloNumeros.substring(0, 2);
+    handleClaseChange(i, 'numero', valorFinal);
+  };
+
   const addClase = propAddClase || (() => {
     if (form.clases.length < 25) {
       setForm(f => ({ ...f, clases: [...f.clases, { numero: '', descripcion: '' }] }));
@@ -728,11 +737,11 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                     // Delay para permitir click en la lista
                     setTimeout(() => setMostrarListaProductosServicios(false), 200);
                   }}
-                  className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
+                  className={`w-full border-2 rounded-xl pr-4 py-4 pl-24 text-base leading-[1.5] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
                     errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 />
-                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
                 
                 {/* Botón para limpiar búsqueda */}
                 {busquedaProductoServicio && (
@@ -1181,11 +1190,11 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                         // Delay para permitir click en la lista
                         setTimeout(() => setMostrarListaProductosServicios(false), 200);
                       }}
-                      className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
+                      className={`w-full border-2 rounded-xl pr-4 py-4 pl-24 text-base leading-[1.5] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:shadow-md ${
                         errors.tipoProductoServicio ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                       }`}
                     />
-                    <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
                     
                     {/* Botón para limpiar búsqueda */}
                     {busquedaProductoServicio && (

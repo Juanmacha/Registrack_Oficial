@@ -49,7 +49,19 @@ const Servicios = () => {
       
     } catch (error) {
       console.error('❌ [Servicios] Error cargando servicios:', error);
-      Swal.fire("Error", "No se pudieron cargar los servicios. Por favor, inténtelo de nuevo.", "error");
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: "No se pudieron cargar los servicios. Por favor, inténtelo de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
     setLoading(false);
     }
@@ -108,9 +120,33 @@ const Servicios = () => {
         // Detectar el tipo de respuesta
         if (resultado.message && resultado.message.includes('No hay cambios necesarios')) {
           console.log('ℹ️ [Servicios] No hay cambios necesarios');
-          Swal.fire("Sin cambios", "El servicio ya tiene el estado de visibilidad deseado.", "info");
+          Swal.fire({
+            icon: 'info',
+            title: 'Sin cambios',
+            text: "El servicio ya tiene el estado de visibilidad deseado.",
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#3b82f6',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
+            }
+          });
         } else {
-          Swal.fire("Visibilidad actualizada", "El estado de visibilidad del servicio ha sido actualizado.", "success");
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: "El estado de visibilidad del servicio ha sido actualizado.",
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
         }
         
         console.log('🔄 [Servicios] Recargando servicios después del cambio...');
@@ -130,13 +166,37 @@ const Servicios = () => {
         );
         
       await Promise.resolve(toggleVisibilidadServicio(id));
-        Swal.fire("Visibilidad actualizada", "El estado de visibilidad del servicio ha sido actualizado.", "success");
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: "El estado de visibilidad del servicio ha sido actualizado.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
         console.log('🔄 [Servicios] Recargando servicios después del cambio (mock)...');
         await cargarServicios();
       }
     } catch (err) {
       console.error('❌ [Servicios] Error cambiando visibilidad:', err);
-      Swal.fire("Error", "No se pudo cambiar la visibilidad del servicio. Por favor, inténtelo de nuevo.", "error");
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: "No se pudo cambiar la visibilidad del servicio. Por favor, inténtelo de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 
@@ -183,14 +243,38 @@ const Servicios = () => {
             datos: data
           });
           
-          Swal.fire("Servicio actualizado", "El servicio ha sido actualizado correctamente.", "success");
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: "El servicio ha sido actualizado correctamente.",
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
           cargarServicios();
           
           // Notificar a la landing page que los servicios han cambiado
           window.dispatchEvent(new CustomEvent('servicios_updated'));
         } catch (apiError) {
           console.error('❌ [Servicios] Error actualizando servicio:', apiError);
-          Swal.fire("Error", "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.", "error");
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.",
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       } else {
         console.log(`⚠️ [Servicios] No hay token, usando métodos mock para servicio ${editar.id}...`);
@@ -198,7 +282,19 @@ const Servicios = () => {
       if (tipo === 'landing') await Promise.resolve(updateLandingData(editar.id, data));
       if (tipo === 'process') await Promise.resolve(updateProcessStates(editar.id, data));
         
-        Swal.fire("Servicio actualizado", "El servicio ha sido actualizado correctamente.", "success");
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: "El servicio ha sido actualizado correctamente.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
       cargarServicios();
         
         // Notificar a la landing page que los servicios han cambiado
@@ -207,7 +303,19 @@ const Servicios = () => {
     } catch (err) {
       console.error('❌ [Servicios] Error general actualizando servicio:', err);
       console.error('🔍 [DEBUG] Error completo:', err);
-      Swal.fire("Error", "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.", "error");
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: "No se pudo actualizar el servicio. Por favor, inténtelo de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 

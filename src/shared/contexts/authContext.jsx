@@ -159,13 +159,16 @@ export const AuthProvider = ({ children }) => {
   // Función para actualizar datos del usuario
   const updateUser = async (updatedUserData) => {
     try {
+      console.log('🔄 [AuthContext] updateUser - Datos recibidos:', updatedUserData);
       setLoading(true);
       
       // Obtener el usuario actual antes de actualizar para preservar el rol
       const currentUser = authApiService.getCurrentUser();
+      console.log('🔄 [AuthContext] Usuario actual obtenido:', currentUser);
       
       // Usar el servicio de usuarios real
       const result = await userApiService.updateProfile(updatedUserData);
+      console.log('📥 [AuthContext] Resultado de updateProfile:', result);
       
       if (result.success) {
         // Asegurar que el rol se preserve si no viene en la respuesta
@@ -189,11 +192,17 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: updatedUser, message: result.message };
       } else {
+        console.error('❌ [AuthContext] Error en updateProfile:', result.message);
         return { success: false, message: result.message };
       }
     } catch (error) {
-      console.error('Error al actualizar usuario:', error);
-      return { success: false, message: "Error al actualizar usuario" };
+      console.error('❌ [AuthContext] Error al actualizar usuario:', error);
+      console.error('❌ [AuthContext] Detalles del error:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      });
+      return { success: false, message: error.message || "Error al actualizar usuario" };
     } finally {
       setLoading(false);
     }

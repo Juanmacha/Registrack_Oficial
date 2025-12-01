@@ -13,7 +13,19 @@ const BotonDescargarExcel = ({ datos, nombreArchivo = "reporte.xlsx" }) => {
     const data = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(data, nombreArchivo);
     
-    AlertService.success("¡Éxito!", "Archivo Excel descargado exitosamente.");
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      text: 'Archivo Excel descargado exitosamente.',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#10b981',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+      }
+    });
   };
 
   return (

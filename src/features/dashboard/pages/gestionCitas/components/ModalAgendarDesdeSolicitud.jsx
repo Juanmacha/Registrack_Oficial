@@ -271,14 +271,38 @@ const ModalAgendarDesdeSolicitud = ({
     try {
       const token = getToken();
       if (!token) {
-        await alertService.error('Error', 'No se encontró token de autenticación');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se encontró token de autenticación',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
         return;
       }
 
       // Obtener id_orden_servicio
       const idOrdenServicio = solicitudData?.idOrdenServicio || solicitudData?.id_orden_servicio;
       if (!idOrdenServicio) {
-        await alertService.error('Error', 'No se encontró ID de solicitud');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se encontró ID de solicitud',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
         return;
       }
 
@@ -314,10 +338,19 @@ const ModalAgendarDesdeSolicitud = ({
       );
 
       if (result.success) {
-        await alertService.success(
-          'Cita creada exitosamente',
-          `La cita ha sido agendada para ${solicitudData?.clienteNombre || 'el cliente'}. Ahora aparecerá en el calendario.`
-        );
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: `La cita ha sido agendada para ${solicitudData?.clienteNombre || 'el cliente'}. Ahora aparecerá en el calendario.`,
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
 
         // Cerrar modal y limpiar
         setFormData({
@@ -338,7 +371,19 @@ const ModalAgendarDesdeSolicitud = ({
 
         onClose();
       } else {
-        await alertService.error('Error', result.message || 'Error al crear la cita');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message || 'Error al crear la cita',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     } catch (error) {
       console.error('❌ [ModalAgendarDesdeSolicitud] Error al crear cita:', error);
@@ -363,7 +408,19 @@ const ModalAgendarDesdeSolicitud = ({
         errorMessage += '\n\n💡 Se han recargado las citas del calendario. Revise las citas existentes del empleado y seleccione otro horario disponible.';
       }
 
-      await alertService.error('Error al agendar cita', errorMessage);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al agendar cita',
+        html: errorMessage.replace(/\n/g, '<br>'),
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setLoading(false);
     }

@@ -1215,9 +1215,10 @@ Authorization: Bearer <token_admin>
 - **Validación de horarios**: Verificación de disponibilidad y solapamiento
 - **Reportes en Excel**: Incluye columna "ID Solicitud" para trazabilidad
 - **Normalización automática de tipos**: Acepta variaciones con acentos y las normaliza automáticamente (ej: "Certificación" → "Certificacion")
-- **Búsqueda de usuario por documento**: Autocompletar datos de usuario al crear cita
+- **Uso de id_usuario**: Se requiere el `id_usuario` de un usuario con rol "cliente" (no el `id_cliente` de la tabla clientes)
 - **Prevención de citas duplicadas**: Valida que el usuario no tenga una cita activa en el mismo horario
 - **Validación de propiedad**: Los clientes solo pueden ver/editar sus propias citas
+- **Validación de rol**: Solo se pueden crear citas para usuarios con rol "cliente"
 
 #### Validaciones Implementadas ⭐ **NUEVO - Ene 2026**
 
@@ -1243,10 +1244,12 @@ Authorization: Bearer <token_admin>
 - Aplicado en: `createCita`, `reprogramarCita`, `crearCitaDesdeSolicitud`
 - Error: `DATE_TOO_FAR`
 
-**5. ✅ Validación de Integridad de Datos con Documento**
-- Valida que los datos enviados (nombre, apellido, correo, etc.) coincidan con los datos reales del usuario cuando se usa `documento`
-- Aplicado en: `createCita`
-- Campos validados: nombre, apellido, correo, tipo_documento, telefono
+**5. ✅ Validación de Rol de Usuario**
+- Valida que el `id_usuario` proporcionado corresponda a un usuario con rol "cliente"
+- Verifica que el usuario esté activo
+- Si el usuario autenticado es cliente, solo puede crear citas para sí mismo (automáticamente usa su `id_usuario`)
+- Aplicado en: `createCita`, `gestionarSolicitud` (al aprobar solicitud de cita)
+- Error: 400 Bad Request si el usuario no tiene rol "cliente" o está inactivo
 
 **6. ✅ Validación de Horarios de Atención (7:00 AM - 6:00 PM)**
 - Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM
@@ -1256,10 +1259,10 @@ Authorization: Bearer <token_admin>
 **Documentación Completa:**
 - 📁 `VALIDACIONES_CITAS_IMPLEMENTADAS.md` - Documentación detallada de todas las validaciones
 - 📁 `EJEMPLO_POSTMAN_VALIDACIONES_CITAS.md` - Ejemplos de Postman para probar todas las validaciones
+- 📁 `EJEMPLOS_POSTMAN_CITAS_ACTUALIZADOS.md` - Ejemplos completos de Postman con `id_usuario` (Enero 2026) ⭐ **NUEVO**
 
 #### Endpoints Principales
-- `GET /api/gestion-citas/buscar-usuario/:documento` - Buscar usuario por documento y autocompletar datos
-- `POST /api/gestion-citas` - Crear cita independiente (acepta `id_cliente` o `documento`)
+- `POST /api/gestion-citas` - Crear cita independiente (requiere `id_usuario` de usuario con rol "cliente") ⭐ **ACTUALIZADO**
 - `POST /api/gestion-citas/desde-solicitud/:idOrdenServicio` - Crear cita asociada a solicitud
 - `GET /api/gestion-citas` - Ver todas las citas (filtrado por rol)
 - `GET /api/gestion-citas/solicitud/:id` - Ver citas de una solicitud
@@ -1267,6 +1270,101 @@ Authorization: Bearer <token_admin>
 - `PUT /api/gestion-citas/:id/anular` - Anular cita
 - `PUT /api/gestion-citas/:id/finalizar` - Finalizar cita (solo admin/empleado)
 - `GET /api/gestion-citas/reporte/excel` - Reporte Excel con ID Solicitud
+
+#### 📝 Ejemplo de Creación de Cita
+
+**Request:**
+```http
+POST /api/gestion-citas
+Content-Type: application/json
+Authorization: Bearer {token}
+```
+
+**Body (Administrador/Empleado):**
+```json
+{
+  "fecha": "2026-02-15",
+  "hora_inicio": "09:00:00",
+  "hora_fin": "10:00:00",
+  "tipo": "General",
+  "modalidad": "Presencial",
+  "id_usuario": 5,
+  "id_empleado": 2,
+  "observacion": "Primera consulta del cliente"
+}
+```
+
+**Body (Cliente - automático):**
+```json
+{
+  "fecha": "2026-02-15",
+  "hora_inicio": "09:00:00",
+  "hora_fin": "10:00:00",
+  "tipo": "General",
+  "modalidad": "Presencial",
+  "id_empleado": 2,
+  "observacion": "Primera consulta"
+}
+```
+*Nota: Si el usuario autenticado es cliente, no necesita enviar `id_usuario` ya que se usará automáticamente su propio `id_usuario`.*
+
+**Campos requeridos:**
+- `fecha`: Fecha de la cita (formato: `YYYY-MM-DD`)
+- `hora_inicio`: Hora de inicio (formato: `HH:MM:SS`)
+- `hora_fin`: Hora de fin (formato: `HH:MM:SS`)
+- `tipo`: Tipo de cita (valores: `General`, `Busqueda`, `Ampliacion`, `Certificacion`, `Renovacion`, `Cesion`, `Oposicion`, `Respuesta de oposicion`)
+- `modalidad`: Modalidad (valores: `Presencial`, `Virtual`)
+- `id_usuario`: **ID del usuario con rol "cliente"** (obligatorio para admin/empleado, opcional para clientes que se usa automáticamente)
+- `id_empleado`: ID del empleado asignado (PK de la tabla `empleados`)
+- `observacion`: Observaciones adicionales (opcional)
+- `estado`: Estado de la cita (opcional, por defecto: `Programada`)
+
+**Validaciones importantes:**
+- El `id_usuario` debe corresponder a un usuario con rol "cliente" y estar activo
+- Las citas solo se pueden agendar de lunes a viernes
+- Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM
+- La duración de la cita debe ser aproximadamente 1 hora (60 minutos ±5 minutos)
+- No puede haber solapamiento de horarios para el mismo empleado
+- El cliente no puede tener otra cita activa en el mismo horario
+- Si el usuario autenticado es cliente, solo puede crear citas para sí mismo
+
+**Response exitoso (201):**
+```json
+{
+  "success": true,
+  "message": "Cita creada exitosamente",
+  "data": {
+    "cita": {
+      "id_cita": 123,
+      "fecha": "2026-02-15",
+      "hora_inicio": "09:00:00",
+      "hora_fin": "10:00:00",
+      "tipo": "General",
+      "modalidad": "Presencial",
+      "estado": "Programada",
+      "observacion": "Primera consulta del cliente",
+      "id_cliente": 5,
+      "id_empleado": 2,
+      "id_orden_servicio": null
+    }
+  },
+  "meta": {
+    "timestamp": "2026-01-24T10:30:00.000Z",
+    "nextSteps": [
+      "La cita ha sido programada exitosamente",
+      "Se enviará una confirmación por correo electrónico",
+      "Puede reprogramar o cancelar la cita si es necesario"
+    ]
+  }
+}
+```
+
+**Errores comunes:**
+- `400`: Usuario no tiene rol "cliente" o está inactivo
+- `400`: El cliente ya tiene una cita activa en ese horario
+- `400`: Ya existe una cita agendada en ese horario para el empleado
+- `400`: Fecha/hora inválida o fuera de rango
+- `403`: Cliente intenta crear cita para otro usuario
 
 ### 5. Seguimiento de Procesos (`/api/seguimiento`) ⭐ **ACTUALIZADO**
 - **Historial detallado**: Ver todos los seguimientos de una solicitud
@@ -1659,9 +1757,56 @@ Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devu
 - Previene eliminación/desactivación de empleados con asignaciones activas
 - **Citas activas:** Verifica citas con estado `'Programada'` o `'Reprogramada'`
 - **Solicitudes activas:** Verifica solicitudes con estado diferente a `'Anulado'` o `'Finalizado'`
-- Aplicado en: `deleteEmpleado`, `changeEmpleadoState`, `updateEmpleado` (solo si se intenta desactivar)
+- Aplicado en: `DELETE /api/gestion-empleados/:id`, `PATCH /api/gestion-empleados/:id/estado`, `PUT /api/gestion-empleados/:id` (solo si se intenta desactivar)
 - Mensaje de error: Indica cantidad exacta de asignaciones activas y acción requerida
 - Error: 400 Bad Request con detalles descriptivos
+
+**4. ✅ Transacciones ACID para Eliminación**
+- La eliminación de empleados utiliza transacciones de base de datos para garantizar atomicidad
+- **Proceso:** Elimina primero el registro en `empleados`, luego el usuario asociado en `usuarios`
+- **Rollback automático:** Si alguna operación falla, se revierte toda la transacción
+- **Beneficio:** Previene estados inconsistentes en la base de datos
+- Aplicado en: `DELETE /api/gestion-empleados/:id`
+- **Nota:** La eliminación del usuario también elimina automáticamente el registro de empleado debido a `ON DELETE CASCADE`, pero el proceso explícito garantiza mejor control y trazabilidad
+
+**Ejemplo de respuesta de error (Estructura mejorada):**
+```json
+{
+  "success": false,
+  "error": {
+    "codigo": "EMPLEADO_CON_ASIGNACIONES",
+    "tipo": "solicitudes_activas",
+    "message": "No se puede eliminar/desactivar el empleado porque tiene 1 solicitud(es) activa(s) asignada(s). Por favor, reasigne las solicitudes o finalice/anule primero.",
+    "detalles": "Debe resolver todas las asignaciones activas antes de eliminar el empleado.",
+    "cantidad_asignaciones": 1,
+    "acciones_requeridas": [
+      "Reasignar las solicitudes a otro empleado",
+      "Finalizar o anular las solicitudes activas"
+    ]
+  }
+}
+```
+
+**Ejemplo para citas activas:**
+```json
+{
+  "success": false,
+  "error": {
+    "codigo": "EMPLEADO_CON_ASIGNACIONES",
+    "tipo": "citas_activas",
+    "message": "No se puede eliminar/desactivar el empleado porque tiene 3 cita(s) activa(s) asignada(s). Por favor, reprograme o cancele las citas primero.",
+    "detalles": "Debe resolver todas las asignaciones activas antes de eliminar el empleado.",
+    "cantidad_asignaciones": 3,
+    "acciones_requeridas": [
+      "Reprogramar o cancelar todas las citas activas"
+    ]
+  }
+}
+```
+
+**Acciones requeridas antes de eliminar/desactivar:**
+- **Para citas:** Reprogramar o cancelar todas las citas activas
+- **Para solicitudes:** Reasignar a otro empleado, finalizar o anular las solicitudes activas
 
 **Documentación Completa:**
 - 📁 `EJEMPLO_POSTMAN_VALIDACIONES_EMPLEADOS.md` - Ejemplos de Postman para probar todas las validaciones
@@ -1846,7 +1991,24 @@ POST /api/gestion-empleados                     # Crear registro empleado (paso 
 GET /api/gestion-empleados                      # Listar todos los empleados
 GET /api/gestion-empleados/:id                  # Obtener empleado por ID
 PUT /api/gestion-empleados/:id                  # Actualizar empleado
+DELETE /api/gestion-empleados/:id               # Eliminar empleado (con validación de asignaciones)
+PATCH /api/gestion-empleados/:id/estado         # Cambiar estado del empleado (con validación de asignaciones)
 ```
+
+**⚠️ Validación de Asignaciones Activas:**
+- **No se puede eliminar** un empleado que tenga:
+  - Citas activas (estados: `'Programada'`, `'Reprogramada'`)
+  - Solicitudes activas (estados diferentes a `'Anulado'` o `'Finalizado'`)
+- **No se puede desactivar** un empleado con asignaciones activas
+- **Mensaje de error:** Indica la cantidad exacta de asignaciones y la acción requerida
+
+**Ejemplo de error al intentar eliminar empleado con asignaciones:**
+```json
+{
+  "success": false,
+  "message": "No se puede eliminar/desactivar el empleado porque tiene 3 cita(s) activa(s) asignada(s). Por favor, reprograme o cancele las citas primero.",
+  "detalles": "Debe resolver todas las asignaciones activas antes de eliminar el empleado."
+}
 
 ### Dashboard ⭐ **ACTUALIZADO - Ene 2026**
 ```http
@@ -6220,11 +6382,16 @@ curl -X DELETE "http://localhost:3000/api/gestion-empleados/1" \
 **Respuesta esperada:**
 ```json
 {
+  "success": true,
   "message": "Empleado y usuario asociado eliminados correctamente.",
-  "id_empleado_eliminado": 1,
-  "id_usuario_eliminado": 2
+  "data": {
+    "id_empleado_eliminado": 1,
+    "id_usuario_eliminado": 2
+  }
 }
 ```
+
+**Nota:** La eliminación se realiza dentro de una transacción de base de datos para garantizar atomicidad. Si alguna operación falla, se revierte toda la transacción.
 
 **⚠️ Importante**: Esta operación elimina **tanto el empleado como el usuario asociado** de forma permanente. Esta acción no se puede deshacer.
 

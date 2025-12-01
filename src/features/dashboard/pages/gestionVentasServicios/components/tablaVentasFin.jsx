@@ -11,9 +11,8 @@ import seguimientoApiService from '../services/seguimientoApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import getEstadoBadge from "../services/getEstadoBadge"; // Usa el mismo servicio
-import * as xlsx from "xlsx";
+import excelService from '../../../../../shared/services/excelService';
 import StandardAvatar from "../../../../../shared/components/StandardAvatar";
-import { saveAs } from "file-saver";
 import ActionDropdown from "../../../../../shared/components/ActionDropdown";
 import DownloadButton from "../../../../../shared/components/DownloadButton";
 import Swal from 'sweetalert2';
@@ -279,11 +278,16 @@ const TablaVentasFin = () => {
       Swal.close();
       Swal.fire({
         icon: 'success',
-        title: 'Descarga exitosa',
-        text: `Los archivos se han descargado correctamente${result.filename ? `: ${result.filename}` : ''}`,
-        timer: 2000,
-        showConfirmButton: false,
-        customClass: { popup: "swal2-border-radius" }
+        title: '¡Éxito!',
+        text: 'Archivo ZIP de seguimiento descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
       });
 
       // Cerrar modal
@@ -314,7 +318,7 @@ const TablaVentasFin = () => {
     }
   };
 
-  const exportarExcel = () => {
+  const exportarExcel = async () => {
     // Encabezados organizados por secciones
     const encabezados = [
       "Titular", "Tipo de Solicitante", "Tipo de Persona", "Tipo de Documento", "N° Documento", 
@@ -355,105 +359,60 @@ const TablaVentasFin = () => {
       Comentarios: Array.isArray(item.comentarios) ? item.comentarios.map(c => `${c.autor || 'Sistema'}: ${c.texto} (${c.fecha})`).join(' | ') : ''
     }));
 
-    // Crear worksheet con datos
-    const worksheet = xlsx.utils.json_to_sheet(datosExcel, { header: encabezados });
-    
-    // Configurar anchos de columna optimizados
-    const anchosColumna = [
-      { wch: 25 }, // Titular
-      { wch: 20 }, // Tipo de Solicitante
-      { wch: 15 }, // Tipo de Persona
-      { wch: 18 }, // Tipo de Documento
-      { wch: 15 }, // N° Documento
-      { wch: 30 }, // Email
-      { wch: 15 }, // Teléfono
-      { wch: 35 }, // Dirección
-      { wch: 20 }, // Tipo de Entidad
-      { wch: 30 }, // Razón Social
-      { wch: 30 }, // Nombre Empresa
-      { wch: 15 }, // NIT
-      { wch: 25 }, // Poder Representante
-      { wch: 25 }, // Poder Autorización
-      { wch: 15 }, // Estado
-      { wch: 25 }, // Tipo de Solicitud
-      { wch: 20 }, // Encargado
-      { wch: 15 }, // Fecha Solicitud
-      { wch: 15 }, // Próxima Cita
-      { wch: 25 }, // Motivo Anulación
-      { wch: 15 }, // País
-      { wch: 15 }, // NIT Marca
-      { wch: 30 }, // Nombre Marca
-      { wch: 15 }, // Categoría
-      { wch: 25 }, // Certificado Cámara
-      { wch: 25 }, // Logotipo Marca
-      { wch: 50 }, // Clases
-      { wch: 60 }  // Comentarios
+    // Anchos de columna optimizados
+    const anchosColumnas = [
+      25, 20, 15, 18, 15, 30, 15, 35, 20, 30, 30, 15, 25, 25, 15, 25, 20, 15, 15, 25, 15, 15, 30, 15, 25, 25, 50, 60
     ];
-    
-    worksheet["!cols"] = anchosColumna;
-    
-    // Aplicar estilos al encabezado
-    const rangoEncabezado = xlsx.utils.decode_range(worksheet["!ref"]);
-    for (let col = rangoEncabezado.s.c; col <= rangoEncabezado.e.c; col++) {
-      const celdaEncabezado = xlsx.utils.encode_cell({ r: 0, c: col });
-      if (!worksheet[celdaEncabezado]) continue;
-      
-      worksheet[celdaEncabezado].s = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "4472C4" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: {
-          top: { style: "thin", color: { rgb: "4472C4" } },
-          bottom: { style: "thin", color: { rgb: "4472C4" } },
-          left: { style: "thin", color: { rgb: "4472C4" } },
-          right: { style: "thin", color: { rgb: "4472C4" } }
-        }
-      };
-    }
-    
-    // Aplicar estilos a las filas de datos
-    for (let fila = 1; fila <= datosExcel.length; fila++) {
-      for (let col = rangoEncabezado.s.c; col <= rangoEncabezado.e.c; col++) {
-        const celda = xlsx.utils.encode_cell({ r: fila, c: col });
-        if (!worksheet[celda]) continue;
-        
-        worksheet[celda].s = {
-          font: { color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: fila % 2 === 0 ? "F2F2F2" : "FFFFFF" } },
-          alignment: { vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: "D0D0D0" } },
-            bottom: { style: "thin", color: { rgb: "D0D0D0" } },
-            left: { style: "thin", color: { rgb: "D0D0D0" } },
-            right: { style: "thin", color: { rgb: "D0D0D0" } }
-          }
-        };
+
+    await excelService.generarExcel(
+      datosExcel,
+      encabezados,
+      {
+        nombreHoja: 'Ventas Finalizadas',
+        nombreArchivo: excelService.generarNombreArchivo('ventas_finalizadas'),
+        anchosColumnas,
+        titulo: 'Reporte de Solicitudes Finalizadas',
+        incluirLogo: true,
+        filasAlternadas: true
       }
-    }
+    );
     
-    // Crear workbook y agregar hoja
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Ventas Finalizadas");
-    
-    // Generar archivo
-    const excelBuffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    
-    // Nombre del archivo con fecha
-    const fecha = new Date().toISOString().split('T')[0];
-    saveAs(data, `Ventas_Finalizadas_${fecha}.xlsx`);
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      text: 'Archivo Excel descargado exitosamente.',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#10b981',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+      }
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando solicitudes terminadas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full">
       {/* Buscador y botones */}
       <div className="pr-4 pb-4 pl-4 flex flex-col md:flex-row md:items-end gap-3 w-full">
         <div className="relative w-full md:w-80 flex-shrink-0">
-          <span className="absolute left-3 top-2.5 text-gray-400"><i className="bi bi-search"></i></span>
+          <span className="absolute left-4 top-2.5 text-gray-400"><i className="bi bi-search"></i></span>
           <input
             type="text"
             placeholder="Buscar"
-            className="pl-9 pr-3 h-12 w-full text-base border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition placeholder-gray-400 bg-white shadow-md"
+            className="pl-11 pr-3 h-12 w-full text-base border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition placeholder-gray-400 bg-white shadow-md"
             value={busqueda}
             onChange={e => { setBusqueda(e.target.value); setPaginaActual(1); }}
           />
@@ -613,9 +572,16 @@ const TablaVentasFin = () => {
                                     Swal.close();
                                     Swal.fire({
                                       icon: 'success',
-                                      title: '¡Descarga exitosa!',
-                                      text: 'Los archivos se han descargado correctamente.',
-                                      confirmButtonText: 'Aceptar'
+                                      title: '¡Éxito!',
+                                      text: 'Archivo ZIP de solicitud descargado exitosamente.',
+                                      confirmButtonText: 'Cerrar',
+                                      confirmButtonColor: '#10b981',
+                                      customClass: {
+                                        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+                                        title: 'text-gray-800 font-bold text-2xl mb-4',
+                                        content: 'text-gray-600 text-base mb-6',
+                                        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+                                      }
                                     });
                                   } catch (error) {
                                     console.error('❌ [TablaVentasFin] Error al descargar ZIP:', error);

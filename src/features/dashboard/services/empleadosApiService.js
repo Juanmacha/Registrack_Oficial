@@ -489,11 +489,18 @@ const empleadosApiService = {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ [EmpleadosApiService] Error en la respuesta de la API:', response.status, errorData);
-        return {
-          success: false,
-          data: null,
-          message: `Error ${response.status}: ${errorData.message || 'Error al cambiar estado del empleado'}`
-        };
+        
+        // Extraer el mensaje correcto del error (puede estar en errorData.error.message o errorData.message)
+        const errorMessage = errorData.error?.message || errorData.message || 'No se puede cambiar el estado del empleado';
+        
+        // Lanzar error con información completa para que el componente pueda manejarlo
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        // Guardar toda la estructura del error para que el componente pueda acceder a codigo, tipo, cantidad, etc.
+        error.data = errorData.error || errorData;
+        // También guardar errorData completo por si acaso
+        error.errorData = errorData;
+        throw error;
       }
 
       const data = await response.json();
@@ -507,11 +514,16 @@ const empleadosApiService = {
     } catch (error) {
       console.error('💥 [EmpleadosApiService] Error al cambiar estado del empleado:', error);
       
-      return {
-        success: false,
-        data: null,
-        message: 'Error al cambiar el estado del empleado: ' + error.message
-      };
+      // Si el error ya tiene status y data (viene del throw anterior), re-lanzarlo
+      if (error.status && error.data) {
+        throw error;
+      }
+      
+      // Si es otro tipo de error, crear uno nuevo con la estructura correcta
+      const newError = new Error(error.message || 'Error al cambiar el estado del empleado');
+      newError.status = error.status || 500;
+      newError.data = error.data || { message: error.message };
+      throw newError;
     }
   },
 
@@ -561,11 +573,18 @@ const empleadosApiService = {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ [EmpleadosApiService] Error en la respuesta de la API:', response.status, errorData);
-        return {
-          success: false,
-          data: null,
-          message: `Error ${response.status}: ${errorData.message || 'Error al eliminar empleado'}`
-        };
+        
+        // Extraer el mensaje correcto del error (puede estar en errorData.error.message o errorData.message)
+        const errorMessage = errorData.error?.message || errorData.message || 'No se puede eliminar el empleado';
+        
+        // Lanzar error con información completa para que el componente pueda manejarlo
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        // Guardar toda la estructura del error para que el componente pueda acceder a codigo, tipo, cantidad, etc.
+        error.data = errorData.error || errorData;
+        // También guardar errorData completo por si acaso
+        error.errorData = errorData;
+        throw error;
       }
 
       // Intentar leer la respuesta exitosa
@@ -583,11 +602,16 @@ const empleadosApiService = {
     } catch (error) {
       console.error('💥 [EmpleadosApiService] Error al eliminar empleado:', error);
       
-      return {
-        success: false,
-        data: null,
-        message: 'Error al eliminar el empleado: ' + error.message
-      };
+      // Si el error ya tiene status y data (viene del throw anterior), re-lanzarlo
+      if (error.status && error.data) {
+        throw error;
+      }
+      
+      // Si es otro tipo de error, crear uno nuevo con la estructura correcta
+      const newError = new Error(error.message || 'Error al eliminar el empleado');
+      newError.status = error.status || 500;
+      newError.data = error.data || { message: error.message };
+      throw newError;
     }
   },
 

@@ -4,8 +4,8 @@ import citasApiService from '../../services/citasApiService.js';
 import alertService from '../../../../utils/alertService.js';
 import DownloadButton from '../../../../shared/components/DownloadButton';
 import { FaCalendarAlt, FaUser, FaClock, FaSearch, FaEye, FaEdit, FaTrash, FaSync } from 'react-icons/fa';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import excelService from '../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../shared/utils/excelStyles';
 import Swal from 'sweetalert2';
 
 const ListaCitas = () => {
@@ -34,11 +34,35 @@ const ListaCitas = () => {
         setCitas(result.data || []);
       } else {
         console.error('❌ [ListaCitas] Error al cargar citas:', result.message);
-        await alertService.error('Error', result.message);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message,
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     } catch (error) {
       console.error('💥 [ListaCitas] Error al cargar citas:', error);
-      await alertService.error('Error', 'Error al cargar las citas');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al cargar las citas',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -199,15 +223,51 @@ const ListaCitas = () => {
         const result = await citasApiService.reprogramarCita(cita.id_cita || cita.id, formValues);
 
         if (result.success) {
-          await alertService.success('¡Cita Reprogramada!', 'La cita ha sido reprogramada exitosamente.');
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'La cita ha sido reprogramada exitosamente.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
           cargarCitas();
         } else {
-          await alertService.error('Error', result.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message,
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       }
     } catch (error) {
       console.error('Error al reprogramar cita:', error);
-      await alertService.error('Error', 'Error al reprogramar la cita');
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al reprogramar la cita',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
     }
   };
 
@@ -228,19 +288,55 @@ const ListaCitas = () => {
         const result = await citasApiService.anularCita(cita.id_cita || cita.id, motivo);
 
         if (result.success) {
-          await alertService.success('Cita Anulada', 'La cita ha sido anulada exitosamente.');
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'La cita ha sido anulada exitosamente.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
           cargarCitas();
         } else {
-          await alertService.error('Error', result.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message,
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       }
     } catch (error) {
       console.error('Error al anular cita:', error);
-      await alertService.error('Error', 'Error al anular la cita');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al anular la cita',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   };
 
-  const handleExportarExcel = () => {
+  const handleExportarExcel = async () => {
     const encabezados = [
       "ID", "Fecha", "Hora Inicio", "Hora Fin", "Tipo", "Modalidad", "Estado", "Cliente", "Empleado", "Observación"
     ];
@@ -257,17 +353,45 @@ const ListaCitas = () => {
       "Observación": cita.observacion || ''
     }));
     
-    const worksheet = XLSX.utils.json_to_sheet(datosExcel, { header: encabezados });
-    worksheet["!cols"] = [
-      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, 
-      { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 30 }
+    const anchosColumnas = [
+      ANCHOS_COLUMNA.ID,        // ID
+      ANCHOS_COLUMNA.FECHA,     // Fecha
+      ANCHOS_COLUMNA.FECHA,     // Hora Inicio
+      ANCHOS_COLUMNA.FECHA,     // Hora Fin
+      ANCHOS_COLUMNA.TIPO,      // Tipo
+      ANCHOS_COLUMNA.TIPO,      // Modalidad
+      ANCHOS_COLUMNA.ESTADO,    // Estado
+      ANCHOS_COLUMNA.NOMBRE,    // Cliente
+      ANCHOS_COLUMNA.NOMBRE,    // Empleado
+      ANCHOS_COLUMNA.COMENTARIOS // Observación
     ];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Citas");
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "citas.xlsx");
-    alertService.success("¡Éxito!", "Archivo Excel descargado exitosamente.");
+
+    await excelService.generarExcel(
+      datosExcel,
+      encabezados,
+      {
+        nombreHoja: 'Citas',
+        nombreArchivo: excelService.generarNombreArchivo('citas'),
+        anchosColumnas,
+        titulo: 'Reporte de Citas',
+        incluirLogo: true,
+        filasAlternadas: true
+      }
+    );
+    
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      text: 'Archivo Excel descargado exitosamente.',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#10b981',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+      }
+    });
   };
 
   const tiposCita = [...new Set(citas.map(c => normalizarTipoCita(c.tipo)).filter(tipo => tipo && tipo !== 'Sin tipo'))];

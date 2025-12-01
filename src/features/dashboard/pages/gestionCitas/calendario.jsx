@@ -35,13 +35,15 @@ import citasApiService from "../../services/citasApiService.js";
 import alertService from "../../../../utils/alertService.js";
 import empleadosApiService from "../../services/empleadosApiService.js";
 import clientesApiService from "../../services/clientesApiService.js";
+import userApiService from "../../../auth/services/userApiService.js";
 import DownloadButton from "../../../../shared/components/DownloadButton";
 import VerDetalleCita from "../gestionCitas/components/verDetallecita";
 import ModalAgendarDesdeSolicitud from "../gestionCitas/components/ModalAgendarDesdeSolicitud";
 import Swal from "sweetalert2";
 import { FaCalendarAlt, FaUser, FaPhone, FaFileAlt, FaBriefcase, FaDownload, FaSearch, FaEye, FaEdit, FaTrash, FaCalendarDay, FaInfoCircle, FaSpinner } from "react-icons/fa";
 import { Dialog } from "@headlessui/react";
-import * as XLSX from "xlsx";
+import excelService from '../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../shared/utils/excelStyles';
 import "../../../../styles/fullcalendar-custom.css";
 import { handleDocumentNumberChange, handlePhoneChange, handleNumericPaste, handleDocumentNumberKeyDown, handlePhoneKeyDown } from "../../../../shared/utils/numericInputFilter.js";
 
@@ -112,19 +114,84 @@ const Calendario = () => {
     await cargarCitasDesdeAPI();
   };
 
-  // ✅ Función para cargar clientes desde la API
+  // ✅ Función para cargar usuarios con rol "cliente" desde la API
   const cargarClientes = async () => {
     try {
       setCargandoClientes(true);
-      console.log('👥 [Calendario] Cargando clientes desde la API...');
-      const clientesData = await clientesApiService.getAllClientes();
-      // Filtrar solo clientes activos
-      const clientesActivos = (clientesData || []).filter(c => c.estado !== false);
-      setClientes(clientesActivos);
-      console.log('✅ [Calendario] Clientes cargados:', clientesActivos.length);
+      console.log('👥 [Calendario] Cargando usuarios con rol cliente desde la API...');
+      const result = await userApiService.getAllUsers();
+      
+      if (result.success && Array.isArray(result.users)) {
+        console.log('✅ [Calendario] Usuarios recibidos de la API:', result.users.length);
+        console.log('✅ [Calendario] Primer usuario de ejemplo:', result.users[0]);
+        console.log('✅ [Calendario] Campos del primer usuario:', Object.keys(result.users[0] || {}));
+        
+        // Filtrar solo usuarios con rol "cliente" (id_rol = 1) y que estén activos
+        const usuariosClientes = result.users
+          .filter(usuario => {
+            const idRol = usuario.id_rol || usuario.rol?.id;
+            // Según la documentación: 1=Cliente, 2=Administrador, 3=Empleado
+            const esCliente = idRol === 1 || idRol === '1';
+            const estaActivo = usuario.estado !== false && usuario.estado_usuario !== false;
+            console.log('🔍 [Calendario] Usuario:', usuario.nombre, 'id_rol:', idRol, 'esCliente:', esCliente, 'estaActivo:', estaActivo, 'id_usuario:', usuario.id_usuario, 'id:', usuario.id);
+            return esCliente && estaActivo;
+          })
+          .map(usuario => {
+            const idUsuario = usuario.id_usuario || usuario.id;
+            console.log('🔍 [Calendario] Mapeando usuario:', {
+              nombre: usuario.nombre,
+              id_usuario_original: usuario.id_usuario,
+              id_original: usuario.id,
+              id_usuario_mapeado: idUsuario,
+              usuario_completo: usuario
+            });
+            
+            const clienteMapeado = {
+              id_usuario: idUsuario ? parseInt(idUsuario) : null, // Asegurar que sea número
+              nombre: usuario.nombre || '',
+              apellido: usuario.apellido || '',
+              documento: usuario.documento || '',
+              tipo_documento: usuario.tipo_documento || usuario.tipoDocumento || 'CC',
+              correo: usuario.correo || usuario.email || '',
+              telefono: usuario.telefono || '',
+              estado: usuario.estado !== false && usuario.estado_usuario !== false
+            };
+            
+            console.log('✅ [Calendario] Cliente mapeado:', clienteMapeado);
+            return clienteMapeado;
+          })
+          .filter(cliente => {
+            // Filtrar solo clientes que tengan id_usuario válido
+            const tieneIdUsuario = cliente.id_usuario && cliente.id_usuario > 0;
+            if (!tieneIdUsuario) {
+              console.warn('⚠️ [Calendario] Cliente sin id_usuario válido filtrado:', cliente);
+            }
+            return tieneIdUsuario;
+          });
+        
+        setClientes(usuariosClientes);
+        console.log('✅ [Calendario] Usuarios con rol cliente cargados:', usuariosClientes.length);
+        console.log('✅ [Calendario] Primer cliente de ejemplo:', usuariosClientes[0]);
+      } else {
+        console.warn('⚠️ [Calendario] Formato de respuesta inesperado:', result);
+        setClientes([]);
+      }
     } catch (error) {
-      console.error('❌ [Calendario] Error al cargar clientes:', error);
-      await alertService.error('Error', 'No se pudieron cargar los clientes. Intente nuevamente.');
+      console.error('❌ [Calendario] Error al cargar usuarios con rol cliente:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los usuarios. Intente nuevamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      setClientes([]);
     } finally {
       setCargandoClientes(false);
     }
@@ -136,13 +203,13 @@ const Calendario = () => {
     return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   };
 
-  // ✅ Función para filtrar clientes según búsqueda
+  // ✅ Función para filtrar clientes (usuarios con rol cliente) según búsqueda
   const clientesFiltrados = clientes.filter((cliente) => {
     if (!busquedaCliente.trim()) return true;
     
     const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
     const documento = cliente.documento || '';
-    const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || '';
+    const tipoDoc = cliente.tipo_documento || cliente.tipoDocumento || '';
     const correo = cliente.correo || cliente.email || '';
     const telefono = cliente.telefono || '';
     
@@ -191,7 +258,7 @@ const Calendario = () => {
   };
 
   // ✅ Función para autocompletar datos del cliente seleccionado
-  const autocompletarDatosCliente = (cliente) => {
+  const autocompletarDatosCliente = async (cliente) => {
     if (!cliente) {
       setClienteSeleccionado(null);
       setFormData(prev => ({
@@ -207,19 +274,61 @@ const Calendario = () => {
       return;
     }
     
-    setClienteSeleccionado(cliente);
+    // ✅ Verificar que el cliente tenga id_usuario antes de guardarlo
+    console.log('🔍 [Calendario] Cliente seleccionado:', cliente);
+    console.log('🔍 [Calendario] id_usuario del cliente:', cliente.id_usuario);
+    
+    if (!cliente.id_usuario) {
+      console.error('❌ [Calendario] El cliente seleccionado no tiene id_usuario:', cliente);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'El cliente seleccionado no tiene un ID de usuario válido. Por favor, seleccione otro cliente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // Guardar el cliente completo con id_usuario
+    console.log('🔍 [Calendario] ========== AUTocompletarDatosCliente ==========');
+    console.log('🔍 [Calendario] Cliente recibido:', cliente);
+    console.log('🔍 [Calendario] cliente.id_usuario:', cliente.id_usuario);
+    console.log('🔍 [Calendario] Tipo de cliente.id_usuario:', typeof cliente.id_usuario);
+    console.log('🔍 [Calendario] Cliente completo (JSON):', JSON.stringify(cliente, null, 2));
+    
+    const clienteCompleto = {
+      ...cliente,
+      id_usuario: cliente.id_usuario ? parseInt(cliente.id_usuario) : null // Asegurar que id_usuario esté presente y sea número
+    };
+    
+    console.log('✅ [Calendario] Cliente completo a guardar:', clienteCompleto);
+    console.log('✅ [Calendario] id_usuario en clienteCompleto:', clienteCompleto.id_usuario);
+    
+    setClienteSeleccionado(clienteCompleto);
     const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
-    const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || 'CC';
+    const tipoDoc = cliente.tipo_documento || cliente.tipoDocumento || 'CC';
     const documento = cliente.documento || '';
     setBusquedaCliente(`${nombreCompleto} - ${tipoDoc} ${documento}`);
     setMostrarListaClientes(false);
+    
+    // Verificar que se guardó correctamente
+    setTimeout(() => {
+      console.log('✅ [Calendario] Verificación después de guardar - clienteSeleccionado debería tener id_usuario');
+    }, 100);
     setFormData(prev => ({
       ...prev,
       nombre: cliente.nombre || '',
       apellido: cliente.apellido || '',
       cedula: cliente.documento || '',
       // ✅ Solo usar valor por defecto si realmente no hay tipo de documento del cliente
-      tipoDocumento: cliente.tipoDocumento || cliente.tipo_documento || '',
+      tipoDocumento: cliente.tipo_documento || cliente.tipoDocumento || '',
       // ✅ No usar 'N/A' como valor, usar cadena vacía si es null/undefined/N/A
       telefono: (cliente.telefono && cliente.telefono.trim() !== '' && cliente.telefono.toUpperCase() !== 'N/A') 
         ? cliente.telefono 
@@ -253,6 +362,15 @@ const Calendario = () => {
       setMostrarListaClientes(false);
     }
   }, [showModal, modoReprogramar]);
+  
+  // ✅ Debug: Monitorear cambios en clienteSeleccionado
+  useEffect(() => {
+    console.log('🔍 [Calendario] useEffect - clienteSeleccionado cambió:', clienteSeleccionado);
+    if (clienteSeleccionado) {
+      console.log('🔍 [Calendario] clienteSeleccionado.id_usuario:', clienteSeleccionado.id_usuario);
+      console.log('🔍 [Calendario] clienteSeleccionado completo (JSON):', JSON.stringify(clienteSeleccionado, null, 2));
+    }
+  }, [clienteSeleccionado]);
 
   // Función para cargar empleados desde la API
   const cargarEmpleadosDesdeAPI = async () => {
@@ -388,17 +506,50 @@ const Calendario = () => {
         
         // Si es error 404, significa que el endpoint no existe
         if (result.message.includes('404') || result.message.includes('not found')) {
-          await alertService.info(
-            'Endpoint no disponible', 
-            'El endpoint /api/gestion-citas no está implementado en la API. Las citas se crean automáticamente al aprobar solicitudes.'
-          );
+          Swal.fire({
+            icon: 'info',
+            title: 'Endpoint no disponible',
+            text: 'El endpoint /api/gestion-citas no está implementado en la API. Las citas se crean automáticamente al aprobar solicitudes.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#3b82f6',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
+            }
+          });
         } else {
-          await alertService.error('Error', result.message || 'No se pudieron cargar las citas desde la API');
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message || 'No se pudieron cargar las citas desde la API',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       }
     } catch (error) {
       console.error('💥 [Calendario] Error inesperado al cargar desde API:', error);
-      await alertService.error('Error', 'Error de conexión con la API');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error de conexión con la API',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -558,10 +709,19 @@ const Calendario = () => {
     
     // ✅ Verificar permiso de crear antes de permitir seleccionar fecha
     if (!puedeCrear) {
-      await alertService.warning(
-        "Sin permisos",
-        "No tiene permiso para crear citas. Contacte al administrador si necesita este acceso."
-      );
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin permisos',
+        text: "No tiene permiso para crear citas. Contacte al administrador si necesita este acceso.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#f59e0b',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#f59e0b] hover:bg-[#d97706] border border-[#f59e0b] text-white'
+        }
+      });
       return;
     }
     
@@ -574,7 +734,19 @@ const Calendario = () => {
       console.log('🔧 [Calendario] Fecha de hoy:', hoy);
       
       if (fechaSeleccionada < hoy) {
-        await alertService.warning("Fecha inválida", "No puedes agendar citas en días anteriores a hoy.");
+        Swal.fire({
+          icon: 'warning',
+          title: 'Fecha inválida',
+          text: "No puedes agendar citas en días anteriores a hoy.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#f59e0b',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#f59e0b] hover:bg-[#d97706] border border-[#f59e0b] text-white'
+          }
+        });
         return;
       }
       
@@ -606,33 +778,59 @@ const Calendario = () => {
   const handleCreateCita = async (citaData) => {
     setIsLoading(true);
     try {
-      console.log('📅 [Calendario] Creando nueva cita...', citaData);
+      console.log('📅 [Calendario] ========== HANDLE CREATE CITA ==========');
+      console.log('📅 [Calendario] citaData recibido:', citaData);
+      console.log('📅 [Calendario] citaData.id_usuario:', citaData?.id_usuario);
+      console.log('📅 [Calendario] citaData completo (JSON):', JSON.stringify(citaData, null, 2));
       const result = await citasApiService.createCita(citaData);
       
       if (result.success) {
-        await alertService.success(
-          "Cita creada",
-          result.message || "La cita se ha creado exitosamente.",
-          { confirmButtonText: "Entendido" }
-        );
-        
         cerrarModal();
         // Recargar citas desde la API
         await cargarCitasDesdeAPI();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: result.message || "La cita se ha creado exitosamente.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
       } else {
-        await alertService.error(
-          "Error al crear cita",
-          result.message || "No se pudo crear la cita. Intente de nuevo.",
-          { confirmButtonText: "Entendido" }
-        );
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message || "No se pudo crear la cita. Intente de nuevo.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     } catch (error) {
       console.error('💥 [Calendario] Error al crear cita:', error);
-      await alertService.error(
-        "Error de conexión",
-        "No se pudo conectar con el servidor. Intente de nuevo.",
-        { confirmButtonText: "Entendido" }
-      );
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: "No se pudo conectar con el servidor. Intente de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -646,31 +844,54 @@ const Calendario = () => {
       const result = await citasApiService.reprogramarCita(citaId, newData);
       
       if (result.success) {
-        await alertService.success(
-          "Cita reprogramada",
-          result.message || "La cita se ha reprogramado exitosamente.",
-          { confirmButtonText: "Entendido" }
-        );
-        
         setModoReprogramar(false);
         setCitaAReprogramar(null);
         setShowModal(false);
         // Recargar citas desde la API
         await cargarCitasDesdeAPI();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: result.message || "La cita se ha reprogramado exitosamente.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
       } else {
-        await alertService.error(
-          "Error al reprogramar cita",
-          result.message || "No se pudo reprogramar la cita. Intente de nuevo.",
-          { confirmButtonText: "Entendido" }
-        );
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message || "No se pudo reprogramar la cita. Intente de nuevo.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     } catch (error) {
       console.error('💥 [Calendario] Error al reprogramar cita:', error);
-      await alertService.error(
-        "Error de conexión",
-        "No se pudo conectar con el servidor. Intente de nuevo.",
-        { confirmButtonText: "Entendido" }
-      );
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: "No se pudo conectar con el servidor. Intente de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -684,29 +905,52 @@ const Calendario = () => {
       const result = await citasApiService.anularCita(citaId, observacion);
       
       if (result.success) {
-        await alertService.success(
-          "Cita anulada",
-          result.message || "La cita se ha anulado exitosamente.",
-          { confirmButtonText: "Entendido" }
-        );
-        
         setShowDetalle(false);
         // Recargar citas desde la API
         await cargarCitasDesdeAPI();
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: result.message || "La cita se ha anulado exitosamente.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
       } else {
-        await alertService.error(
-          "Error al anular cita",
-          result.message || "No se pudo anular la cita. Intente de nuevo.",
-          { confirmButtonText: "Entendido" }
-        );
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.message || "No se pudo anular la cita. Intente de nuevo.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     } catch (error) {
       console.error('💥 [Calendario] Error al anular cita:', error);
-      await alertService.error(
-        "Error de conexión",
-        "No se pudo conectar con el servidor. Intente de nuevo.",
-        { confirmButtonText: "Entendido" }
-      );
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: "No se pudo conectar con el servidor. Intente de nuevo.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -724,7 +968,15 @@ const Calendario = () => {
       await Swal.fire({ 
         icon: 'error', 
         title: 'Error de fecha', 
-        text: 'No se ha seleccionado una fecha válida. Por favor, seleccione una fecha en el calendario.' 
+        text: 'No se ha seleccionado una fecha válida. Por favor, seleccione una fecha en el calendario.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
       });
       return;
     }
@@ -742,7 +994,19 @@ const Calendario = () => {
     }
     for (let campo of camposObligatorios) {
       if (!formData[campo]) {
-        Swal.fire({ icon: 'error', title: 'Campo obligatorio', text: `El campo ${campo} es obligatorio.` });
+        Swal.fire({ 
+          icon: 'error', 
+          title: 'Campo obligatorio', 
+          text: `El campo ${campo} es obligatorio.`,
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
         return;
       }
     }
@@ -758,7 +1022,15 @@ const Calendario = () => {
       await Swal.fire({ 
         icon: 'error', 
         title: 'Error de fecha', 
-        text: 'No se puede determinar la fecha para la cita.' 
+        text: 'No se puede determinar la fecha para la cita.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
       });
       return;
     }
@@ -771,34 +1043,8 @@ const Calendario = () => {
       ? formData.horaFin + ':00' 
       : formData.horaFin;
     
-    // Validar usando el servicio de citas (incluye todas las validaciones nuevas)
-    const datosParaValidar = {
-      fecha: fechaBase,
-      hora_inicio: horaInicioConSegundos,
-      hora_fin: horaFinConSegundos,
-      tipo: formData.tipoCita,
-      modalidad: "Presencial",
-      id_cliente: 1, // Placeholder, se asignará después
-      id_empleado: 1 // Placeholder, se asignará después
-    };
-    
-    if (modoReprogramar) {
-      // Validar para reprogramar
-      const validacionReprogramar = citasApiService.validateReprogramarData(datosParaValidar);
-      if (!validacionReprogramar.isValid) {
-        const primerError = Object.values(validacionReprogramar.errors)[0];
-        await alertService.error("Error de validación", primerError);
-        return;
-      }
-    } else {
-      // Validar para crear
-      const validacionCrear = citasApiService.validateCitaData(datosParaValidar);
-      if (!validacionCrear.isValid) {
-        const primerError = Object.values(validacionCrear.errors)[0];
-        await alertService.error("Error de validación", primerError);
-        return;
-      }
-    }
+    // ⚠️ NO validar aquí con placeholders - la validación se hará después con los datos reales
+    // La validación temprana con placeholders causaba problemas porque usaba id_cliente en lugar de id_usuario
     
     // Validar cruce de horarios
     const horaInicio = formData.horaInicio;
@@ -813,11 +1059,117 @@ const Calendario = () => {
     });
     
     if (cruza) {
-      await alertService.error("Horario ocupado", "Ya existe una cita en ese rango de horas.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Horario ocupado',
+        text: "Ya existe una cita en ese rango de horas.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
       return;
     }
 
     if (modoReprogramar && citaAReprogramar) {
+      // ✅ Validaciones del frontend para reprogramar según la documentación de la API (Enero 2026)
+      
+      // 1. Validación de días hábiles (lunes a viernes)
+      const fechaObjReprogramar = new Date(fechaBase);
+      const diaSemanaReprogramar = fechaObjReprogramar.getDay();
+      if (diaSemanaReprogramar === 0 || diaSemanaReprogramar === 6) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Día inválido',
+          text: "Las citas solo se pueden reprogramar a días hábiles (lunes a viernes).",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+        return;
+      }
+      
+      // 2. Validación de horarios de atención (7:00 AM - 6:00 PM)
+      const horaInicioReprogramar = formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 
+        ? formData.horaInicio + ':00' 
+        : formData.horaInicio;
+      const horaFinReprogramar = formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 
+        ? formData.horaFin + ':00' 
+        : formData.horaFin;
+      
+      const horaInicioObjReprogramar = new Date(`2000-01-01T${horaInicioReprogramar}`);
+      const horaFinObjReprogramar = new Date(`2000-01-01T${horaFinReprogramar}`);
+      const horaMinimaReprogramar = new Date('2000-01-01T07:00:00');
+      const horaMaximaReprogramar = new Date('2000-01-01T18:00:00');
+      
+      if (horaInicioObjReprogramar < horaMinimaReprogramar || horaFinObjReprogramar > horaMaximaReprogramar) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Horario inválido',
+          text: "Las citas solo se pueden reprogramar entre las 7:00 AM y las 6:00 PM.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+        return;
+      }
+      
+      // 3. Validación de duración (1 hora ±5 minutos = 55-65 minutos)
+      const duracionMinutosReprogramar = (horaFinObjReprogramar - horaInicioObjReprogramar) / (1000 * 60);
+      if (duracionMinutosReprogramar < 55 || duracionMinutosReprogramar > 65) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Duración inválida',
+          text: "La cita debe durar aproximadamente 1 hora (entre 55 y 65 minutos).",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+        return;
+      }
+      
+      // 4. Validación de rango de fechas (máximo 1 año en el futuro)
+      const hoyReprogramar = new Date();
+      hoyReprogramar.setHours(0, 0, 0, 0);
+      const fechaMaximaReprogramar = new Date(hoyReprogramar);
+      fechaMaximaReprogramar.setFullYear(fechaMaximaReprogramar.getFullYear() + 1);
+      
+      if (fechaObjReprogramar > fechaMaximaReprogramar) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Fecha inválida',
+          text: "La fecha no puede ser más de 1 año en el futuro.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+        return;
+      }
+      
       // Buscar el ID del empleado seleccionado para reprogramar (opcional)
       const empleadoSeleccionado = empleadosActivos.find(emp => emp.nombreCompleto === formData.asesor);
       const idEmpleado = empleadoSeleccionado?.id_empleado || null;
@@ -826,8 +1178,8 @@ const Calendario = () => {
       // Solo requiere: fecha, hora_inicio, hora_fin, y opcionalmente observacion e id_empleado
       const datosReprogramar = {
         fecha: fechaBase,
-        hora_inicio: formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 ? formData.horaInicio + ':00' : formData.horaInicio,
-        hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin
+        hora_inicio: horaInicioReprogramar,
+        hora_fin: horaFinReprogramar
       };
       
       // Campos opcionales
@@ -851,31 +1203,275 @@ const Calendario = () => {
     const idEmpleado = empleadoSeleccionado?.id_empleado || null;
     
     if (!idEmpleado) {
-      await alertService.error("Error", "Debe seleccionar un asesor válido.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: "Debe seleccionar un asesor válido.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
       return;
     }
     
-    // ✅ Validar que se haya seleccionado un cliente
-    if (!clienteSeleccionado || !clienteSeleccionado.id_cliente) {
-      await alertService.error(
-        "Cliente requerido",
-        "Debe seleccionar un cliente para crear la cita."
-      );
+    // ✅ Validar que se haya seleccionado un cliente (usuario con rol cliente)
+    console.log('🔍 [Calendario] ========== VALIDACIÓN DE CLIENTE ==========');
+    console.log('🔍 [Calendario] clienteSeleccionado completo:', clienteSeleccionado);
+    console.log('🔍 [Calendario] Tipo de clienteSeleccionado:', typeof clienteSeleccionado);
+    console.log('🔍 [Calendario] ¿clienteSeleccionado existe?:', !!clienteSeleccionado);
+    console.log('🔍 [Calendario] clienteSeleccionado.id_usuario:', clienteSeleccionado?.id_usuario);
+    console.log('🔍 [Calendario] Tipo de id_usuario:', typeof clienteSeleccionado?.id_usuario);
+    console.log('🔍 [Calendario] Claves de clienteSeleccionado:', clienteSeleccionado ? Object.keys(clienteSeleccionado) : 'N/A');
+    
+    if (!clienteSeleccionado) {
+      console.error('❌ [Calendario] No hay cliente seleccionado');
+      Swal.fire({
+        icon: 'error',
+        title: 'Cliente requerido',
+        text: "Debe seleccionar un cliente para crear la cita.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
       return;
     }
     
-    // Preparar datos de la cita usando id_cliente de la tabla clientes
+    // Verificar todas las posibles formas en que puede venir el id_usuario
+    const idUsuarioCliente = clienteSeleccionado.id_usuario || clienteSeleccionado.id || clienteSeleccionado.idUsuario;
+    console.log('🔍 [Calendario] id_usuario extraído (todas las formas):', {
+      id_usuario: clienteSeleccionado.id_usuario,
+      id: clienteSeleccionado.id,
+      idUsuario: clienteSeleccionado.idUsuario,
+      idUsuarioCliente: idUsuarioCliente
+    });
+    
+    if (!idUsuarioCliente || idUsuarioCliente <= 0) {
+      console.error('❌ [Calendario] El cliente seleccionado no tiene id_usuario válido:', {
+        clienteSeleccionado,
+        id_usuario: clienteSeleccionado.id_usuario,
+        id: clienteSeleccionado.id,
+        idUsuarioCliente
+      });
+      Swal.fire({
+        icon: 'error',
+        title: 'Cliente inválido',
+        text: "El cliente seleccionado no tiene un ID de usuario válido. Por favor, seleccione otro cliente.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // ✅ Validaciones del frontend según la documentación de la API (Enero 2026)
+    
+    // 1. Validación de días hábiles (lunes a viernes)
+    const fechaObj = new Date(fechaBase);
+    const diaSemana = fechaObj.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+    if (diaSemana === 0 || diaSemana === 6) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Día inválido',
+        text: "Las citas solo se pueden agendar de lunes a viernes.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // 2. Validación de horarios de atención (7:00 AM - 6:00 PM)
+    const horaInicioObj = new Date(`2000-01-01T${horaInicioConSegundos}`);
+    const horaFinObj = new Date(`2000-01-01T${horaFinConSegundos}`);
+    const horaMinima = new Date('2000-01-01T07:00:00');
+    const horaMaxima = new Date('2000-01-01T18:00:00');
+    
+    if (horaInicioObj < horaMinima || horaFinObj > horaMaxima) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Horario inválido',
+        text: "Las citas solo se pueden agendar entre las 7:00 AM y las 6:00 PM.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // 3. Validación de duración (1 hora ±5 minutos = 55-65 minutos)
+    const duracionMinutos = (horaFinObj - horaInicioObj) / (1000 * 60);
+    if (duracionMinutos < 55 || duracionMinutos > 65) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Duración inválida',
+        text: "La cita debe durar aproximadamente 1 hora (entre 55 y 65 minutos).",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // 4. Validación de rango de fechas (máximo 1 año en el futuro)
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaMaxima = new Date(hoy);
+    fechaMaxima.setFullYear(fechaMaxima.getFullYear() + 1);
+    
+    if (fechaObj > fechaMaxima) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Fecha inválida',
+        text: "La fecha no puede ser más de 1 año en el futuro.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    // Preparar datos de la cita usando id_usuario de usuario con rol "cliente"
+    // Intentar obtener id_usuario de todas las formas posibles
+    const idUsuario = clienteSeleccionado.id_usuario || clienteSeleccionado.id || clienteSeleccionado.idUsuario;
+    
+    console.log('📤 [Calendario] ========== PREPARANDO DATOS DE CITA ==========');
+    console.log('📤 [Calendario] clienteSeleccionado completo:', clienteSeleccionado);
+    console.log('📤 [Calendario] clienteSeleccionado (JSON):', JSON.stringify(clienteSeleccionado, null, 2));
+    console.log('📤 [Calendario] id_usuario extraído:', idUsuario);
+    console.log('📤 [Calendario] Tipo de id_usuario:', typeof idUsuario);
+    console.log('📤 [Calendario] Todas las formas de obtener id:', {
+      'clienteSeleccionado.id_usuario': clienteSeleccionado.id_usuario,
+      'clienteSeleccionado.id': clienteSeleccionado.id,
+      'clienteSeleccionado.idUsuario': clienteSeleccionado.idUsuario,
+      'idUsuario final': idUsuario
+    });
+    
+    if (!idUsuario || idUsuario <= 0 || isNaN(idUsuario)) {
+      console.error('❌ [Calendario] id_usuario inválido:', idUsuario);
+      console.error('❌ [Calendario] clienteSeleccionado completo para debug:', JSON.stringify(clienteSeleccionado, null, 2));
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: `El ID de usuario del cliente es inválido (${idUsuario}). Por favor, seleccione otro cliente.`,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    const idUsuarioNumero = parseInt(idUsuario);
+    console.log('📤 [Calendario] id_usuario convertido a número:', idUsuarioNumero);
+    console.log('📤 [Calendario] ¿Es válido?:', !isNaN(idUsuarioNumero) && idUsuarioNumero > 0);
+    
+    // Crear citaData con id_usuario explícito
     const citaData = {
       fecha: fechaBase,
-      hora_inicio: formData.horaInicio.includes(':') && formData.horaInicio.split(':').length === 2 ? formData.horaInicio + ':00' : formData.horaInicio,
-      hora_fin: formData.horaFin.includes(':') && formData.horaFin.split(':').length === 2 ? formData.horaFin + ':00' : formData.horaFin,
+      hora_inicio: horaInicioConSegundos,
+      hora_fin: horaFinConSegundos,
       tipo: formData.tipoCita,
       modalidad: "Presencial",
-      id_cliente: clienteSeleccionado.id_cliente, // ✅ USAR id_cliente DE LA TABLA clientes
+      id_usuario: idUsuarioNumero, // ✅ Asegurar que sea un número entero
       id_empleado: idEmpleado,
       observacion: formData.detalle || ''
     };
     
+    console.log('📤 [Calendario] ========== CITADATA CREADO ==========');
+    console.log('📤 [Calendario] citaData completo:', citaData);
+    console.log('📤 [Calendario] citaData (JSON):', JSON.stringify(citaData, null, 2));
+    console.log('📤 [Calendario] citaData.id_usuario:', citaData.id_usuario);
+    console.log('📤 [Calendario] Tipo de citaData.id_usuario:', typeof citaData.id_usuario);
+    console.log('📤 [Calendario] ¿citaData.id_usuario es válido?:', !!(citaData.id_usuario && citaData.id_usuario > 0));
+    
+    // ✅ Validar usando el servicio de citas CON los datos reales (incluye id_usuario)
+    console.log('🔍 [Calendario] Validando citaData con el servicio...');
+    const validacionCrear = citasApiService.validateCitaData(citaData);
+    if (!validacionCrear.isValid) {
+      console.error('❌ [Calendario] Validación falló:', validacionCrear.errors);
+      const primerError = Object.values(validacionCrear.errors)[0];
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de validación',
+        text: primerError,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    console.log('✅ [Calendario] Validación exitosa');
+    
+    console.log('📤 [Calendario] ========== ANTES DE LLAMAR handleCreateCita ==========');
+    console.log('📤 [Calendario] Datos completos de la cita a enviar:', JSON.stringify(citaData, null, 2));
+    console.log('📤 [Calendario] Verificando id_usuario antes de enviar:', citaData.id_usuario);
+    console.log('📤 [Calendario] Tipo de id_usuario:', typeof citaData.id_usuario);
+    
+    // Verificación final antes de enviar
+    if (!citaData.id_usuario || citaData.id_usuario <= 0 || isNaN(citaData.id_usuario)) {
+      console.error('❌ [Calendario] ERROR CRÍTICO: id_usuario es inválido antes de enviar');
+      console.error('❌ [Calendario] citaData completo:', JSON.stringify(citaData, null, 2));
+      Swal.fire({
+        icon: 'error',
+        title: 'Error crítico',
+        text: `El ID de usuario no está presente o es inválido (${citaData.id_usuario}). Por favor, seleccione un cliente nuevamente.`,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
+      return;
+    }
+    
+    console.log('✅ [Calendario] Todo validado, llamando a handleCreateCita...');
     await handleCreateCita(citaData);
   };
 
@@ -919,10 +1515,19 @@ const Calendario = () => {
     
     // ✅ Verificar permiso de leer antes de mostrar detalles
     if (!puedeLeer) {
-      await alertService.warning(
-        "Sin permisos",
-        "No tiene permiso para ver detalles de citas."
-      );
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin permisos',
+        text: "No tiene permiso para ver detalles de citas.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#f59e0b',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#f59e0b] hover:bg-[#d97706] border border-[#f59e0b] text-white'
+        }
+      });
       return;
     }
     
@@ -942,10 +1547,17 @@ const Calendario = () => {
         return null;
       },
       showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
       confirmButtonText: "Anular cita",
-      cancelButtonText: "Cancelar"
+      cancelButtonText: "Cancelar",
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white',
+        cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white'
+      }
     }).then(async (result) => {
       if (result.isConfirmed && citaSeleccionada) {
         const observacion = result.value;
@@ -1224,31 +1836,88 @@ const Calendario = () => {
       return fecha >= start && fecha < end;
     });
     if (eventosMes.length === 0) {
-      await alertService.info("Sin datos", "No hay citas en el mes actual.");
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin datos',
+        text: "No hay citas en el mes actual.",
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#3b82f6',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
+        }
+      });
       return;
     }
+    
     // Preparar datos para Excel
-    const data = eventosMes.map(ev => ({
+    const encabezados = [
+      "Nombre", "Apellido", "Cédula", "Teléfono", "Tipo de Cita", 
+      "Asesor", "Fecha", "Hora Inicio", "Hora Fin", "Estado", "Detalle"
+    ];
+    
+    const datosExcel = eventosMes.map(ev => ({
       Nombre: ev.extendedProps?.nombre || '',
       Apellido: ev.extendedProps?.apellido || '',
       Cédula: ev.extendedProps?.cedula || '',
       Teléfono: ev.extendedProps?.telefono || '',
       "Tipo de Cita": ev.extendedProps?.tipoCita || '',
       Asesor: ev.extendedProps?.asesor || '',
-      Fecha: ev.start ? new Date(ev.start).toLocaleDateString() : '',
-      "Hora Inicio": ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-      "Hora Fin": ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+      Fecha: ev.start ? new Date(ev.start).toLocaleDateString('es-CO') : '',
+      "Hora Inicio": ev.start ? new Date(ev.start).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
+      "Hora Fin": ev.end ? new Date(ev.end).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
       Estado: ev.extendedProps?.estado || '',
       Detalle: ev.extendedProps?.detalle || '',
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Citas");
+    
     // Nombre del archivo con mes y año
     const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesNombre = meses[start.getMonth()];
     const anio = start.getFullYear();
-    XLSX.writeFile(wb, `Citas_${mesNombre}_${anio}.xlsx`);
+    
+    const anchosColumnas = [
+      ANCHOS_COLUMNA.NOMBRE,    // Nombre
+      ANCHOS_COLUMNA.NOMBRE,    // Apellido
+      ANCHOS_COLUMNA.DOCUMENTO, // Cédula
+      ANCHOS_COLUMNA.TELEFONO,  // Teléfono
+      ANCHOS_COLUMNA.TIPO,      // Tipo de Cita
+      ANCHOS_COLUMNA.NOMBRE,    // Asesor
+      ANCHOS_COLUMNA.FECHA,     // Fecha
+      ANCHOS_COLUMNA.FECHA,     // Hora Inicio
+      ANCHOS_COLUMNA.FECHA,     // Hora Fin
+      ANCHOS_COLUMNA.ESTADO,    // Estado
+      ANCHOS_COLUMNA.COMENTARIOS // Detalle
+    ];
+
+    await excelService.generarExcel(
+      datosExcel,
+      encabezados,
+      {
+        nombreHoja: 'Citas',
+        nombreArchivo: `Citas_${mesNombre}_${anio}.xlsx`,
+        anchosColumnas,
+        titulo: `Reporte de Citas - ${mesNombre} ${anio}`,
+        incluirLogo: true,
+        filasAlternadas: true,
+        incluirFecha: false // Ya tiene fecha en el nombre
+      }
+    );
+    
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      text: 'Archivo Excel descargado exitosamente.',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#10b981',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+      }
+    });
   };
 
   return (
@@ -1531,14 +2200,14 @@ const Calendario = () => {
                         <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {clientesFiltrados.map((cliente) => {
                             const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim();
-                            const tipoDoc = cliente.tipoDocumento || cliente.tipo_documento || 'CC';
+                            const tipoDoc = cliente.tipo_documento || cliente.tipoDocumento || 'CC';
                             const documento = cliente.documento || '';
                             const textoMostrar = `${nombreCompleto} - ${tipoDoc} ${documento}`;
-                            const esSeleccionado = clienteSeleccionado?.id_cliente === cliente.id_cliente;
+                            const esSeleccionado = clienteSeleccionado?.id_usuario === cliente.id_usuario;
                             
                             return (
                               <button
-                                key={cliente.id_cliente}
+                                key={cliente.id_usuario || cliente.id}
                                 type="button"
                                 onClick={() => autocompletarDatosCliente(cliente)}
                                 className={`w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors ${
@@ -1856,11 +2525,11 @@ const Calendario = () => {
                         setTimeout(() => setMostrarListaEmpleados(false), 200);
                       }}
                       disabled={loadingEmpleados || empleadosActivos.length === 0}
-                      className={`w-full px-2 py-1.5 pl-8 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm ${
+                      className={`w-full pr-4 py-3.5 pl-24 border rounded-md shadow-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm leading-[1.5] ${
                         loadingEmpleados || empleadosActivos.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
                       } ${touched.asesor && errores.asesor ? 'border-red-500' : 'border-gray-300'}`}
                     />
-                    <i className="bi bi-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
                     
                     {/* Botón para limpiar búsqueda */}
                     {busquedaEmpleado && !loadingEmpleados && (

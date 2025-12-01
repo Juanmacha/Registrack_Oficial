@@ -275,12 +275,36 @@ const GestionUsuarios = () => {
             }
           }
           
-          notificationService.updateSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
           console.log("🔄 [GestionUsuarios] Usuarios recargados después de la actualización");
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'El usuario ha sido actualizado correctamente.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
         } else {
           console.error("❌ [GestionUsuarios] Error al actualizar usuario:", result.message);
-          notificationService.updateError(result.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message || 'No se pudo actualizar el usuario.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
           return;
       }
     } else {
@@ -295,7 +319,19 @@ const GestionUsuarios = () => {
         // Validar que el roleId sea válido
         if (!roleId || roleId === null || roleId === undefined) {
           console.error('❌ [GestionUsuarios] RoleId inválido:', roleId);
-          notificationService.updateError(`El rol "${nuevoUsuario.role}" no es válido. Por favor, selecciona un rol válido.`);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: `El rol "${nuevoUsuario.role}" no es válido. Por favor, selecciona un rol válido.`,
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
           setLoading(false);
           return;
         }
@@ -317,11 +353,35 @@ const GestionUsuarios = () => {
         
         if (result.success) {
           console.log("✅ [GestionUsuarios] Usuario creado exitosamente");
-          notificationService.createSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'El usuario ha sido creado correctamente.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
         } else {
           console.error("❌ [GestionUsuarios] Error al crear usuario:", result.message);
-          notificationService.createError(result.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message || 'No se pudo crear el usuario.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
           return;
         }
       }
@@ -343,11 +403,19 @@ const GestionUsuarios = () => {
     } catch (error) {
       console.error("💥 [GestionUsuarios] Error general al guardar usuario:", error);
       const errorMessage = modoEdicion ? 'Error al actualizar usuario' : 'Error al crear usuario';
-      if (modoEdicion) {
-        notificationService.updateError(errorMessage);
-      } else {
-        notificationService.createError(errorMessage);
-      }
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage + '.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -433,10 +501,17 @@ const GestionUsuarios = () => {
       text: `¿Deseas cambiar el estado de ${usuario.firstName} ${usuario.lastName} a ${nuevoEstadoTexto}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
+      confirmButtonColor: "#10b981",
+      cancelButtonColor: "#6b7280",
       confirmButtonText: "Sí, cambiar estado",
-      cancelButtonText: "Cancelar"
+      cancelButtonText: "Cancelar",
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white',
+        cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white'
+      }
     });
     
       if (result.isConfirmed) {
@@ -460,14 +535,50 @@ const GestionUsuarios = () => {
           console.log("🔄 [GestionUsuarios] Recargando usuarios después del cambio de estado...");
           await cargarUsuarios(); // Recargar la lista
           console.log("✅ [GestionUsuarios] Usuarios recargados después del cambio de estado");
-          Swal.fire("¡Éxito!", `El estado del usuario ha sido cambiado a ${nuevoEstadoTexto}.`, "success");
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: `El estado del usuario ha sido cambiado a ${nuevoEstadoTexto}.`,
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
         } else {
           console.error("❌ [GestionUsuarios] Error al actualizar estado:", updateResult.message);
-          Swal.fire("Error", updateResult.message || "No se pudo actualizar el estado del usuario.", "error");
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: updateResult.message || "No se pudo actualizar el estado del usuario.",
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       } catch (error) {
         console.error("💥 [GestionUsuarios] Error general al cambiar estado:", error);
-        Swal.fire("Error", "No se pudo actualizar el estado del usuario.", "error");
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: "No se pudo actualizar el estado del usuario.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       } finally {
         setLoading(false);
       }
@@ -477,7 +588,23 @@ const GestionUsuarios = () => {
   const handleDelete = async (usuario) => {
     console.log("🔄 [GestionUsuarios] Usuario a eliminar:", usuario);
     
-    const result = await notificationService.deleteConfirm('usuario');
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: `¿Estás seguro de que deseas eliminar a ${usuario.firstName} ${usuario.lastName}? Esta acción no se puede deshacer.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white',
+        cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white'
+      }
+    });
       if (result.isConfirmed) {
       setLoading(true);
       try {
@@ -486,15 +613,51 @@ const GestionUsuarios = () => {
         
         if (deleteResult.success) {
           console.log("✅ [GestionUsuarios] Usuario eliminado exitosamente");
-          notificationService.deleteSuccess('usuario');
           await cargarUsuarios(); // Recargar la lista
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'El usuario ha sido eliminado correctamente.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#10b981',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+            }
+          });
         } else {
           console.error("❌ [GestionUsuarios] Error al eliminar usuario:", deleteResult.message);
-          notificationService.deleteError(deleteResult.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: deleteResult.message || 'No se pudo eliminar el usuario.',
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#ef4444',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+            }
+          });
         }
       } catch (error) {
         console.error("💥 [GestionUsuarios] Error general al eliminar usuario:", error);
-        notificationService.deleteError('Error al eliminar usuario');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error al eliminar usuario.',
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       } finally {
         setLoading(false);
       }

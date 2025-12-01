@@ -6,6 +6,7 @@ import alertService from "../../../utils/alertService";
 import { sanitizeLoginData } from "../../../shared/utils/sanitizer.js";
 import { manejarErrorAPI, obtenerMensajeErrorUsuario } from "../../../shared/utils/errorHandler.js";
 import { tieneRolAdministrativo } from "../../../shared/utils/roleUtils.js";
+import Swal from "sweetalert2";
 
 const validateEmail = (email) => {
   // Expresión regular básica para validar email
@@ -74,13 +75,28 @@ const Login = () => {
       const result = await login(sanitizedData.correo || formData.email, formData.password);
       
       if (result.success) {
-        // Mostrar alerta de login exitoso
-        const userName = result.user.name || result.user.firstName || 'Usuario';
-        await alertService.success(
-          "¡Bienvenido!",
-          `Hola ${userName}, has iniciado sesión correctamente.`,
-          { confirmButtonText: "Continuar" }
-        );
+        // Obtener el nombre completo del usuario considerando todas las posibles estructuras
+        const user = result.user;
+        const userName = user.name || 
+          `${user.nombre || user.firstName || ''} ${user.apellido || user.lastName || ''}`.trim() ||
+          user.firstName || 
+          user.nombre || 
+          'Usuario';
+        
+        // Mostrar alerta de login exitoso con estilo unificado
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Bienvenido!',
+          text: `Hola ${userName}, has iniciado sesión correctamente.`,
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#10b981',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+          }
+        });
 
         // Debug: Mostrar datos del usuario en consola
         console.log('🔍 Datos del usuario recibidos:', result.user);
@@ -102,7 +118,6 @@ const Login = () => {
         }
         
         // Redirigir según el rol - Usar lógica inteligente basada en permisos
-        const user = result.user;
         console.log('🎯 [Login] Usuario para redirección:', user);
         console.log('🎯 [Login] Rol del usuario:', user.rol);
         console.log('🎯 [Login] Tipo de rol:', typeof user.rol);

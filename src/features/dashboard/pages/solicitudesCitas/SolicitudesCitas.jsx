@@ -3,8 +3,8 @@ import TablaSolicitudesCitas from './TablaSolicitudesCitas';
 import solicitudesCitasApiService from '../../services/solicitudesCitasApiService.js';
 import alertService from '../../../../utils/alertService.js';
 import "bootstrap-icons/font/bootstrap-icons.css";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import excelService from '../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../shared/utils/excelStyles';
 import Swal from "sweetalert2";
 import DownloadButton from "../../../../shared/components/DownloadButton";
 
@@ -17,6 +17,7 @@ const SolicitudesCitas = () => {
   const [selectedSolicitud, setSelectedSolicitud] = useState(null);
   const [mostrarModalVer, setMostrarModalVer] = useState(false);
   const [deshabilitarAcciones, setDeshabilitarAcciones] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const solicitudesPorPagina = 5;
 
@@ -25,6 +26,7 @@ const SolicitudesCitas = () => {
   }, []);
 
   const cargarSolicitudes = async () => {
+    setLoading(true);
     try {
       console.log('📋 [SolicitudesCitas] Cargando solicitudes desde la API...');
       const result = await solicitudesCitasApiService.getAllSolicitudesCitas();
@@ -39,6 +41,8 @@ const SolicitudesCitas = () => {
     } catch (error) {
       console.error('💥 [SolicitudesCitas] Error al cargar solicitudes:', error);
       await alertService.error('Error', 'Error al cargar las solicitudes de citas');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,9 +82,9 @@ const SolicitudesCitas = () => {
     setDeshabilitarAcciones(true);
   };
 
-  const handleExportarExcel = () => {
+  const handleExportarExcel = async () => {
     const encabezados = [
-      "ID", "Fecha Solicitada", "Hora Solicitada", "Tipo", "Modalidad", "Estado", "Cliente", "Email", "Descripción", "Fecha Creación"
+      "ID", "Fecha Solicitada", "Hora Solicitada", "Tipo", "Modalidad", "Estado", "Cliente", "Email", "Descripción", "Observaciones", "Fecha Creación"
     ];
     const datosExcel = solicitudesFiltradas.map((s) => ({
       "ID": s.id || '',
@@ -93,21 +97,63 @@ const SolicitudesCitas = () => {
       "Email": s.cliente?.correo || '',
       "Descripción": s.descripcion || '',
       "Observaciones": s.observacion_admin || '',
-      "Fecha Creación": s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''
+      "Fecha Creación": s.createdAt ? new Date(s.createdAt).toLocaleDateString('es-CO') : ''
     }));
-    const worksheet = XLSX.utils.json_to_sheet(datosExcel, { header: encabezados });
-    worksheet["!cols"] = [
-      { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
+    
+    const anchosColumnas = [
+      ANCHOS_COLUMNA.ID,        // ID
+      ANCHOS_COLUMNA.FECHA,     // Fecha Solicitada
+      ANCHOS_COLUMNA.FECHA,     // Hora Solicitada
+      ANCHOS_COLUMNA.TIPO,      // Tipo
+      ANCHOS_COLUMNA.TIPO,      // Modalidad
+      ANCHOS_COLUMNA.ESTADO,    // Estado
+      ANCHOS_COLUMNA.NOMBRE,    // Cliente
+      ANCHOS_COLUMNA.EMAIL,     // Email
+      ANCHOS_COLUMNA.DESCRIPCION, // Descripción
+      ANCHOS_COLUMNA.COMENTARIOS, // Observaciones
+      ANCHOS_COLUMNA.FECHA      // Fecha Creación
     ];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitudes_Citas");
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "solicitudes_citas.xlsx");
-    alertService.success("¡Éxito!", "Archivo Excel descargado exitosamente.");
+
+    await excelService.generarExcel(
+      datosExcel,
+      encabezados,
+      {
+        nombreHoja: 'Solicitudes de Citas',
+        nombreArchivo: excelService.generarNombreArchivo('solicitudes_citas'),
+        anchosColumnas,
+        titulo: 'Reporte de Solicitudes de Citas',
+        incluirLogo: true,
+        filasAlternadas: true
+      }
+    );
+    
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      text: 'Archivo Excel descargado exitosamente.',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#10b981',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+      }
+    });
   };
 
   const tiposSolicitud = [...new Set(solicitudes.map(s => s.tipo).filter(tipo => tipo))];
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando solicitudes de citas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex justify-center">
@@ -244,22 +290,39 @@ const SolicitudesCitas = () => {
                         />
                         <div>
                           <div className="font-medium text-gray-800 text-sm">{selectedSolicitud.cliente?.nombre || 'N/A'}</div>
-                          <div className="text-xs text-gray-500">{selectedSolicitud.cliente?.correo || 'N/A'}</div>
+                          {/* Mostrar email solo si tiene valor real */}
+                          {(selectedSolicitud.cliente?.correo || selectedSolicitud.cliente?.email) && 
+                           selectedSolicitud.cliente?.correo !== 'N/A' && 
+                           selectedSolicitud.cliente?.email !== 'N/A' && (
+                            <div className="text-xs text-gray-500">{selectedSolicitud.cliente?.correo || selectedSolicitud.cliente?.email}</div>
+                          )}
                         </div>
                       </div>
                       <div className="pt-2 border-t border-gray-200 space-y-1 text-xs">
-                        <div className="flex items-center space-x-2">
-                          <i className="bi bi-card-text text-gray-400"></i>
-                          <span className="text-gray-600">Documento:</span>
-                          <span className="font-medium text-gray-800">
-                            {selectedSolicitud.cliente?.tipo_documento || selectedSolicitud.cliente?.tipoDocumento || 'CC'} {selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <i className="bi bi-telephone text-gray-400"></i>
-                          <span className="text-gray-600">Teléfono:</span>
-                          <span className="font-medium text-gray-800">{selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono || "No disponible"}</span>
-                        </div>
+                        {/* Mostrar documento solo si tiene valor real */}
+                        {(selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento) && 
+                         (selectedSolicitud.cliente?.documento !== 'N/A' && selectedSolicitud.cliente?.numero_documento !== 'N/A') && (
+                          <div className="flex items-center space-x-2">
+                            <i className="bi bi-card-text text-gray-400"></i>
+                            <span className="text-gray-600">Documento:</span>
+                            <span className="font-medium text-gray-800">
+                              {selectedSolicitud.cliente?.tipo_documento || selectedSolicitud.cliente?.tipoDocumento || 'CC'} {selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento}
+                            </span>
+                          </div>
+                        )}
+                        {/* Mostrar teléfono solo si tiene valor real */}
+                        {(selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono) && 
+                         selectedSolicitud.cliente?.telefono !== 'N/A' && 
+                         selectedSolicitud.cliente?.telefono !== 'No disponible' &&
+                         selectedSolicitud.telefono !== 'N/A' &&
+                         selectedSolicitud.telefono !== 'No disponible' &&
+                         (selectedSolicitud.cliente?.telefono?.trim() !== '' || selectedSolicitud.telefono?.trim() !== '') && (
+                          <div className="flex items-center space-x-2">
+                            <i className="bi bi-telephone text-gray-400"></i>
+                            <span className="text-gray-600">Teléfono:</span>
+                            <span className="font-medium text-gray-800">{selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { FaBalanceScale, FaMedal, FaRocket, FaCheck } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { Link as ScrollLink } from "react-scroll";
 import { mockDataService } from "../../../utils/mockDataService.js";
 import alertService from '../../../utils/alertService.js';
 import { useAuth } from '../../../shared/contexts/authContext.jsx';
@@ -889,11 +890,17 @@ const Hero = () => {
             </p>
             <HeroFeatures />
             <div className="w-full text-left pt-2 flex flex-col sm:flex-row gap-3">
-              <a href="#nosotros">
+              <ScrollLink
+                to="nosotros"
+                smooth={true}
+                duration={500}
+                offset={-110}
+                className="w-full sm:w-auto"
+              >
                 <button className="bg-blue-600 text-white px-6 py-3 rounded-md text-base hover:bg-blue-700 transition btn-text w-full sm:w-auto">
                   Conocer más
                 </button>
-              </a>
+              </ScrollLink>
               <button
                 className="bg-blue-50 text-blue-600 px-6 py-3 rounded-md text-base hover:bg-blue-100 border border-blue-200 transition btn-text w-full sm:w-auto"
                 style={{ minWidth: 0 }}
@@ -908,7 +915,7 @@ const Hero = () => {
       </header>
 
       {/* Quiénes somos Section */}
-      <section className="bg-[#275FAA] py-16 px-4 sm:px-6 lg:px-8 mt-16">
+      <section id="nosotros" className="bg-[#275FAA] py-16 px-4 sm:px-6 lg:px-8 mt-16">
         <div className="max-w-screen-xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-8 md:p-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">

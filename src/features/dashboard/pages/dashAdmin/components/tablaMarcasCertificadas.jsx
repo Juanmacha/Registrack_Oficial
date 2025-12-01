@@ -5,6 +5,8 @@ import StandardAvatar from "../../../../../shared/components/StandardAvatar";
 import { useDashboardRenovaciones } from "../../../hooks/useDashboardData";
 import dashboardApiService from "../../../services/dashboardApiService";
 import Swal from "sweetalert2";
+import excelService from '../../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../../shared/utils/excelStyles';
 
 // Badge de estado de vencimiento
 const EstadoVencimientoBadge = ({ diasRestantes }) => {
@@ -161,38 +163,57 @@ const TablaMarcasCertificadas = () => {
   // Manejar descarga de Excel
   const handleDescargarExcel = async () => {
     try {
-      // Intentar descargar desde la API primero
-      const result = await dashboardApiService.getRenovacionesProximas('excel');
+      const encabezados = [
+        "Marca", "Cliente", "Fecha Certificación", "Fecha Vencimiento", 
+        "Días Restantes", "Estado", "Empleado Asignado"
+      ];
       
-      if (result.success) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Archivo Excel descargado exitosamente.',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      } else {
-        // Si falla, crear Excel localmente
-        const dataExcel = datosOrdenados.map(item => ({
-          Marca: item.marca,
-          Cliente: item.cliente,
-          "Fecha Certificación": item.fechaCertificacion ? new Date(item.fechaCertificacion).toLocaleDateString("es-ES") : 'N/A',
-          "Fecha Vencimiento": item.fechaVencimiento ? new Date(item.fechaVencimiento).toLocaleDateString("es-ES") : 'N/A',
-          "Días Restantes": item.diasRestantes,
-          Estado: item.estado,
-          "Empleado Asignado": item.empleadoAsignado
-        }));
-        
-        // Usar BotonDescargarExcel para descargar localmente
-        const blob = new Blob([JSON.stringify(dataExcel, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'marcas-certificadas-proximas-vencimiento.json';
-        link.click();
-        window.URL.revokeObjectURL(url);
-      }
+      const datosExcel = datosOrdenados.map(item => ({
+        Marca: item.marca || '',
+        Cliente: item.cliente || '',
+        "Fecha Certificación": item.fechaCertificacion ? new Date(item.fechaCertificacion).toLocaleDateString("es-CO") : 'N/A',
+        "Fecha Vencimiento": item.fechaVencimiento ? new Date(item.fechaVencimiento).toLocaleDateString("es-CO") : 'N/A',
+        "Días Restantes": item.diasRestantes || 0,
+        Estado: item.estado || '',
+        "Empleado Asignado": item.empleadoAsignado || ''
+      }));
+      
+      const anchosColumnas = [
+        ANCHOS_COLUMNA.NOMBRE_MARCA, // Marca
+        ANCHOS_COLUMNA.NOMBRE,       // Cliente
+        ANCHOS_COLUMNA.FECHA,        // Fecha Certificación
+        ANCHOS_COLUMNA.FECHA,        // Fecha Vencimiento
+        ANCHOS_COLUMNA.ID,           // Días Restantes
+        ANCHOS_COLUMNA.ESTADO,       // Estado
+        ANCHOS_COLUMNA.NOMBRE        // Empleado Asignado
+      ];
+
+      await excelService.generarExcel(
+        datosExcel,
+        encabezados,
+        {
+          nombreHoja: 'Marcas Certificadas',
+          nombreArchivo: excelService.generarNombreArchivo('marcas_certificadas'),
+          anchosColumnas,
+          titulo: 'Reporte de Marcas Certificadas - Próximas a Vencer',
+          incluirLogo: true,
+          filasAlternadas: true
+        }
+      );
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
     } catch (error) {
       console.error('Error al descargar Excel:', error);
       Swal.fire({

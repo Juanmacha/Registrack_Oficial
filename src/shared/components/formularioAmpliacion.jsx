@@ -332,12 +332,16 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
                 name="claseNizaActual" 
                 value={form.claseNizaActual} 
                 onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9]/g, '');
-                  if (value.length <= 2) {
-                    handleChange({ ...e, target: { ...e.target, value } });
+                  let value = e.target.value.replace(/[^0-9]/g, '');
+                  // Limitar a máximo 2 dígitos
+                  if (value.length > 2) {
+                    value = value.substring(0, 2);
                   }
+                  // Siempre actualizar el valor, incluso si está vacío
+                  handleChange({ ...e, target: { ...e.target, value } });
                 }}
                 maxLength={2}
+                inputMode="numeric"
                 className={`w-full border-2 rounded-xl px-4 py-3 ${errors.claseNizaActual ? 'border-red-400' : 'border-gray-300'}`} 
                 placeholder="Ej: 25" 
               />
@@ -579,7 +583,24 @@ const FormularioAmpliacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Amp
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Clase Niza Actual *</label>
-                  <input type="text" name="claseNizaActual" value={form.claseNizaActual} onChange={handleChange} className={`w-full border-2 rounded-xl px-4 py-3 ${errors.claseNizaActual ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ej: 25" />
+                  <input 
+                    type="text" 
+                    name="claseNizaActual" 
+                    value={form.claseNizaActual} 
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, '');
+                      // Limitar a máximo 2 dígitos
+                      if (value.length > 2) {
+                        value = value.substring(0, 2);
+                      }
+                      // Siempre actualizar el valor, incluso si está vacío
+                      handleChange({ ...e, target: { ...e.target, value } });
+                    }}
+                    maxLength={2}
+                    inputMode="numeric"
+                    className={`w-full border-2 rounded-xl px-4 py-3 ${errors.claseNizaActual ? 'border-red-400' : 'border-gray-300'}`} 
+                    placeholder="Ej: 25" 
+                  />
                   {errors.claseNizaActual && <p className="text-xs text-red-600 mt-1">{errors.claseNizaActual}</p>}
                 </div>
                 <div>

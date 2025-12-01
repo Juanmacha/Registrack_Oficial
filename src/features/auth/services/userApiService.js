@@ -1,5 +1,6 @@
 import apiService from '../../../shared/services/apiService.js';
 import API_CONFIG from '../../../shared/config/apiConfig.js';
+import clientesApiService from '../../dashboard/services/clientesApiService.js';
 
 // Servicio de usuarios que consume la API real
 const userApiService = {
@@ -250,27 +251,121 @@ const userApiService = {
   // Actualizar perfil del usuario actual
   updateProfile: async (profileData) => {
     try {
+      console.log('🔄 [UserApiService] updateProfile - Datos recibidos:', profileData);
+      
       const currentUser = JSON.parse(localStorage.getItem('currentUser'));
       if (!currentUser) {
+        console.error('❌ [UserApiService] No hay usuario en localStorage');
         return {
           success: false,
           message: 'Usuario no autenticado'
         };
       }
 
-      const response = await apiService.put(API_CONFIG.ENDPOINTS.USER_BY_ID(currentUser.id_usuario), {
-        nombre: profileData.nombre,
-        apellido: profileData.apellido,
-        correo: profileData.correo,
-        telefono: profileData.telefono,
-        tipo_documento: profileData.tipoDocumento,
-        documento: profileData.documento,
-        contrasena: profileData.contrasena
-      });
+      // Obtener el ID del usuario (puede venir en diferentes formatos)
+      const userId = currentUser.id_usuario || currentUser.id || currentUser.userId;
+      if (!userId) {
+        console.error('❌ [UserApiService] No se pudo obtener el ID del usuario:', currentUser);
+        return {
+          success: false,
+          message: 'No se pudo identificar al usuario'
+        };
+      }
+
+      console.log('🔄 [UserApiService] ID del usuario:', userId);
+      console.log('🔄 [UserApiService] Usuario actual:', currentUser);
+
+      // Detectar si el usuario es cliente
+      const userRole = currentUser.rol?.nombre || currentUser.role || currentUser.rol || '';
+      const userRoleId = currentUser.rol?.id || currentUser.id_rol || currentUser.idRol;
+      const userRoleLower = (userRole || '').toLowerCase().trim();
+      const isClient = userRoleId === 1 || userRoleId === '1' || userRoleLower === 'cliente' || userRoleLower === 'client';
+
+      console.log('🔍 [UserApiService] Rol del usuario:', userRole, 'ID:', userRoleId, 'Es cliente:', isClient);
+
+      // Preparar datos para enviar al backend
+      const requestData = {};
+      
+      // Solo incluir campos que tienen valor y que el backend acepta
+      if (profileData.nombre) requestData.nombre = profileData.nombre;
+      if (profileData.apellido) requestData.apellido = profileData.apellido;
+      if (profileData.correo) requestData.correo = profileData.correo;
+      if (profileData.telefono !== undefined) {
+        // Permitir null para limpiar el teléfono
+        requestData.telefono = profileData.telefono === null || profileData.telefono === '' ? null : profileData.telefono;
+      }
+      if (profileData.tipoDocumento) requestData.tipo_documento = profileData.tipoDocumento;
+      if (profileData.documento) requestData.documento = profileData.documento;
+      // Nota: La contraseña no se puede actualizar a través del endpoint de cliente
+      // Solo se puede actualizar a través del endpoint de usuarios
+      if (!isClient && profileData.contrasena && profileData.contrasena.trim()) {
+        requestData.contrasena = profileData.contrasena;
+      }
+
+      console.log('📤 [UserApiService] Datos a enviar al backend:', requestData);
+
+      let response;
+      
+      // Si es cliente, usar el endpoint de gestión de clientes
+      if (isClient) {
+        console.log('👤 [UserApiService] Usuario es cliente, usando endpoint de gestión de clientes');
+        
+        // Obtener el ID del cliente asociado al usuario
+        let clienteId = currentUser.id_cliente || currentUser.idCliente;
+        
+        // Si no tenemos el id_cliente, buscarlo
+        if (!clienteId) {
+          console.log('🔍 [UserApiService] No se encontró id_cliente, buscando cliente asociado...');
+          try {
+            const clientes = await clientesApiService.getAllClientes();
+            const clienteAsociado = clientes.find(c => c.id_usuario === userId || c.id === userId);
+            
+            if (clienteAsociado) {
+              clienteId = clienteAsociado.id_cliente || clienteAsociado.id;
+              console.log('✅ [UserApiService] Cliente encontrado con ID:', clienteId);
+            } else {
+              console.error('❌ [UserApiService] No se encontró cliente asociado al usuario');
+              return {
+                success: false,
+                message: 'No se encontró cliente asociado a tu usuario'
+              };
+            }
+          } catch (error) {
+            console.error('❌ [UserApiService] Error al buscar cliente:', error);
+            return {
+              success: false,
+              message: 'Error al buscar cliente asociado: ' + error.message
+            };
+          }
+        }
+        
+        console.log('📤 [UserApiService] Actualizando usuario del cliente con ID:', clienteId);
+        console.log('📤 [UserApiService] Endpoint:', API_CONFIG.ENDPOINTS.CLIENT_UPDATE_USUARIO(clienteId));
+        
+        // Usar el endpoint específico para actualizar usuario del cliente
+        response = await apiService.put(API_CONFIG.ENDPOINTS.CLIENT_UPDATE_USUARIO(clienteId), requestData);
+      } else {
+        // Si no es cliente, usar el endpoint normal de usuarios
+        console.log('👤 [UserApiService] Usuario no es cliente, usando endpoint de usuarios');
+        console.log('📤 [UserApiService] Endpoint:', API_CONFIG.ENDPOINTS.USER_BY_ID(userId));
+        
+        response = await apiService.put(API_CONFIG.ENDPOINTS.USER_BY_ID(userId), requestData);
+      }
+      
+      console.log('📥 [UserApiService] Respuesta del backend:', response);
 
       if (response.success || response.mensaje) {
         // Actualizar datos del usuario en localStorage
-        let updatedUser = response.data?.usuario || response.usuario || response.data;
+        // La estructura de respuesta es diferente según el endpoint usado
+        let updatedUser;
+        
+        if (isClient) {
+          // Para clientes, la respuesta viene en response.data.cliente.usuario
+          updatedUser = response.data?.cliente?.usuario || response.data?.usuario || response.usuario || response.data;
+        } else {
+          // Para usuarios normales, la respuesta viene en response.data.usuario
+          updatedUser = response.data?.usuario || response.usuario || response.data;
+        }
         
         // Si la respuesta no incluye el usuario completo, combinar con el usuario actual
         if (updatedUser && currentUser) {
@@ -291,6 +386,10 @@ const userApiService = {
           if (!updatedUser.tipo_documento && currentUser.tipo_documento) {
             updatedUser.tipo_documento = currentUser.tipo_documento;
           }
+          // Preservar id_cliente si existe
+          if (!updatedUser.id_cliente && currentUser.id_cliente) {
+            updatedUser.id_cliente = currentUser.id_cliente;
+          }
         }
         
         // Si no hay usuario en la respuesta, crear uno basado en el usuario actual y los datos actualizados
@@ -300,7 +399,9 @@ const userApiService = {
             nombre: profileData.nombre || currentUser.nombre,
             apellido: profileData.apellido || currentUser.apellido,
             correo: profileData.correo || currentUser.correo,
-            telefono: profileData.telefono || currentUser.telefono
+            telefono: profileData.telefono || currentUser.telefono,
+            tipo_documento: profileData.tipoDocumento || currentUser.tipo_documento,
+            documento: profileData.documento || currentUser.documento
           };
         }
         
@@ -312,7 +413,7 @@ const userApiService = {
         return {
           success: true,
           user: updatedUser,
-          message: response.mensaje || 'Perfil actualizado correctamente'
+          message: response.mensaje || response.message || 'Perfil actualizado correctamente'
         };
       } else {
         return {
@@ -321,7 +422,14 @@ const userApiService = {
         };
       }
     } catch (error) {
-      console.error('Error al actualizar perfil:', error);
+      console.error('❌ [UserApiService] Error al actualizar perfil:', error);
+      console.error('❌ [UserApiService] Detalles del error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        stack: error.stack
+      });
       
       let errorMessage = 'Error de conexión con el servidor';
       
@@ -329,10 +437,18 @@ const userApiService = {
         errorMessage = error.response.data.error;
       } else if (error.response?.data?.mensaje) {
         errorMessage = error.response.data.mensaje;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       } else if (error.response?.status === 400) {
-        errorMessage = 'Datos inválidos';
+        errorMessage = error.response?.data?.error || error.response?.data?.mensaje || 'Datos inválidos. Verifica que todos los campos sean correctos.';
       } else if (error.response?.status === 401) {
-        errorMessage = 'No autorizado para actualizar perfil';
+        errorMessage = 'No autorizado para actualizar perfil. Tu sesión puede haber expirado.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Usuario no encontrado';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'No tienes permisos para actualizar este perfil';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
       return {

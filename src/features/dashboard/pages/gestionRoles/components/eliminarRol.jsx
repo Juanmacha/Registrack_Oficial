@@ -1,14 +1,24 @@
-import { mostrarConfirmacion } from "../../../../../utils/alerts";
-import notificationService from "../../../../../shared/services/NotificationService.js";
+import Swal from "sweetalert2";
 import rolesApiService from "../services/rolesApiService";
-import alertService from "../../../../../utils/alertService.js";
 
 const eliminarRol = async (rolId, roles, setRoles, loadRoles) => {
-  const confirmado = await mostrarConfirmacion(
-    "¿Estás seguro?",
-    "Esta acción no se puede deshacer.",
-    "Sí, eliminar"
-  );
+  const confirmado = await Swal.fire({
+    title: "¿Estás seguro?",
+    text: "Esta acción no se puede deshacer.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#ef4444",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Sí, eliminar",
+    cancelButtonText: "Cancelar",
+    customClass: {
+      popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+      title: 'text-gray-800 font-bold text-2xl mb-4',
+      content: 'text-gray-600 text-base mb-6',
+      confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white',
+      cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white'
+    }
+  });
 
   if (confirmado.isConfirmed) {
     try {
@@ -18,7 +28,19 @@ const eliminarRol = async (rolId, roles, setRoles, loadRoles) => {
       
       // Recargar la lista de roles desde la API
       await loadRoles();
-      notificationService.deleteSuccess('rol');
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'El rol ha sido eliminado correctamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
     } catch (error) {
       console.error('❌ [EliminarRol] Error eliminando rol:', error);
       
@@ -54,10 +76,19 @@ const eliminarRol = async (rolId, roles, setRoles, loadRoles) => {
       }
       
       // Mostrar alerta con el mensaje de error
-      await alertService.error(
-        "Error al eliminar rol",
-        errorMessage
-      );
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al eliminar rol',
+        text: errorMessage,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
     }
   }
 };

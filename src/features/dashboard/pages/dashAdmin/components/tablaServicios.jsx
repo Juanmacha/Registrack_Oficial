@@ -6,8 +6,8 @@ import BotonInfo from "./detalleInfo";
 import ModalDetalleServicio from "./modalInfo";
 import { Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import excelService from '../../../../../shared/services/excelService';
+import { ANCHOS_COLUMNA } from '../../../../../shared/utils/excelStyles';
 import Swal from "sweetalert2";
 import StandardAvatar from "../../../../../shared/components/StandardAvatar";
 import { useDashboardInactivas } from "../../../hooks/useDashboardData";
@@ -321,47 +321,52 @@ const TablaServicios = () => {
 
   const descargarExcelInactivos = async () => {
     try {
-      // Usar el servicio API para descargar Excel directamente
-      const result = await dashboardApiService.getInactivas('excel');
+      const encabezados = [
+        "Servicio", "Cliente", "Empleado", "Estado", "Días de Inactividad"
+      ];
       
-      if (result.success) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Excel descargado exitosamente.',
-          timer: 2000,
-          showConfirmButton: false
-        }).then(() => {
-          // Navegar después de descargar
-          irAVentasProceso();
-        });
-      } else {
-        // Si falla la descarga directa, crear Excel localmente
-        const dataExcel = datosFiltrados.map(item => ({
-          Servicio: item.servicio,
-          Cliente: item.cliente,
-          Empleado: item.empleado,
-          Estado: item.estado,
-          "Días de Inactividad": item.inactividad
-        }));
-        
-        const libro = XLSX.utils.book_new();
-        const hoja = XLSX.utils.json_to_sheet(dataExcel);
-        XLSX.utils.book_append_sheet(libro, hoja, "ServiciosInactivos");
-        const excelBuffer = XLSX.write(libro, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(data, "servicios-inactivos-prolongados.xlsx");
-        
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Excel descargado exitosamente.',
-          timer: 2000,
-          showConfirmButton: false
-        }).then(() => {
-          irAVentasProceso();
-        });
-      }
+      const datosExcel = datosFiltrados.map(item => ({
+        Servicio: item.servicio || '',
+        Cliente: item.cliente || '',
+        Empleado: item.empleado || '',
+        Estado: item.estado || '',
+        "Días de Inactividad": item.inactividad || 0
+      }));
+      
+      const anchosColumnas = [
+        ANCHOS_COLUMNA.NOMBRE_SERVICIO, // Servicio
+        ANCHOS_COLUMNA.NOMBRE,          // Cliente
+        ANCHOS_COLUMNA.NOMBRE,          // Empleado
+        ANCHOS_COLUMNA.ESTADO,          // Estado
+        ANCHOS_COLUMNA.ID               // Días de Inactividad
+      ];
+
+      await excelService.generarExcel(
+        datosExcel,
+        encabezados,
+        {
+          nombreHoja: 'Servicios Inactivos',
+          nombreArchivo: excelService.generarNombreArchivo('servicios_inactivos'),
+          anchosColumnas,
+          titulo: 'Reporte de Servicios Inactivos Prolongados',
+          incluirLogo: true,
+          filasAlternadas: true
+        }
+      );
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
     } catch (error) {
       console.error('Error al descargar Excel:', error);
       Swal.fire({

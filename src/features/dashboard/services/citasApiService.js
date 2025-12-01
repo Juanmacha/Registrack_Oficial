@@ -110,13 +110,19 @@ const citasApiService = {
   // Crear nueva cita
   createCita: async (citaData) => {
     try {
-      console.log('📅 [CitasApiService] Creando cita...');
-      console.log('📤 [CitasApiService] Datos:', citaData);
+      console.log('📅 [CitasApiService] ========== INICIO CREAR CITA ==========');
+      console.log('📤 [CitasApiService] Datos recibidos:', citaData);
+      console.log('📤 [CitasApiService] Tipo de citaData:', typeof citaData);
+      console.log('📤 [CitasApiService] id_usuario en citaData:', citaData?.id_usuario);
+      console.log('📤 [CitasApiService] Tipo de id_usuario:', typeof citaData?.id_usuario);
+      console.log('📤 [CitasApiService] citaData completo (JSON):', JSON.stringify(citaData, null, 2));
       
       // Validar datos antes de enviar
-      console.log('🔍 [CitasApiService] Validando datos recibidos:', citaData);
+      console.log('🔍 [CitasApiService] Validando datos recibidos...');
       const validation = citasApiService.validateCitaData(citaData);
       console.log('🔍 [CitasApiService] Resultado de validación:', validation);
+      console.log('🔍 [CitasApiService] ¿Es válido?:', validation.isValid);
+      console.log('🔍 [CitasApiService] Errores encontrados:', validation.errors);
       
       if (!validation.isValid) {
         console.log('❌ [CitasApiService] Validación falló:', validation.errors);
@@ -130,13 +136,14 @@ const citasApiService = {
       console.log('✅ [CitasApiService] Validación exitosa');
       
       // Transformar datos al formato esperado por la API
+      // Según la documentación: se debe enviar id_usuario (no id_cliente)
       const requestData = {
         fecha: citaData.fecha,
         hora_inicio: citaData.hora_inicio,
         hora_fin: citaData.hora_fin,
         tipo: citaData.tipo,
         modalidad: citaData.modalidad,
-        id_cliente: citaData.id_cliente,
+        id_usuario: citaData.id_usuario, // ✅ USAR id_usuario (usuario con rol "cliente")
         id_empleado: citaData.id_empleado,
         estado: citaData.estado || 'Programada',
         observacion: citaData.observacion || '',
@@ -205,10 +212,14 @@ const citasApiService = {
             const idEmpleadoCita = citaExistente.id_empleado || citaExistente.empleado?.id_empleado || citaExistente.empleado?.id;
             const empleadoCoincide = idEmpleadoCita === parseInt(requestData.id_empleado);
             
-            // También verificar cliente si está disponible
+            // También verificar usuario (cliente) si está disponible
             let clienteCoincide = true;
-            if (requestData.id_cliente && citaExistente.id_cliente) {
-              clienteCoincide = citaExistente.id_cliente === parseInt(requestData.id_cliente);
+            // Verificar por id_usuario (nuevo formato según documentación)
+            if (requestData.id_usuario && citaExistente.id_usuario) {
+              clienteCoincide = citaExistente.id_usuario === parseInt(requestData.id_usuario);
+            } else if (requestData.id_usuario && citaExistente.id_cliente) {
+              // Fallback: si la cita existente tiene id_cliente, verificar por id_cliente del usuario
+              clienteCoincide = citaExistente.id_cliente === parseInt(requestData.id_usuario);
             }
             
             if (fechaCoincide && horaInicioCoincide && horaFinCoincide && empleadoCoincide && clienteCoincide) {
@@ -730,9 +741,18 @@ const citasApiService = {
       }
     }
     
-    // Validar id_cliente
-    if (!citaData.id_cliente || citaData.id_cliente <= 0) {
-      errors.id_cliente = 'El cliente es requerido';
+    // Validar id_usuario (usuario con rol "cliente")
+    console.log('🔍 [CitasApiService.validateCitaData] Validando id_usuario...');
+    console.log('🔍 [CitasApiService.validateCitaData] citaData.id_usuario:', citaData.id_usuario);
+    console.log('🔍 [CitasApiService.validateCitaData] Tipo:', typeof citaData.id_usuario);
+    console.log('🔍 [CitasApiService.validateCitaData] ¿Es falsy?:', !citaData.id_usuario);
+    console.log('🔍 [CitasApiService.validateCitaData] ¿Es <= 0?:', citaData.id_usuario <= 0);
+    
+    if (!citaData.id_usuario || citaData.id_usuario <= 0) {
+      console.error('❌ [CitasApiService.validateCitaData] id_usuario inválido:', citaData.id_usuario);
+      errors.id_usuario = 'El usuario (cliente) es requerido';
+    } else {
+      console.log('✅ [CitasApiService.validateCitaData] id_usuario válido:', citaData.id_usuario);
     }
     
     // Validar id_empleado
