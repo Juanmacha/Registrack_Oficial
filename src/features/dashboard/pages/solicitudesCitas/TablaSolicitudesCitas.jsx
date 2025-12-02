@@ -51,6 +51,7 @@ const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, carga
   const handleRechazar = async (solicitud) => {
     try {
       const { value: motivo } = await Swal.fire({
+        icon: 'warning',
         title: 'Rechazar Solicitud de Cita',
         text: `¿Estás seguro de rechazar la solicitud de ${solicitud.cliente?.nombre || 'este cliente'}?`,
         input: 'textarea',
@@ -58,7 +59,15 @@ const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, carga
         showCancelButton: true,
         confirmButtonText: 'Rechazar Solicitud',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#dc2626'
+        confirmButtonColor: '#dc2626',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#dc2626] hover:bg-[#b91c1c] border border-[#dc2626] text-white',
+          cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-gray-500 hover:bg-gray-600 border border-gray-500 text-white',
+          input: 'mt-3'
+        }
       });
 
       if (motivo !== undefined) {
@@ -97,13 +106,13 @@ const TablaSolicitudesCitas = ({ solicitudes, onVer, deshabilitarAcciones, carga
               {solicitudes.length > 0 ? (
                 solicitudes.map((solicitud, idx) => (
                   <tr key={solicitud.id}>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-3">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-start gap-3">
                         <StandardAvatar 
                           nombre={solicitud.cliente?.nombre || solicitud.cliente?.nombre_completo || 'N/A'}
                         />
-                        <div className="text-left">
-                          <div className="font-medium">{solicitud.cliente?.nombre || solicitud.cliente?.nombre_completo || 'N/A'}</div>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-800">{solicitud.cliente?.nombre || solicitud.cliente?.nombre_completo || 'N/A'}</div>
                           <div className="text-gray-500 text-xs">{solicitud.cliente?.correo || solicitud.cliente?.email || 'N/A'}</div>
                         </div>
                       </div>

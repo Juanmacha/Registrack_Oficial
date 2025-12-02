@@ -43,7 +43,7 @@ const SideBarGeneral = () => {
 
   const iconClass = "text-gray-600 w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0";
   const baseLinkClasses =
-    "flex items-center space-x-1 lg:space-x-2 p-1 lg:p-1.5 rounded-md hover:bg-gray-200 transition-all text-xs lg:text-[0.95rem]";
+    "flex items-center justify-center group-hover:justify-start space-x-1 lg:space-x-2 p-1 lg:p-1.5 rounded-md hover:bg-gray-200 transition-all text-xs lg:text-[0.95rem]";
   const activeLinkClasses = "bg-gray-100 border-l-2 lg:border-l-4 border-blue-500";
 
   // ✅ Obtener todos los items del menú (incluyendo el dropdown de Solicitudes) ordenados
@@ -104,9 +104,9 @@ const SideBarGeneral = () => {
                       onClick={handleToggleDropdown}
                       role="button"
                       aria-expanded={isDropdownOpen}
-                      className={`${baseLinkClasses} cursor-pointer justify-between`}
+                      className={`${baseLinkClasses} cursor-pointer group-hover:justify-between`}
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-center group-hover:justify-start space-x-2">
                         <TbListDetails className={iconClass} />
                         <span className="text-gray-700 text-[0.95rem] font-medium hidden group-hover:inline">Solicitudes</span>
                       </div>
@@ -115,7 +115,7 @@ const SideBarGeneral = () => {
                       />
                     </div>
                     <div
-                      className={`ml-4 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? "max-h-48 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
+                      className={`overflow-hidden transition-all duration-300 ease-in-out group-hover:ml-4 ${isDropdownOpen ? "max-h-48 opacity-100 mt-1" : "max-h-0 opacity-0"}`}
                     >
                       {solicitudesDropdownItems.map((dropdownItem) => {
                         const DropdownIcon = iconMap[dropdownItem.icon] || TbListDetails;

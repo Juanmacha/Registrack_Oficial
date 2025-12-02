@@ -16,6 +16,20 @@ const CustomCheckbox = ({ isChecked, onChange }) => {
 const TablaRoles = ({ roles, setRolEditable, setRolSeleccionado, setRoles, onToggleEstado, loadRoles }) => {
   // Removed local toggleEstado function
 
+  // Función para obtener las iniciales del rol
+  const getInicialesRol = (nombreRol) => {
+    if (!nombreRol || typeof nombreRol !== 'string') return '??';
+    
+    const palabras = nombreRol.trim().split(' ').filter(n => n.length > 0);
+    if (palabras.length === 0) return '??';
+    
+    if (palabras.length === 1) {
+      return palabras[0].substring(0, 2).toUpperCase();
+    }
+    
+    return (palabras[0][0] + palabras[1][0]).toUpperCase();
+  };
+
   // Contar permisos activos
   const contarPermisosActivos = (permisos) => {
     if (!permisos || typeof permisos !== 'object') return 0;
@@ -54,11 +68,14 @@ const TablaRoles = ({ roles, setRolEditable, setRolSeleccionado, setRoles, onTog
                 <tr key={rol.id || index}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3 justify-start">
-                      <img
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${rol.nombre}`}
-                        alt={rol.nombre}
-                        className="w-10 h-10 rounded-full"
-                      />
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm bg-blue-100 text-blue-600 flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, #dbeafe 0%, #dbeafe 50%, #bfdbfe 100%)',
+                        }}
+                      >
+                        {getInicialesRol(rol.nombre)}
+                      </div>
                       <div className="text-sm font-semibold text-gray-800">{rol.nombre}</div>
                     </div>
                   </td>

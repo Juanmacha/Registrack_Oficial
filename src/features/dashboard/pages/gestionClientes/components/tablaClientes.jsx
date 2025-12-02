@@ -35,13 +35,13 @@ const TablaClientes = ({ clientes, onVer, onToggleEstado, deshabilitarAcciones, 
           {clientes.length > 0 ? (
             clientes.map((c, idx) => (
               <tr key={idx}>
-                <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
-                  <div className="flex items-center justify-center gap-2 sm:gap-3">
+                <td className="px-3 sm:px-6 py-3 sm:py-4">
+                  <div className="flex items-center justify-start gap-2 sm:gap-3">
                     <StandardAvatar 
                       nombre={`${c.nombre || ''} ${c.apellido || ''}`}
                     />
-                    <div className="text-left">
-                      <div className="font-medium">{c.nombre} {c.apellido}</div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{c.nombre} {c.apellido}</div>
                       <div className="text-xs text-gray-500 sm:hidden">{c.tipoDocumento} - {c.documento}</div>
                     </div>
                   </div>

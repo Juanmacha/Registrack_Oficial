@@ -232,8 +232,25 @@ const ModalAprobarSolicitud = ({
     
     // ✅ Validaciones del frontend según la documentación de la API (Enero 2026)
     
-    // 1. Validación de días hábiles (lunes a viernes)
+    // 0. Validación de fecha pasada
     const fechaSolicitada = solicitud?.fecha_solicitada;
+    if (fechaSolicitada) {
+      const fechaObj = new Date(fechaSolicitada);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      fechaObj.setHours(0, 0, 0, 0);
+      
+      // Verificar si la fecha es pasada
+      if (fechaObj < hoy) {
+        await alertService.error(
+          "Fecha inválida",
+          "No se pueden aprobar solicitudes de citas con fechas pasadas."
+        );
+        return;
+      }
+    }
+    
+    // 1. Validación de días hábiles (lunes a viernes)
     if (fechaSolicitada) {
       const fechaObj = new Date(fechaSolicitada);
       const diaSemana = fechaObj.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado

@@ -4,6 +4,7 @@ import { Link as ScrollLink } from "react-scroll";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from "../../../shared/contexts/authContext";
 import alertService from "../../../utils/alertService.js";
+import { useNotification } from "../../../shared/contexts/NotificationContext";
 
 const ACTIVE_CLASSES = "text-blue-700 font-semibold border-b-2 border-blue-700 bg-transparent";
 const INACTIVE_CLASSES = "text-gray-700 border-transparent hover:text-blue-700 bg-transparent";
@@ -18,15 +19,25 @@ const NavBarLanding = () => {
   // Usar el contexto de autenticación unificado con verificación de seguridad
   const authContext = useAuth();
   const { user, logout: contextLogout } = authContext || { user: null, logout: () => {} };
+  const { success: showSuccessToast } = useNotification();
   const isLanding = location.pathname === "/";
 
   const handleLogout = async () => {
     setUserMenuAbierto(false);
     const result = await alertService.logoutConfirm();
     if (result.isConfirmed) {
-      contextLogout();
-      await alertService.success("Sesión cerrada", "Has cerrado sesión correctamente.", { timer: 1800, timerProgressBar: true, showConfirmButton: false });
-      navigate("/login");
+      // Mostrar toast de éxito
+      showSuccessToast(
+        "¡Sesión cerrada!",
+        "Tu sesión se ha cerrado exitosamente.",
+        { duration: 3000 }
+      );
+      
+      // Esperar un momento para que el toast se muestre, luego hacer logout
+      setTimeout(() => {
+        contextLogout();
+        navigate("/login");
+      }, 500);
     }
   };
 

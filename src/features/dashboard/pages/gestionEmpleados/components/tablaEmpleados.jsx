@@ -34,13 +34,13 @@ const TablaEmpleados = ({ empleados, onVer, onEditar, onEliminar, onToggleEstado
             {empleados.length > 0 ? (
               empleados.map((item, idx) => (
                 <tr key={item.id}>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-3">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-start gap-3">
                       <StandardAvatar 
                         nombre={`${item.nombre || ''} ${item.apellidos || ''}`}
                       />
-                      <div className="text-left">
-                        <span>{item.nombre} {item.apellidos}</span>
+                      <div className="text-sm font-semibold text-gray-800">
+                        {item.nombre} {item.apellidos}
                       </div>
                     </div>
                   </td>

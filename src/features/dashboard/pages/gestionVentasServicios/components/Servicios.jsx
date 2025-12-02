@@ -218,22 +218,35 @@ const Servicios = () => {
         console.log('🔑 [Servicios] Token disponible:', token ? 'Sí' : 'No');
         
         try {
+          let servicioActualizado;
           if (tipo === 'landing') {
             console.log('🔧 [Servicios] Ejecutando updateLandingData...');
-            await serviciosApiService.updateLandingData(editar.id, data, token);
+            servicioActualizado = await serviciosApiService.updateLandingData(editar.id, data, token);
           } else if (tipo === 'process') {
             console.log('🔧 [Servicios] Ejecutando updateProcessStates...');
-            await serviciosApiService.updateProcessStates(editar.id, data, token);
+            servicioActualizado = await serviciosApiService.updateProcessStates(editar.id, data, token);
           }
           
-          console.log('✅ [Servicios] Servicio actualizado via API');
+          console.log('✅ [Servicios] Servicio actualizado via API:', servicioActualizado);
           
-          // Actualizar el estado local optimistamente
-          setServicios(prevServicios => 
-            prevServicios.map(s => 
-              s.id === editar.id ? { ...s, [tipo === 'landing' ? 'landing_data' : 'process_states']: data } : s
-            )
-          );
+          // Actualizar el estado local con la respuesta del servidor (que incluye la imagen actualizada)
+          if (servicioActualizado) {
+            setServicios(prevServicios => 
+              prevServicios.map(s => 
+                s.id === editar.id ? {
+                  ...s,
+                  [tipo === 'landing' ? 'landing_data' : 'process_states']: servicioActualizado[tipo === 'landing' ? 'landing_data' : 'process_states'] || data
+                } : s
+              )
+            );
+          } else {
+            // Fallback: usar los datos enviados si no hay respuesta del servidor
+            setServicios(prevServicios => 
+              prevServicios.map(s => 
+                s.id === editar.id ? { ...s, [tipo === 'landing' ? 'landing_data' : 'process_states']: data } : s
+              )
+            );
+          }
           
           // Log específico para verificar actualización en UI
           console.log('🔄 [Servicios] Actualización optimística aplicada:', {

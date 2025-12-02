@@ -4,12 +4,14 @@ import { CgProfile } from "react-icons/cg";
 import { BiArrowBack } from "react-icons/bi";
 import { useAuth } from "../../../shared/contexts/authContext";
 import alertService from "../../../utils/alertService.js";
+import { useNotification } from "../../../shared/contexts/NotificationContext";
 
 const ClientNavbar = ({ title = "Mi Perfil", showBackButton = false }) => {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { success: showSuccessToast } = useNotification();
 
   const toggleMenu = () => setMenuAbierto(!menuAbierto);
 
@@ -24,9 +26,18 @@ const ClientNavbar = ({ title = "Mi Perfil", showBackButton = false }) => {
     const result = await alertService.logoutConfirm();
     
     if (result.isConfirmed) {
-      logout();
-      await alertService.success("Sesión cerrada", "Has cerrado sesión correctamente.");
-      navigate("/login");
+      // Mostrar toast de éxito
+      showSuccessToast(
+        "¡Sesión cerrada!",
+        "Tu sesión se ha cerrado exitosamente.",
+        { duration: 3000 }
+      );
+      
+      // Esperar un momento para que el toast se muestre, luego hacer logout
+      setTimeout(() => {
+        logout();
+        navigate("/login");
+      }, 500);
     }
   };
 

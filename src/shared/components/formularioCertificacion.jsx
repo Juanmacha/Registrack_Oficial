@@ -461,28 +461,41 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
     return (
       <FormWrapper {...wrapperProps}>
         {/* Sección 1: Información General */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                Información General
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
-                  <select 
-                    name="tipoSolicitante" 
-                    value={form.tipoSolicitante} 
-                    onChange={handleChange} 
-                    className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${errors.tipoSolicitante ? 'border-red-400' : 'border-gray-300'}`}
-                  >
-                    <option value="">Seleccionar tipo de solicitante</option>
-                    <option value="Natural">Persona Natural</option>
-                    <option value="Jurídica">Persona Jurídica</option>
-                  </select>
-                  {errors.tipoSolicitante && <p className="text-xs text-red-600 mt-1">{errors.tipoSolicitante}</p>}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/60">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Información General
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Tipo de Solicitud *
+                      </label>
+                      <input
+                        type="text"
+                        name="tipoSolicitud"
+                        value={form.tipoSolicitud}
+                        readOnly
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
+                      <select 
+                        name="tipoSolicitante" 
+                        value={form.tipoSolicitante} 
+                        onChange={handleChange} 
+                        className={`w-full border-2 rounded-xl px-4 py-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${errors.tipoSolicitante ? 'border-red-400' : 'border-gray-300'}`}
+                      >
+                        <option value="">Seleccionar tipo de solicitante</option>
+                        <option value="Natural">Persona Natural</option>
+                        <option value="Jurídica">Persona Jurídica</option>
+                      </select>
+                      {errors.tipoSolicitante && <p className="text-xs text-red-600 mt-1">{errors.tipoSolicitante}</p>}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
             {/* Sección 2: Datos del Solicitante */}
             {form.tipoSolicitante && (
@@ -871,6 +884,19 @@ const FormularioCertificacion = ({ isOpen, onClose, onGuardar, tipoSolicitud = '
                     Información General
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Tipo de Solicitud *
+                      </label>
+                      <input
+                        type="text"
+                        name="tipoSolicitud"
+                        value={form.tipoSolicitud}
+                        readOnly
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
+                      />
+                    </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
                       <select 

@@ -98,13 +98,13 @@ const TablaUsuarios = ({
             <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
               {usuariosPaginados.map((u, idx) => (
                 <tr key={idx}>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-3">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-start gap-3">
                         <StandardAvatar 
                           nombre={`${u.firstName || ''} ${u.lastName || ''}`}
                         />
-                        <div className="text-left">
-                          <span>{u.firstName} {u.lastName}</span>
+                        <div className="text-sm font-semibold text-gray-800">
+                          {u.firstName} {u.lastName}
                         </div>
                       </div>
                     </td>

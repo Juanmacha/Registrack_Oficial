@@ -181,16 +181,81 @@ const GestionRoles = () => {
           });
         } catch (error) {
           console.error('❌ [GestionRoles] Error cambiando estado del rol:', error);
+          console.error('❌ [GestionRoles] Error completo:', JSON.stringify(error, null, 2));
+          
+          // Extraer mensaje de error más descriptivo
+          let errorMessage = 'Error al cambiar el estado del rol';
+          let errorDetails = '';
+          
+          // Extraer mensaje desde diferentes estructuras de error
+          if (error.message && error.message !== 'Error al cambiar el estado del rol') {
+            errorMessage = error.message;
+          } else if (error.data?.message) {
+            errorMessage = error.data.message;
+          } else if (error.data?.error?.message) {
+            errorMessage = error.data.error.message;
+          } else if (error.data?.error) {
+            errorMessage = typeof error.data.error === 'string' ? error.data.error : errorMessage;
+          }
+          
+          // Extraer detalles adicionales si existen (solo strings)
+          if (error.data?.detalles) {
+            if (typeof error.data.detalles === 'string') {
+              errorDetails = error.data.detalles;
+            }
+          } else if (error.data?.error?.detalles) {
+            if (typeof error.data.error.detalles === 'string') {
+              errorDetails = error.data.error.detalles;
+            }
+          }
+          
+          // Detectar si es un error de usuarios/empleados asociados al intentar desactivar
+          const tieneAsociaciones = error.status === 400 && nuevoEstado === "inactivo" && (
+            errorMessage.toLowerCase().includes('usuario') ||
+            errorMessage.toLowerCase().includes('asociado') ||
+            errorMessage.toLowerCase().includes('asignado') ||
+            errorMessage.toLowerCase().includes('empleado') ||
+            errorMessage.toLowerCase().includes('usando') ||
+            errorMessage.toLowerCase().includes('no se puede desactivar') ||
+            error.data?.codigo === 'ROL_CON_USUARIOS' ||
+            error.data?.error?.codigo === 'ROL_CON_USUARIOS'
+          );
+          
+          // Mensajes específicos según el tipo de error
+          if (error.status === 400) {
+            if (tieneAsociaciones) {
+              // Si el mensaje ya es descriptivo, usarlo; si no, proporcionar uno genérico
+              if (!errorMessage || errorMessage === 'Error al cambiar el estado del rol') {
+                errorMessage = 'No se puede desactivar el rol. Tiene usuarios o empleados asociados. Por favor, reasigna los usuarios a otro rol antes de desactivar.';
+              }
+              // Agregar detalles solo si es un string válido
+              if (errorDetails && typeof errorDetails === 'string' && errorDetails.trim()) {
+                errorMessage = `${errorMessage}\n\n${errorDetails}`;
+              }
+            } else if (!errorMessage || errorMessage === 'Error al cambiar el estado del rol') {
+              errorMessage = 'Error al cambiar el estado del rol. Verifica que no tenga usuarios asociados.';
+            }
+          } else if (error.status === 403) {
+            errorMessage = 'No tienes permisos para cambiar el estado de roles.';
+          } else if (error.status === 404) {
+            errorMessage = 'El rol no existe.';
+          } else if (error.status === 500) {
+            errorMessage = 'Error del servidor al cambiar el estado del rol. Por favor, intenta más tarde.';
+          }
+          
+          // Limpiar cualquier "[object Object]" que pueda haber quedado
+          errorMessage = errorMessage.replace(/\[object Object\]/g, '').trim();
+          
           Swal.fire({
             icon: 'error',
-            title: 'Error',
-            text: 'Error al cambiar el estado del rol.',
+            title: tieneAsociaciones ? 'No se puede desactivar el rol' : 'Error',
+            html: errorMessage.replace(/\n/g, '<br>'),
             confirmButtonText: 'Cerrar',
             confirmButtonColor: '#ef4444',
             customClass: {
               popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
               title: 'text-gray-800 font-bold text-2xl mb-4',
-              content: 'text-gray-600 text-base mb-6',
+              htmlContainer: 'text-gray-600 text-base mb-6',
               confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
             }
           });

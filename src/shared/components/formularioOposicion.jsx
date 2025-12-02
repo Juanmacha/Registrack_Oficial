@@ -290,6 +290,19 @@ const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Opos
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Tipo de Solicitud *
+                  </label>
+                  <input
+                    type="text"
+                    name="tipoSolicitud"
+                    value={form.tipoSolicitud}
+                    readOnly
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
+                  />
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
                   <select 
                     name="tipoSolicitante" 
@@ -588,6 +601,19 @@ const FormularioOposicion = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Opos
                     Información General
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Tipo de Solicitud *
+                      </label>
+                      <input
+                        type="text"
+                        name="tipoSolicitud"
+                        value={form.tipoSolicitud}
+                        readOnly
+                        className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 cursor-not-allowed focus:outline-none transition-all font-medium"
+                      />
+                    </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Solicitante *</label>
                       <select 

@@ -1538,6 +1538,7 @@ const Calendario = () => {
 
   const handleAnularCitaModal = () => {
     Swal.fire({
+      icon: 'warning',
       title: "Observación obligatoria",
       input: "textarea",
       inputLabel: "Por favor, ingrese la razón de la anulación:",
@@ -1556,7 +1557,8 @@ const Calendario = () => {
         title: 'text-gray-800 font-bold text-2xl mb-4',
         content: 'text-gray-600 text-base mb-6',
         confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white',
-        cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white'
+        cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#6b7280] hover:bg-[#4b5563] border border-[#6b7280] text-white',
+        input: 'mt-3'
       }
     }).then(async (result) => {
       if (result.isConfirmed && citaSeleccionada) {

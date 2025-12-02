@@ -137,13 +137,35 @@ const FileUpload = ({
           </div>
         ) : value && value.name ? (
           <div className="flex flex-col items-center">
-            {getFileIcon(value.name)}
-            <p className="mt-2 text-sm font-medium text-gray-900 truncate max-w-xs">
-              {value.name}
-            </p>
-            <p className="text-xs text-gray-500">
-              {formatFileSize(value.size)}
-            </p>
+            {/* Mostrar previsualización si es una imagen */}
+            {accept.includes('image') && value.type && value.type.startsWith('image/') ? (
+              <>
+                <img 
+                  src={value instanceof File ? URL.createObjectURL(value) : (typeof value === 'string' ? value : '')}
+                  alt="Preview" 
+                  className="max-w-full max-h-40 object-contain mb-2 rounded"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+                <p className="text-xs text-gray-500 mb-1">
+                  {value.name}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {formatFileSize(value.size || 0)}
+                </p>
+              </>
+            ) : (
+              <>
+                {getFileIcon(value.name)}
+                <p className="mt-2 text-sm font-medium text-gray-900 truncate max-w-xs">
+                  {value.name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(value.size || 0)}
+                </p>
+              </>
+            )}
             <button
               type="button"
               onClick={(e) => {

@@ -43,30 +43,59 @@ const eliminarRol = async (rolId, roles, setRoles, loadRoles) => {
       });
     } catch (error) {
       console.error('❌ [EliminarRol] Error eliminando rol:', error);
+      console.error('❌ [EliminarRol] Error completo:', JSON.stringify(error, null, 2));
       
       // Extraer mensaje de error más descriptivo
       let errorMessage = 'Error al eliminar el rol';
+      let errorDetails = '';
       
-      if (error.message) {
+      // Extraer mensaje desde diferentes estructuras de error
+      if (error.message && error.message !== 'Error al eliminar el rol') {
         errorMessage = error.message;
       } else if (error.data?.message) {
         errorMessage = error.data.message;
+      } else if (error.data?.error?.message) {
+        errorMessage = error.data.error.message;
       } else if (error.data?.error) {
-        errorMessage = error.data.error;
+        errorMessage = typeof error.data.error === 'string' ? error.data.error : errorMessage;
       }
+      
+      // Extraer detalles adicionales si existen (solo strings)
+      if (error.data?.detalles) {
+        if (typeof error.data.detalles === 'string') {
+          errorDetails = error.data.detalles;
+        }
+      } else if (error.data?.error?.detalles) {
+        if (typeof error.data.error.detalles === 'string') {
+          errorDetails = error.data.error.detalles;
+        }
+      }
+      
+      // Detectar si es un error de usuarios/empleados asociados
+      const tieneAsociaciones = error.status === 400 && (
+        errorMessage.toLowerCase().includes('usuario') ||
+        errorMessage.toLowerCase().includes('asociado') ||
+        errorMessage.toLowerCase().includes('asignado') ||
+        errorMessage.toLowerCase().includes('empleado') ||
+        errorMessage.toLowerCase().includes('usando') ||
+        error.data?.codigo === 'ROL_CON_USUARIOS' ||
+        error.data?.error?.codigo === 'ROL_CON_USUARIOS'
+      );
       
       // Mensajes específicos según el tipo de error
       if (error.status === 400) {
-        // Si el mensaje del backend ya es descriptivo (contiene información sobre usuarios), usarlo directamente
-        // Si no, proporcionar un mensaje genérico
-        if (!errorMessage || 
-            (!errorMessage.toLowerCase().includes('usuario') && 
-             !errorMessage.toLowerCase().includes('asociado') &&
-             !errorMessage.toLowerCase().includes('asignado') &&
-             !errorMessage.toLowerCase().includes('usando'))) {
-          errorMessage = errorMessage || 'No se puede eliminar el rol. Verifica que no tenga usuarios asociados.';
+        if (tieneAsociaciones) {
+          // Si el mensaje ya es descriptivo, usarlo; si no, proporcionar uno genérico
+          if (!errorMessage || errorMessage === 'Error al eliminar el rol') {
+            errorMessage = 'No se puede eliminar el rol. Tiene usuarios o empleados asociados. Por favor, reasigna los usuarios a otro rol antes de eliminar.';
+          }
+          // Agregar detalles solo si es un string válido
+          if (errorDetails && typeof errorDetails === 'string' && errorDetails.trim()) {
+            errorMessage = `${errorMessage}\n\n${errorDetails}`;
+          }
+        } else if (!errorMessage || errorMessage === 'Error al eliminar el rol') {
+          errorMessage = 'No se puede eliminar el rol. Verifica que no tenga usuarios asociados.';
         }
-        // Si el mensaje ya contiene información útil, mantenerlo tal cual
       } else if (error.status === 403) {
         errorMessage = 'No tienes permisos para eliminar roles.';
       } else if (error.status === 404) {
@@ -75,17 +104,20 @@ const eliminarRol = async (rolId, roles, setRoles, loadRoles) => {
         errorMessage = 'Error del servidor al eliminar el rol. Por favor, intenta más tarde.';
       }
       
+      // Limpiar cualquier "[object Object]" que pueda haber quedado
+      errorMessage = errorMessage.replace(/\[object Object\]/g, '').trim();
+      
       // Mostrar alerta con el mensaje de error
       Swal.fire({
         icon: 'error',
-        title: 'Error al eliminar rol',
-        text: errorMessage,
+        title: tieneAsociaciones ? 'No se puede eliminar el rol' : 'Error al eliminar rol',
+        html: errorMessage.replace(/\n/g, '<br>'),
         confirmButtonText: 'Cerrar',
         confirmButtonColor: '#ef4444',
         customClass: {
           popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
           title: 'text-gray-800 font-bold text-2xl mb-4',
-          content: 'text-gray-600 text-base mb-6',
+          htmlContainer: 'text-gray-600 text-base mb-6',
           confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
         }
       });

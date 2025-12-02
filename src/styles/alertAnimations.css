@@ -13,6 +13,13 @@
   max-width: 400px !important;
   background: #ffffff !important;
   text-align: center !important;
+  overflow: visible !important;
+}
+
+/* Asegurar que el contenedor del icono tenga suficiente espacio */
+.swal2-popup .swal2-icon-container {
+  overflow: visible !important;
+  margin: 0 auto 1rem auto !important;
 }
 
 .swal2-title {
@@ -42,6 +49,9 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  position: relative !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
 }
 
 /* Icono de éxito - Verde con check mejorado */
@@ -49,23 +59,49 @@
   color: #ffffff !important;
   background: #10b981 !important;
   border-radius: 50% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 5rem !important;
+  height: 5rem !important;
+  box-sizing: border-box !important;
+  display: block !important;
 }
 
 .swal2-icon.swal2-success .swal2-success-ring {
   border: none !important;
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
 }
 
 .swal2-icon.swal2-success .swal2-success-fix {
   background-color: #10b981 !important;
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+  top: 0 !important;
+  left: 0 !important;
 }
 
+/* Líneas del check - Asegurar que se vean completas y visibles */
 .swal2-icon.swal2-success [class^=swal2-success-line] {
   background-color: #ffffff !important;
-  height: 4px !important;
-  border-radius: 2px !important;
+  opacity: 1 !important;
+  z-index: 10 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Asegurar que las líneas del check no se recorten */
+.swal2-icon.swal2-success .swal2-success-line-tip,
+.swal2-icon.swal2-success .swal2-success-line-long {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
 /* Icono de error - Rojo */

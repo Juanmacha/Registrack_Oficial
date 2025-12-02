@@ -188,6 +188,7 @@ const ListaCitas = () => {
   const handleReprogramar = async (cita) => {
     try {
       const { value: formValues } = await Swal.fire({
+        icon: 'info',
         title: 'Reprogramar Cita',
         html: `
           <div class="text-left">
@@ -204,6 +205,13 @@ const ListaCitas = () => {
         showCancelButton: true,
         confirmButtonText: 'Reprogramar Cita',
         cancelButtonText: 'Cancelar',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          htmlContainer: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-blue-600 hover:bg-blue-700 border border-blue-600 text-white',
+          cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-gray-500 hover:bg-gray-600 border border-gray-500 text-white'
+        },
         preConfirm: () => {
           const nuevaFecha = document.getElementById('nuevaFecha').value;
           const nuevaHoraInicio = document.getElementById('nuevaHoraInicio').value;
@@ -274,6 +282,7 @@ const ListaCitas = () => {
   const handleAnular = async (cita) => {
     try {
       const { value: motivo } = await Swal.fire({
+        icon: 'warning',
         title: 'Anular Cita',
         text: `¿Estás seguro de anular la cita de ${cita.cliente?.nombre || 'este cliente'}?`,
         input: 'textarea',
@@ -281,7 +290,15 @@ const ListaCitas = () => {
         showCancelButton: true,
         confirmButtonText: 'Anular Cita',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#dc2626'
+        confirmButtonColor: '#dc2626',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#dc2626] hover:bg-[#b91c1c] border border-[#dc2626] text-white',
+          cancelButton: 'rounded-xl px-8 py-3 font-bold text-base bg-gray-500 hover:bg-gray-600 border border-gray-500 text-white',
+          input: 'mt-3'
+        }
       });
 
       if (motivo !== undefined) {

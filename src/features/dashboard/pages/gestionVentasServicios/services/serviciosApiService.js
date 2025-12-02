@@ -180,6 +180,17 @@ class ServiciosApiService {
 
       const servicioActualizado = await this.updateServicio(id, datosActualizacion, token);
       console.log('✅ [ServiciosApiService] Landing data actualizado:', servicioActualizado);
+      
+      // Verificar estructura de respuesta
+      const landingDataActualizado = servicioActualizado?.landing_data || servicioActualizado?.data?.landing_data;
+      console.log('🔍 [ServiciosApiService] Landing data en respuesta:', landingDataActualizado);
+      console.log('🔍 [ServiciosApiService] Imagen en respuesta:', landingDataActualizado?.imagen ? 'Presente' : 'Ausente');
+      
+      // Si la respuesta tiene una estructura diferente, normalizarla
+      if (servicioActualizado?.data) {
+        return servicioActualizado.data;
+      }
+      
       return servicioActualizado;
 
     } catch (error) {

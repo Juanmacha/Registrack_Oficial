@@ -315,23 +315,25 @@ const TablaVentasProceso = ({ adquirir }) => {
       }
 
       // ✅ Mapear datos del formulario al formato de la API
+      // El nuevo modal ya envía los datos en formato snake_case, pero mantenemos compatibilidad con ambos formatos
       const datosAPI = {
         pais: datosActualizados.pais || '',
         ciudad: datosActualizados.ciudad || '',
-        tipodepersona: datosActualizados.tipoPersona || '',
-        tipodedocumento: datosActualizados.tipoDocumento || '',
-        numerodedocumento: datosActualizados.numeroDocumento || '',
-        nombrecompleto: datosActualizados.nombres && datosActualizados.apellidos 
-          ? `${datosActualizados.nombres} ${datosActualizados.apellidos}`.trim()
-          : datosActualizados.titular || '',
-        correoelectronico: datosActualizados.email || '',
+        tipodepersona: datosActualizados.tipodepersona || datosActualizados.tipoPersona || '',
+        tipodedocumento: datosActualizados.tipodedocumento || datosActualizados.tipoDocumento || '',
+        numerodedocumento: datosActualizados.numerodedocumento || datosActualizados.numeroDocumento || '',
+        nombrecompleto: datosActualizados.nombrecompleto || 
+          (datosActualizados.nombres && datosActualizados.apellidos 
+            ? `${datosActualizados.nombres} ${datosActualizados.apellidos}`.trim()
+            : datosActualizados.titular || ''),
+        correoelectronico: datosActualizados.correoelectronico || datosActualizados.email || datosActualizados.correo || '',
         telefono: datosActualizados.telefono || '',
         direccion: datosActualizados.direccion || '',
-        tipodeentidadrazonsocial: datosActualizados.tipoEntidad || '',
-        nombredelaempresa: datosActualizados.nombreEmpresa || '',
+        tipodeentidadrazonsocial: datosActualizados.tipodeentidadrazonsocial || datosActualizados.tipoEntidad || '',
+        nombredelaempresa: datosActualizados.nombredelaempresa || datosActualizados.nombreEmpresa || '',
         nit: datosActualizados.nit || '',
-        poderdelrepresentanteautorizado: datosActualizados.poderRepresentante || '',
-        poderparaelregistrodelamarca: datosActualizados.poderAutorizacion || ''
+        poderdelrepresentanteautorizado: datosActualizados.poderdelrepresentanteautorizado || datosActualizados.poderRepresentante || '',
+        poderparaelregistrodelamarca: datosActualizados.poderparaelregistrodelamarca || datosActualizados.poderAutorizacion || ''
       };
 
       // ✅ Llamar a la API
@@ -885,13 +887,13 @@ const TablaVentasProceso = ({ adquirir }) => {
             <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
               {datosPagina.map((item, idx) => (
                 <tr key={item.id}>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-3">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-start gap-3">
                       <StandardAvatar 
                         nombre={item.titular || item.nombreCompleto || 'N/A'}
                       />
-                      <div className="text-left">
-                        <span>{item.titular || item.nombreCompleto || ''}</span>
+                      <div className="text-sm font-semibold text-gray-800">
+                        {item.titular || item.nombreCompleto || ''}
                       </div>
                     </div>
                   </td>

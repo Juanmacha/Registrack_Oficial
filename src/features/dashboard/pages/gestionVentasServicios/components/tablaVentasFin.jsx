@@ -477,13 +477,13 @@ const TablaVentasFin = () => {
                   const esAnulado = (item.estado || '').toLowerCase() === 'anulado';
                   return (
                     <tr key={item.id} className="hover:bg-blue-50 transition">
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-3">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-start gap-3">
                           <StandardAvatar 
                             nombre={item.titular || 'N/A'}
                           />
-                          <div className="text-left">
-                            <div className="font-semibold text-gray-800">{item.titular || 'Sin titular'}</div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-800">{item.titular || 'Sin titular'}</div>
                             <div className="text-xs text-gray-500">{item.tipoPersona || '-'}</div>
                           </div>
                         </div>
