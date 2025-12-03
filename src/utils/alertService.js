@@ -51,19 +51,38 @@ const alertService = {
   },
 
   // Alerta de carga con spinner personalizado
-  loading: (title = "Cargando...", options = {}) => {
-    const text = options.text || title;
+  loading: (title = "", options = {}) => {
     return Swal.fire({
-      title: title,
+      title: "",
+      html: "",
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
-      html: `
-        <div class="flex flex-col items-center justify-center">
-          <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-gray-600 mb-4"></div>
-          <p class="text-gray-600">${text}</p>
-        </div>
-      `,
+      didOpen: () => {
+        Swal.showLoading();
+        // Ocultar todos los elementos excepto el loader
+        setTimeout(() => {
+          const popup = document.querySelector('.swal2-loading-popup');
+          if (popup) {
+            // Ocultar título
+            const titleElement = popup.querySelector('.swal2-title');
+            if (titleElement) titleElement.style.display = 'none';
+            
+            // Ocultar contenido
+            const contentElements = popup.querySelectorAll('.swal2-content, .swal2-html-container, .swal2-text, .swal2-icon-container');
+            contentElements.forEach(el => el.style.display = 'none');
+            
+            // Ocultar acciones
+            const actionsElement = popup.querySelector('.swal2-actions');
+            if (actionsElement) actionsElement.style.display = 'none';
+          }
+        }, 10);
+      },
+      customClass: {
+        popup: 'swal2-loading-popup',
+        title: 'swal2-loading-title-hidden',
+        ...customConfig?.customClass
+      },
       ...customConfig,
       ...options,
     });

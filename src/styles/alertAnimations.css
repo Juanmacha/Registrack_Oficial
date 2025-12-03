@@ -4,7 +4,7 @@
 @import url('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css');
 
 /* Personalización de SweetAlert2 - Estilo Moderno */
-.swal2-popup {
+.swal2-popup:not(.swal2-loading-popup) {
   font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   border-radius: 16px !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
@@ -20,6 +20,13 @@
 .swal2-popup .swal2-icon-container {
   overflow: visible !important;
   margin: 0 auto 1rem auto !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Asegurar que el icono se muestre correctamente */
+.swal2-popup .swal2-icon {
+  flex-shrink: 0 !important;
 }
 
 .swal2-title {
@@ -52,6 +59,24 @@
   position: relative !important;
   overflow: visible !important;
   box-sizing: border-box !important;
+}
+
+/* Estilos específicos para el loader - Asegurar que sea circular */
+.swal2-loader {
+  border-radius: 50% !important;
+  width: 3rem !important;
+  height: 3rem !important;
+  aspect-ratio: 1 / 1 !important;
+  border: 4px solid #e5e7eb !important;
+  border-top: 4px solid #3b82f6 !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
+}
+
+/* Asegurar que todos los loaders sean circulares */
+.swal2-loader,
+.swal2-loading {
+  border-radius: 50% !important;
 }
 
 /* Icono de éxito - Verde con check mejorado */
@@ -104,20 +129,62 @@
   display: block !important;
 }
 
-/* Icono de error - Rojo */
-.swal2-icon.swal2-error {
+/* Icono de error - Rojo - Estilos globales para todas las alertas */
+.swal2-icon.swal2-error,
+.swal2-popup.swal2-error .swal2-icon {
   color: #ffffff !important;
   background: #ef4444 !important;
   border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  width: 5rem !important;
+  height: 5rem !important;
+  position: relative !important;
+  overflow: visible !important;
+  border: none !important;
+}
+
+.swal2-icon.swal2-error .swal2-x-mark {
+  position: relative !important;
+  flex-grow: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
 }
 
 .swal2-icon.swal2-error [class^=swal2-x-mark-line] {
   background-color: #ffffff !important;
   height: 4px !important;
   border-radius: 2px !important;
+  position: absolute !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 2.5rem !important;
+  margin-left: -1.25rem !important;
+  margin-top: -2px !important;
+}
+
+.swal2-icon.swal2-error .swal2-x-mark-line-left {
+  transform: rotate(45deg) !important;
+}
+
+.swal2-icon.swal2-error .swal2-x-mark-line-right {
+  transform: rotate(-45deg) !important;
+}
+
+/* Asegurar que las líneas de la X sean visibles */
+.swal2-icon.swal2-error .swal2-x-mark-line1,
+.swal2-icon.swal2-error .swal2-x-mark-line2 {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  height: 4px !important;
+  width: 2.5rem !important;
 }
 
 /* Icono de advertencia - Amarillo */
@@ -353,7 +420,89 @@
   }
 }
 
-/* Estados de carga */
+/* Estilos para alertas anchas (750px, 1000px y 1200px) */
+@media (max-width: 1280px) {
+  .swal2-popup[style*="width: 1200px"],
+  .swal2-popup[style*="width: 1000px"],
+  .swal2-popup[style*="width: 750px"] {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .swal2-popup[style*="width: 1200px"],
+  .swal2-popup[style*="width: 1000px"],
+  .swal2-popup[style*="width: 750px"] {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem !important;
+  }
+  
+  .swal2-popup[style*="width: 1200px"] .swal2-html-container {
+    display: block !important;
+  }
+  
+  .swal2-popup[style*="width: 1200px"] .swal2-html-container > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .swal2-popup[style*="width: 1200px"],
+  .swal2-popup[style*="width: 1000px"],
+  .swal2-popup[style*="width: 750px"] {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .swal2-popup[style*="width: 1200px"],
+  .swal2-popup[style*="width: 1000px"],
+  .swal2-popup[style*="width: 750px"] {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem !important;
+    padding: 1rem !important;
+  }
+  
+  .swal2-popup[style*="width: 1200px"] .swal2-title,
+  .swal2-popup[style*="width: 1000px"] .swal2-title,
+  .swal2-popup[style*="width: 750px"] .swal2-title {
+    font-size: 1rem !important;
+  }
+  
+  .swal2-popup[style*="width: 1200px"] .swal2-html-container,
+  .swal2-popup[style*="width: 1000px"] .swal2-html-container,
+  .swal2-popup[style*="width: 750px"] .swal2-html-container {
+    font-size: 0.875rem !important;
+    max-height: 50vh !important;
+  }
+  
+  .swal2-popup[style*="width: 1200px"] .swal2-html-container > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* Prevenir scroll en la página cuando hay alertas grandes */
+.swal2-container {
+  overflow: hidden !important;
+}
+
+.swal2-backdrop-show {
+  overflow: hidden !important;
+}
+
+body.swal2-shown {
+  overflow: hidden !important;
+}
+
+/* Estados de carga - Spinner circular */
 .swal2-loading {
   border: 4px solid #e5e7eb !important;
   border-top: 4px solid #3b82f6 !important;
@@ -361,6 +510,8 @@
   width: 3rem !important;
   height: 3rem !important;
   animation: spin 1s linear infinite !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
 }
 
 @keyframes spin {
@@ -408,5 +559,112 @@
 .swal2-actions {
   pointer-events: auto !important;
 }
+
+/* Estilos para modales de loading - Solo spinner limpio sin fondo visible */
+.swal2-popup.swal2-loading-popup {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 3rem !important;
+  height: 3rem !important;
+  min-width: 3rem !important;
+  min-height: 3rem !important;
+  max-width: 3rem !important;
+  max-height: 3rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: inherit !important;
+  text-align: center !important;
+  overflow: visible !important;
+}
+
+/* Ocultar cualquier contenedor o wrapper que cree un cuadrado - más agresivo */
+.swal2-popup.swal2-loading-popup > div:not(:has(.swal2-loader)):not(:has(.swal2-loading)) {
+  display: none !important;
+}
+
+/* Asegurar que no haya ningún fondo visible en el popup - sobrescribir todo */
+.swal2-popup.swal2-loading-popup * {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* El loader debe mantener su borde circular */
+.swal2-popup.swal2-loading-popup .swal2-loader,
+.swal2-popup.swal2-loading-popup .swal2-loading {
+  background: transparent !important;
+}
+
+/* Eliminar cualquier estilo del popup que lo haga cuadrado */
+.swal2-popup.swal2-loading-popup::before,
+.swal2-popup.swal2-loading-popup::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Ocultar todos los elementos excepto el loader */
+.swal2-popup.swal2-loading-popup .swal2-title,
+.swal2-popup.swal2-loading-popup .swal2-content,
+.swal2-popup.swal2-loading-popup .swal2-html-container,
+.swal2-popup.swal2-loading-popup .swal2-text,
+.swal2-popup.swal2-loading-popup .swal2-actions,
+.swal2-popup.swal2-loading-popup .swal2-icon-container,
+.swal2-popup.swal2-loading-popup .swal2-icon,
+.swal2-popup.swal2-loading-popup .swal2-image {
+  display: none !important;
+}
+
+/* Solo mostrar el loader limpio - Asegurar que sea circular y gire */
+.swal2-popup.swal2-loading-popup .swal2-loader,
+.swal2-popup.swal2-loading-popup .swal2-loading {
+  margin: 0 !important;
+  display: block !important;
+  width: 3rem !important;
+  height: 3rem !important;
+  min-width: 3rem !important;
+  min-height: 3rem !important;
+  max-width: 3rem !important;
+  max-height: 3rem !important;
+  border: 4px solid #e5e7eb !important;
+  border-top: 4px solid #3b82f6 !important;
+  border-right: 4px solid #e5e7eb !important;
+  border-bottom: 4px solid #e5e7eb !important;
+  border-left: 4px solid #e5e7eb !important;
+  border-radius: 50% !important;
+  -webkit-border-radius: 50% !important;
+  -moz-border-radius: 50% !important;
+  animation: spin 1s linear infinite !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+/* Asegurar que cualquier elemento hijo también sea circular y que el loader sea visible */
+.swal2-popup.swal2-loading-popup .swal2-loader * {
+  border-radius: 50% !important;
+}
+
+/* Forzar que el loader sea circular - Sobrescribir cualquier estilo que lo haga cuadrado */
+.swal2-popup.swal2-loading-popup [class*="loader"],
+.swal2-popup.swal2-loading-popup [class*="loading"] {
+  border-radius: 50% !important;
+  -webkit-border-radius: 50% !important;
+  -moz-border-radius: 50% !important;
+}
+
+/* Asegurar que el loader no tenga estilos que lo hagan cuadrado */
+.swal2-popup.swal2-loading-popup .swal2-loader,
+.swal2-popup.swal2-loading-popup .swal2-loading {
+  clip-path: circle(50%) !important;
+}
+
 
 /* Tema claro forzado - Sin modo oscuro */

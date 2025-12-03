@@ -196,11 +196,27 @@ const TablaVentasProceso = ({ adquirir }) => {
   const descargarArchivosSeguimiento = async (idSeguimiento) => {
     try {
       Swal.fire({
-        title: 'Descargando archivos...',
-        text: 'Por favor espera mientras se preparan los archivos',
+        title: "",
+        html: "",
         allowOutsideClick: false,
+        showConfirmButton: false,
         didOpen: () => {
           Swal.showLoading();
+          setTimeout(() => {
+            const popup = document.querySelector('.swal2-loading-popup');
+            if (popup) {
+              const titleElement = popup.querySelector('.swal2-title');
+              if (titleElement) titleElement.style.display = 'none';
+              const contentElements = popup.querySelectorAll('.swal2-content, .swal2-html-container, .swal2-text, .swal2-icon-container');
+              contentElements.forEach(el => el.style.display = 'none');
+              const actionsElement = popup.querySelector('.swal2-actions');
+              if (actionsElement) actionsElement.style.display = 'none';
+            }
+          }, 10);
+        },
+        customClass: {
+          popup: 'swal2-loading-popup',
+          title: 'swal2-loading-title-hidden'
         }
       });
 
@@ -686,8 +702,9 @@ const TablaVentasProceso = ({ adquirir }) => {
   };
 
   const exportarExcel = async () => {
-    // Encabezados organizados por secciones
-    const encabezados = [
+    try {
+      // Encabezados organizados por secciones
+      const encabezados = [
       "Titular", "Tipo de Solicitante", "Tipo de Persona", "Tipo de Documento", "N° Documento", 
       "Email", "Teléfono", "Dirección", "Tipo de Entidad", "Razón Social", "Nombre Empresa", "NIT", 
       "Poder Representante", "Poder Autorización", "Estado", "Tipo de Solicitud", "Encargado", 
@@ -771,19 +788,28 @@ const TablaVentasProceso = ({ adquirir }) => {
       }
     );
     
-    Swal.fire({
-      icon: 'success',
-      title: '¡Éxito!',
-      text: 'Archivo Excel descargado exitosamente.',
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#10b981',
-      customClass: {
-        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
-        title: 'text-gray-800 font-bold text-2xl mb-4',
-        content: 'text-gray-600 text-base mb-6',
-        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
-      }
-    });
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al descargar el archivo: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444'
+      });
+    }
   };
 
   if (loading) {

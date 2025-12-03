@@ -418,7 +418,8 @@ const ModalAgendarDesdeSolicitud = ({
           popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
           title: 'text-gray-800 font-bold text-2xl mb-4',
           content: 'text-gray-600 text-base mb-6',
-          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white',
+          icon: 'swal2-error-icon'
         }
       });
     } finally {

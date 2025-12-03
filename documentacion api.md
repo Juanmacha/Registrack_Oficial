@@ -16,7 +16,7 @@
 > - **Sistema de Permisos Granular**: Control de acceso a nivel de módulo y acción. Crear roles personalizados con permisos específicos. Middleware `checkPermiso` para validación granular. Administradores tienen acceso total automático.
 > - **Creación de Usuarios con Roles Personalizados**: Los administradores pueden crear usuarios con cualquier rol existente y activo (incluye roles personalizados). Validación mejorada de roles y manejo de errores específico.
 > - **Dashboard Mejorado**: Períodos ampliados (9 opciones) y Estados Reales (process_states) - El dashboard ahora muestra los estados reales de cada servicio en lugar de estados fijos genéricos
-> - **Sistema de Pago Mejorado**: Monto automático desde el servicio (opcional), validación de monto, fecha de pago automática, y endpoints GET con información completa de usuario, solicitud, servicio, cliente y empresa
+> - **Sistema de Pago Mejorado**: Monto automático desde el precio del servicio (opcional), validación de monto con coincidencia garantizada, precio del servicio integrado en mock data, ajuste automático de montos, fecha de pago automática, y endpoints GET con información completa de usuario, solicitud, servicio, cliente y empresa
 > - **Descarga de Archivos en ZIP**: Nuevo endpoint para descargar todos los archivos de una solicitud en un archivo ZIP comprimido
 
 ---
@@ -51,6 +51,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 | **Ene 2026** | 🔄 **Normalización Automática de Tipos de Cita** | El sistema ahora acepta variaciones comunes de tipos de cita (con acentos, espacios adicionales, etc.) y las normaliza automáticamente. Ejemplos: "Certificación" → "Certificacion", "Búsqueda de Antecedentes" → "Busqueda". Flexibilidad mejorada para el frontend. |
 | **Ene 2026** | 💰 **Flujo Diferenciado por Rol: Pago y Activación** | **Clientes:** Crean solicitudes con estado "Pendiente de Pago" que requieren pago por API para activarse. **Administradores/Empleados:** Crean solicitudes que se activan automáticamente (pago físico posterior). Integración completa con sistema de pagos mock. |
 | **Ene 2026** | 💳 **Sistema de Pagos Mejorado: Monto Automático e Información Completa** | **Monto Automático:** El campo `monto` es opcional en el procesamiento de pagos. El sistema toma automáticamente el `total_estimado` de la orden de servicio. Si se proporciona `monto`, se valida que coincida exactamente con el `total_estimado`. **Fecha Automática:** La `fecha_pago` se establece automáticamente cuando el estado es "Pagado". **Información Completa:** Los endpoints `GET /api/gestion-pagos` y `GET /api/gestion-pagos/:id` ahora devuelven información completa de usuario, solicitud, servicio, cliente y empresa asociados en una estructura JSON organizada. Mejora significativa en la experiencia de consulta de pagos. |
+| **Ene 2026** | 💵 **Módulo de Pagos: Precio del Servicio en Mock Data** | **Precio del Servicio Integrado:** El mock data ahora incluye el precio del servicio (`precio_base_servicio`) desde la base de datos mediante JOIN. **Coincidencia Automática:** El sistema garantiza que el total pagado coincida automáticamente con el precio del servicio. Si hay diferencia, el mock ajusta el monto para que coincida. **Validación Mejorada:** El controlador valida contra `precio_base_servicio` (preferido) o `total_estimado` si el precio base no está disponible. **Priorización de Precio:** El sistema prioriza `precio_base_servicio` sobre `total_estimado` para mayor precisión. Mejora en la integridad de datos de pagos. |
 | **4 Nov 2025** | 🔐 **Edición Completa de Permisos en Roles** | Endpoint PUT actualizado para editar permisos/privilegios granularmente. Campos opcionales (nombre, estado, permisos). Transacciones ACID. Permite quitar todos los permisos. Actualización parcial. |
 | **4 Nov 2025** | 📧 **Solución de Timeouts en Emails + Render** | Envío de emails en background después de responder HTTP. Timeouts adaptativos según entorno (30s/60s en producción). Verificación no bloqueante. Funciona correctamente en Render con manejo inteligente de timeouts. |
 | **4 Nov 2025** | 📧 **Emails Mejorados en Citas desde Solicitudes** | Sistema completo de notificaciones: emails al cliente y al empleado asignado a la solicitud cuando se crea una cita. Prevención de duplicados inteligente. |
@@ -85,7 +86,7 @@ Plataforma REST completa para la gestión integral de servicios de registro de m
 - **99+ endpoints** documentados y funcionales
 - **17 módulos** principales completamente implementados
 - **7 tipos de servicios** configurados con formularios dinámicos y precios
-- **14 tipos de notificaciones** por email automáticas (solicitudes, citas directas, citas desde solicitudes con empleado asignado - envío en background garantizado, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita - cliente y empleado)
+- **28+ tipos de notificaciones** por email automáticas (solicitudes, citas directas/reprogramadas/anuladas/finalizadas, asignaciones, cambios de estado, pagos, renovaciones, solicitudes de cita, subida de archivos, finalización de solicitudes, bienvenida, credenciales, cambio de estado de empleado - envío en background garantizado)
 - **Sistema de permisos granular** con control a nivel de módulo y acción (18 módulos, 4 acciones)
 - **Roles personalizables** con permisos específicos (sin límite de roles)
 - **3 roles básicos** (administrador, empleado, cliente) + roles personalizados ilimitados
@@ -1529,8 +1530,10 @@ Authorization: Bearer {token}
 - **Precios configurados**: Servicios con precio_base en BD
 - **7 campos nuevos**: transaction_id, gateway, gateway_data, verified_at, verified_by, verification_method, numero_comprobante
 - **🔄 Activación Automática de Solicitudes**: Al procesar un pago exitoso, la solicitud asociada se activa automáticamente con el primer estado del proceso
-- **💰 Monto Automático**: El monto se toma automáticamente del `total_estimado` de la orden de servicio (el campo `monto` es opcional)
-- **✅ Validación de Monto**: Si se proporciona `monto`, debe coincidir exactamente con el `total_estimado` de la orden
+- **💰 Monto Automático**: El monto se toma automáticamente del precio del servicio (el campo `monto` es opcional)
+- **✅ Validación de Monto**: Si se proporciona `monto`, debe coincidir exactamente con el precio del servicio (`precio_base_servicio` o `total_estimado`)
+- **💵 Precio del Servicio en Mock**: El mock data incluye el precio del servicio y garantiza que el total pagado coincida con el precio
+- **🔄 Ajuste Automático**: Si hay diferencia entre monto y precio, el sistema ajusta automáticamente para que coincidan
 - **📅 Fecha de Pago Automática**: La `fecha_pago` se establece automáticamente cuando el estado es "Pagado"
 - **📊 Información Completa en GET**: Los endpoints GET devuelven información completa de usuario, solicitud, servicio, cliente y empresa asociados
 
@@ -1558,7 +1561,7 @@ Authorization: Bearer {token}
      "id_orden_servicio": 123
    }
    ```
-   El sistema toma automáticamente el `total_estimado` de la orden de servicio.
+   El sistema toma automáticamente el precio del servicio (`precio_base_servicio` o `total_estimado` de la orden).
    
    **Opción 2: Monto Manual (Validado)**
    ```json
@@ -1568,7 +1571,7 @@ Authorization: Bearer {token}
      "id_orden_servicio": 123
    }
    ```
-   Si se proporciona `monto`, debe coincidir exactamente con el `total_estimado` de la orden.
+   Si se proporciona `monto`, debe coincidir exactamente con el precio del servicio. El sistema prioriza `precio_base_servicio` si está disponible, sino usa `total_estimado`. El mock ajusta automáticamente el monto para garantizar coincidencia.
 
 3. **Respuesta exitosa** incluye `solicitud_activada: true`:
    ```json
@@ -1934,8 +1937,9 @@ POST /api/gestion-pagos/simular                # Simular pago para testing
 **💰 Flujo de Activación:**
 1. Crear solicitud → Estado: "Pendiente de Pago"
 2. Procesar pago con `POST /api/gestion-pagos/process-mock` → Activa solicitud automáticamente
-   - **Monto automático**: El `monto` es opcional, se toma del `total_estimado` de la orden
-   - **Validación**: Si se proporciona `monto`, debe coincidir con el `total_estimado`
+   - **Monto automático**: El `monto` es opcional, se toma del precio del servicio (`precio_base_servicio` o `total_estimado`)
+   - **Validación**: Si se proporciona `monto`, debe coincidir con el precio del servicio
+   - **Coincidencia garantizada**: El mock ajusta automáticamente el monto para que coincida con el precio del servicio
 3. Respuesta incluye `solicitud_activada: true` si fue exitoso
 
 **📊 Información Completa en GET:**
@@ -10260,6 +10264,118 @@ Authorization: Bearer <TOKEN_CLIENTE>
 - ✅ Los errores de email no interrumpen la operación de asignación
 - ✅ Se registran en logs los intentos de envío fallidos
 - ✅ Manejo robusto de datos faltantes o undefined
+
+---
+
+## 📧 **SISTEMA DE EMAILS EXPANDIDO** (Enero 2026)
+
+### **🎯 Nuevos Templates de Email Implementados**
+
+El sistema de notificaciones por email se ha expandido significativamente con **14 nuevos templates** para cubrir todos los eventos importantes del sistema.
+
+#### **1. Reprogramación de Citas**
+- **`sendCitaReprogramadaCliente`** - Notifica al cliente sobre cambios en fecha/hora de la cita
+- **`sendCitaReprogramadaEmpleado`** - Notifica al empleado sobre reprogramación de citas
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates HTML completos
+- `src/controllers/citas.controller.js` - Llamadas después de `reprogramarCita()`
+
+#### **2. Anulación de Citas**
+- **`sendCitaAnuladaCliente`** - Informa al cliente sobre cancelación de citas
+- **`sendCitaAnuladaEmpleado`** - Notifica al empleado sobre anulación de citas
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates HTML con motivo de anulación
+- `src/controllers/citas.controller.js` - Llamadas después de `anularCita()`
+
+#### **3. Finalización de Citas**
+- **`sendCitaFinalizadaCliente`** - Confirma al cliente que la cita fue completada
+- **`sendCitaFinalizadaEmpleado`** - Notifica al empleado sobre cita finalizada
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates de confirmación
+- `src/controllers/citas.controller.js` - Llamadas después de `finalizarCita()`
+
+#### **4. Finalización de Solicitudes**
+- **`sendSolicitudFinalizadaCliente`** - Celebra con el cliente la finalización exitosa de su solicitud
+- **`sendSolicitudFinalizadaEmpleado`** - Notifica al empleado sobre solicitud completada
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates de felicitación
+- `src/controllers/seguimiento.controller.js` - Detección cuando `nuevo_proceso === 'Finalizado'`
+
+#### **5. Subida de Archivos**
+- **`sendArchivoSubidoCliente`** - Informa al cliente sobre archivos importantes subidos
+- **`sendArchivoSubidoEmpleado`** - Notifica al empleado sobre nuevos archivos disponibles
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates informativos
+- `src/controllers/archivo.controller.js` - Llamadas después de `upload()`
+
+#### **6. Bienvenida y Credenciales**
+- **`sendBienvenidaCliente`** - Email de bienvenida cuando un cliente se registra
+- **`sendCredencialesNuevoUsuario`** - Envía credenciales cuando un admin crea un usuario
+- **`sendBienvenidaEmpleado`** - Bienvenida cuando se crea un nuevo empleado
+- **`sendCambioEstadoEmpleado`** - Notifica cambios en el estado del empleado (activo/inactivo)
+
+**Archivos modificados:**
+- `src/services/email.service.js` - Templates de bienvenida y credenciales
+- `src/controllers/auth.controller.js` - Llamada después de registro de cliente
+- `src/controllers/user.controller.js` - Llamada después de crear usuario por admin
+- `src/controllers/empleado.controller.js` - Llamadas en `createEmpleado()` y `changeEmpleadoState()`
+
+### **📊 Resumen de Implementación**
+
+| Categoría | Templates | Destinatarios | Estado |
+|-----------|-----------|---------------|--------|
+| Reprogramación de Citas | 2 | Cliente + Empleado | ✅ |
+| Anulación de Citas | 2 | Cliente + Empleado | ✅ |
+| Finalización de Citas | 2 | Cliente + Empleado | ✅ |
+| Finalización de Solicitudes | 2 | Cliente + Empleado | ✅ |
+| Subida de Archivos | 2 | Cliente + Empleado | ✅ |
+| Bienvenida y Credenciales | 4 | Cliente/Usuario/Empleado | ✅ |
+| **TOTAL** | **14** | - | ✅ **100%** |
+
+### **✨ Características de los Nuevos Emails**
+
+1. **Templates HTML Profesionales:**
+   - Diseño responsive y moderno
+   - Colores distintivos por tipo de evento
+   - Iconos y emojis para mejor visualización
+
+2. **Manejo Robusto de Errores:**
+   - Los errores de email NO interrumpen las operaciones principales
+   - Logs detallados para debugging
+   - Validación de correos antes de enviar
+
+3. **Información Completa:**
+   - Detalles específicos del evento
+   - Datos relevantes del contexto
+   - Instrucciones claras para el destinatario
+
+4. **Integración Completa:**
+   - Emails se envían automáticamente en los eventos correspondientes
+   - No requiere intervención manual
+   - Funciona en background sin bloquear respuestas HTTP
+
+### **📋 Archivos Modificados**
+
+1. ✅ `src/services/email.service.js` - +14 nuevas funciones exportadas
+2. ✅ `src/controllers/citas.controller.js` - Llamadas para reprogramación, anulación y finalización
+3. ✅ `src/controllers/seguimiento.controller.js` - Detección y envío de emails de finalización
+4. ✅ `src/controllers/archivo.controller.js` - Notificaciones de subida de archivos
+5. ✅ `src/controllers/auth.controller.js` - Email de bienvenida a clientes
+6. ✅ `src/controllers/user.controller.js` - Email de credenciales a nuevos usuarios
+7. ✅ `src/controllers/empleado.controller.js` - Bienvenida y cambio de estado de empleados
+
+### **🎯 Beneficios**
+
+- ✅ **28+ tipos de notificaciones** ahora disponibles en todo el sistema
+- ✅ **Cobertura completa** de eventos importantes
+- ✅ **Mejor comunicación** con clientes y empleados
+- ✅ **Experiencia de usuario mejorada** con notificaciones oportunas
+- ✅ **Transparencia total** en el estado de citas, solicitudes y procesos
 
 ---
 

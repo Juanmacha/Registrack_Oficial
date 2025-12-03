@@ -83,7 +83,8 @@ const SolicitudesCitas = () => {
   };
 
   const handleExportarExcel = async () => {
-    const encabezados = [
+    try {
+      const encabezados = [
       "ID", "Fecha Solicitada", "Hora Solicitada", "Tipo", "Modalidad", "Estado", "Cliente", "Email", "Descripción", "Observaciones", "Fecha Creación"
     ];
     const datosExcel = solicitudesFiltradas.map((s) => ({
@@ -127,19 +128,28 @@ const SolicitudesCitas = () => {
       }
     );
     
-    Swal.fire({
-      icon: 'success',
-      title: '¡Éxito!',
-      text: 'Archivo Excel descargado exitosamente.',
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#10b981',
-      customClass: {
-        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
-        title: 'text-gray-800 font-bold text-2xl mb-4',
-        content: 'text-gray-600 text-base mb-6',
-        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
-      }
-    });
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al descargar el archivo: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444'
+      });
+    }
   };
 
   const tiposSolicitud = [...new Set(solicitudes.map(s => s.tipo).filter(tipo => tipo))];

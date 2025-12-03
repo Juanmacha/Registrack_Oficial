@@ -9,7 +9,7 @@ const DescargarExcelEmpleados = ({ empleados }) => {
 
   const exportarExcel = async () => {
     setDownloading(true);
-    
+
     try {
       console.log('🔄 [DescargarExcel] Generando reporte Excel...');
       

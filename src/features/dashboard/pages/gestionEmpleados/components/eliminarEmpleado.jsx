@@ -16,11 +16,34 @@ const EliminarEmpleado = ({ empleado, onEliminar }) => {
 
     if (result.isConfirmed) {
       Swal.fire({
-        title: "Eliminando...",
+        title: "",
+        html: "",
         allowOutsideClick: false,
+        showConfirmButton: false,
         didOpen: () => {
           Swal.showLoading();
+          // Ocultar todos los elementos excepto el loader
+          setTimeout(() => {
+            const popup = document.querySelector('.swal2-loading-popup');
+            if (popup) {
+              // Ocultar título
+              const titleElement = popup.querySelector('.swal2-title');
+              if (titleElement) titleElement.style.display = 'none';
+              
+              // Ocultar contenido
+              const contentElements = popup.querySelectorAll('.swal2-content, .swal2-html-container, .swal2-text, .swal2-icon-container');
+              contentElements.forEach(el => el.style.display = 'none');
+              
+              // Ocultar acciones
+              const actionsElement = popup.querySelector('.swal2-actions');
+              if (actionsElement) actionsElement.style.display = 'none';
+            }
+          }, 10);
         },
+        customClass: {
+          popup: 'swal2-loading-popup',
+          title: 'swal2-loading-title-hidden'
+        }
       });
 
       try {
@@ -63,20 +86,32 @@ const EliminarEmpleado = ({ empleado, onEliminar }) => {
             icon: 'error',
             title: 'No se puede eliminar el empleado',
             html: `
-              <div style="text-align: left;">
-                <p style="margin-bottom: 10px;"><strong>${errorMessage}</strong></p>
-                ${errorDetails ? `<p style="margin-bottom: 10px; color: #666;">${errorDetails}</p>` : ''}
-                <hr style="margin: 15px 0;">
-                <p style="margin-bottom: 10px;"><strong>Acciones requeridas:</strong></p>
-                <ul style="margin-left: 20px; margin-bottom: 10px;">
-                  <li>Si tiene <strong>citas activas</strong>: Reprograme o cancele las citas primero</li>
-                  <li>Si tiene <strong>solicitudes activas</strong>: Reasigne las solicitudes a otro empleado o finalice/anule primero</li>
-                </ul>
+              <div style="text-align: left; max-width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+                <div>
+                  <p style="margin-bottom: 4px; line-height: 1.3; font-size: 14px;"><strong>${errorMessage}</strong></p>
+                  ${errorDetails ? `<p style="margin-bottom: 4px; color: #666; line-height: 1.3; font-size: 13px;">${errorDetails}</p>` : ''}
+                  <p style="margin-top: 8px; color: #666; line-height: 1.3; font-size: 13px;">Debe resolver todas las asignaciones activas antes de eliminar el empleado.</p>
+                </div>
+                <div>
+                  <p style="margin-bottom: 6px; font-weight: 600; font-size: 14px;"><strong>Acciones requeridas:</strong></p>
+                  <ul style="margin-left: 16px; margin-bottom: 0; line-height: 1.4; font-size: 13px; padding: 0;">
+                    <li>Si tiene <strong>citas activas</strong>: Reprograme o cancele las citas primero</li>
+                    <li>Si tiene <strong>solicitudes activas</strong>: Reasigne las solicitudes a otro empleado o finalice/anule primero</li>
+                  </ul>
+                </div>
               </div>
             `,
             confirmButtonText: 'Entendido',
             confirmButtonColor: '#3085d6',
-            width: '600px'
+            width: '1200px',
+            padding: '1.25rem',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+              title: 'text-gray-800 font-bold text-lg mb-2',
+              htmlContainer: 'text-gray-600 text-base mb-3 max-h-[40vh] overflow-y-auto',
+              confirmButton: 'rounded-xl px-6 py-2 font-semibold text-sm',
+              icon: 'swal2-error-icon'
+            }
           });
         } else {
           Swal.fire({

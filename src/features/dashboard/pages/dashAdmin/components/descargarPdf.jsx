@@ -6,21 +6,7 @@ import DownloadButton from "../../../../../shared/components/DownloadButton";
 
 const BotonDescargarPdf = ({ datos, nombreArchivo = "reporte.pdf", chartRef }) => {
   const exportarPdf = async () => {
-    let swalInstance = null;
-    
     try {
-      // Mostrar loading
-      swalInstance = Swal.fire({
-        title: "Generando PDF...",
-        text: "Por favor espere",
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
       const pdf = new jsPDF("landscape", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -166,9 +152,7 @@ const BotonDescargarPdf = ({ datos, nombreArchivo = "reporte.pdf", chartRef }) =
       // Guardar el PDF
       pdf.save(nombreArchivo);
 
-      // Cerrar loading y mostrar éxito
-      await Swal.close();
-      await Swal.fire({
+      Swal.fire({
         icon: 'success',
         title: '¡Éxito!',
         text: 'Archivo PDF descargado exitosamente.',
@@ -184,13 +168,7 @@ const BotonDescargarPdf = ({ datos, nombreArchivo = "reporte.pdf", chartRef }) =
     } catch (error) {
       console.error("Error generando PDF:", error);
       
-      // Cerrar loading si está abierto
-      if (swalInstance) {
-        await Swal.close();
-      }
-      
-      // Mostrar error
-      await Swal.fire({
+      Swal.fire({
         icon: "error",
         title: "Error",
         text: error.message || "Hubo un problema al generar el PDF. Por favor, intenta nuevamente.",

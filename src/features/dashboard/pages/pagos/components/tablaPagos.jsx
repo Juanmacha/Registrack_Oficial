@@ -763,25 +763,14 @@ const Tablapagos = () => {
         return;
       }
 
-      // Mostrar indicador de carga
-      Swal.fire({
-        title: 'Generando reporte...',
-        text: 'Por favor espera',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
-
       console.log('🔧 [TablaPagos] Generando Excel con logo y colores de la app...');
 
       // Preparar encabezados
       const encabezados = [
         'ID Pago',
         'Monto',
+        'Precio del Servicio',
         'Fecha de Pago',
-        'Método de Pago',
         'Cliente',
         'Empresa',
         'Servicio',
@@ -823,8 +812,8 @@ const Tablapagos = () => {
         return {
           'ID Pago': pago.id_pago || pago.id || '',
           'Monto': `$${(pago.monto_pagado || pago.monto || pago.monto_pago || pago.valor || pago.solicitud?.total_orden_servicio || pago.solicitud?.total_estimado || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+          'Precio del Servicio': `$${(pago.servicio?.precio_base || pago.solicitud?.total_estimado || pago.servicio?.precio || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
           'Fecha de Pago': fechaFormateada,
-          'Método de Pago': pago.metodo_pago || '',
           'Cliente': nombreCliente,
           'Empresa': pago.empresa?.nombre || '',
           'Servicio': nombreServicio,
@@ -841,8 +830,8 @@ const Tablapagos = () => {
       const anchosColumnas = [
         ANCHOS_COLUMNA.ID,        // ID Pago
         ANCHOS_COLUMNA.MONTO,     // Monto
+        ANCHOS_COLUMNA.MONTO,     // Precio del Servicio
         ANCHOS_COLUMNA.FECHA,     // Fecha de Pago
-        ANCHOS_COLUMNA.TIPO,      // Método de Pago
         ANCHOS_COLUMNA.NOMBRE,    // Cliente
         ANCHOS_COLUMNA.NOMBRE,    // Empresa
         ANCHOS_COLUMNA.SERVICIO,  // Servicio
@@ -868,7 +857,6 @@ const Tablapagos = () => {
         }
       );
       
-      Swal.close();
       Swal.fire({
         icon: 'success',
         title: '¡Éxito!',
@@ -884,7 +872,6 @@ const Tablapagos = () => {
       });
     } catch (err) {
       console.error('❌ [TablaPagos] Error generando Excel:', err);
-      Swal.close();
       
       let errorMessage = 'No se pudo generar el reporte. Por favor, intenta nuevamente.';
       if (err.message) {
@@ -966,8 +953,8 @@ const Tablapagos = () => {
               <tr>
                 <th className="px-2 py-3 font-bold text-center w-16">ID</th>
                 <th className="px-2 py-3 font-bold text-center w-24">Monto</th>
+                <th className="px-2 py-3 font-bold text-center w-24">Precio Servicio</th>
                 <th className="px-2 py-3 font-bold text-center w-24">Fecha</th>
-                <th className="px-2 py-3 font-bold text-center w-20">Método</th>
                 <th className="px-2 py-3 font-bold text-center w-32">Cliente</th>
                 <th className="px-2 py-3 font-bold text-center w-32">Servicio</th>
                 <th className="px-2 py-3 font-bold text-center w-28">Usuario</th>
@@ -1013,6 +1000,9 @@ const Tablapagos = () => {
                       <td className="px-2 py-3 font-semibold text-xs">
                         ${(item.monto_pagado || item.monto || item.monto_pago || item.valor || item.solicitud?.total_orden_servicio || item.solicitud?.total_estimado || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </td>
+                      <td className="px-2 py-3 font-semibold text-xs text-green-700">
+                        ${(item.servicio?.precio_base || item.solicitud?.total_estimado || item.servicio?.precio || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
                       <td className="px-2 py-3 text-xs">
                         {item.fecha_pago 
                           ? new Date(item.fecha_pago).toLocaleDateString('es-CO', {
@@ -1021,11 +1011,6 @@ const Tablapagos = () => {
                               day: '2-digit'
                             })
                           : '-'}
-                      </td>
-                      <td className="px-2 py-3">
-                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium whitespace-nowrap">
-                          {item.metodo_pago || '-'}
-                        </span>
                       </td>
                       <td className="px-2 py-3 text-left">
                         <div className="max-w-[120px] truncate text-xs" title={nombreCliente + (item.empresa?.nombre ? ` - ${item.empresa.nombre}` : '')}>

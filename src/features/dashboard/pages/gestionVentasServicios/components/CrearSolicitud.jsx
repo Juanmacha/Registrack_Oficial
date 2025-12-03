@@ -447,17 +447,24 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
       const baseURL = API_CONFIG.BASE_URL || API_CONFIG.baseURL || (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
 
       // ✅ Llamar al endpoint de procesamiento de pago con los parámetros correctos
+      // El monto es opcional - el backend lo toma automáticamente del precio del servicio
+      const requestBody = {
+        id_orden_servicio: solicitudCreada.orden_id, // ✅ Campo correcto según API
+        metodo_pago: 'Tarjeta' // ✅ Valor esperado por la API
+      };
+      
+      // Opcional: incluir monto si está disponible (será validado en el backend)
+      if (solicitudCreada.monto_a_pagar) {
+        requestBody.monto = solicitudCreada.monto_a_pagar;
+      }
+      
       const response = await fetch(`${baseURL}/api/gestion-pagos/process-mock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          id_orden_servicio: solicitudCreada.orden_id, // ✅ Campo correcto según API
-          monto: solicitudCreada.monto_a_pagar,
-          metodo_pago: 'Tarjeta' // ✅ Valor esperado por la API
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const resultado = await response.json();

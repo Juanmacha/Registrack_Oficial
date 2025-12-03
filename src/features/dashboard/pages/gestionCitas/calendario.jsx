@@ -1829,97 +1829,110 @@ const Calendario = () => {
   // Función para exportar a Excel las citas del mes visible
   const exportarExcelMesActual = async () => {
     if (!calendarRef.current) return;
-    const calendarApi = calendarRef.current.getApi();
-    const start = calendarApi.view.currentStart;
-    const end = calendarApi.view.currentEnd;
-    // Filtrar eventos del mes visible
-    const eventosMes = events.filter(ev => {
-      const fecha = new Date(ev.start);
-      return fecha >= start && fecha < end;
-    });
-    if (eventosMes.length === 0) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Sin datos',
-        text: "No hay citas en el mes actual.",
-        confirmButtonText: 'Cerrar',
-        confirmButtonColor: '#3b82f6',
-        customClass: {
-          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
-          title: 'text-gray-800 font-bold text-2xl mb-4',
-          content: 'text-gray-600 text-base mb-6',
-          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
-        }
+    
+    try {
+      const calendarApi = calendarRef.current.getApi();
+      const start = calendarApi.view.currentStart;
+      const end = calendarApi.view.currentEnd;
+      
+      // Filtrar eventos del mes visible
+      const eventosMes = events.filter(ev => {
+        const fecha = new Date(ev.start);
+        return fecha >= start && fecha < end;
       });
-      return;
-    }
-    
-    // Preparar datos para Excel
-    const encabezados = [
-      "Nombre", "Apellido", "Cédula", "Teléfono", "Tipo de Cita", 
-      "Asesor", "Fecha", "Hora Inicio", "Hora Fin", "Estado", "Detalle"
-    ];
-    
-    const datosExcel = eventosMes.map(ev => ({
-      Nombre: ev.extendedProps?.nombre || '',
-      Apellido: ev.extendedProps?.apellido || '',
-      Cédula: ev.extendedProps?.cedula || '',
-      Teléfono: ev.extendedProps?.telefono || '',
-      "Tipo de Cita": ev.extendedProps?.tipoCita || '',
-      Asesor: ev.extendedProps?.asesor || '',
-      Fecha: ev.start ? new Date(ev.start).toLocaleDateString('es-CO') : '',
-      "Hora Inicio": ev.start ? new Date(ev.start).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
-      "Hora Fin": ev.end ? new Date(ev.end).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
-      Estado: ev.extendedProps?.estado || '',
-      Detalle: ev.extendedProps?.detalle || '',
-    }));
-    
-    // Nombre del archivo con mes y año
-    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-    const mesNombre = meses[start.getMonth()];
-    const anio = start.getFullYear();
-    
-    const anchosColumnas = [
-      ANCHOS_COLUMNA.NOMBRE,    // Nombre
-      ANCHOS_COLUMNA.NOMBRE,    // Apellido
-      ANCHOS_COLUMNA.DOCUMENTO, // Cédula
-      ANCHOS_COLUMNA.TELEFONO,  // Teléfono
-      ANCHOS_COLUMNA.TIPO,      // Tipo de Cita
-      ANCHOS_COLUMNA.NOMBRE,    // Asesor
-      ANCHOS_COLUMNA.FECHA,     // Fecha
-      ANCHOS_COLUMNA.FECHA,     // Hora Inicio
-      ANCHOS_COLUMNA.FECHA,     // Hora Fin
-      ANCHOS_COLUMNA.ESTADO,    // Estado
-      ANCHOS_COLUMNA.COMENTARIOS // Detalle
-    ];
+      
+      if (eventosMes.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin datos',
+          text: "No hay citas en el mes actual.",
+          confirmButtonText: 'Cerrar',
+          confirmButtonColor: '#3b82f6',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
+          }
+        });
+        return;
+      }
+      
+      // Preparar datos para Excel
+      const encabezados = [
+        "Nombre", "Apellido", "Cédula", "Teléfono", "Tipo de Cita", 
+        "Asesor", "Fecha", "Hora Inicio", "Hora Fin", "Estado", "Detalle"
+      ];
+      
+      const datosExcel = eventosMes.map(ev => ({
+        Nombre: ev.extendedProps?.nombre || '',
+        Apellido: ev.extendedProps?.apellido || '',
+        Cédula: ev.extendedProps?.cedula || '',
+        Teléfono: ev.extendedProps?.telefono || '',
+        "Tipo de Cita": ev.extendedProps?.tipoCita || '',
+        Asesor: ev.extendedProps?.asesor || '',
+        Fecha: ev.start ? new Date(ev.start).toLocaleDateString('es-CO') : '',
+        "Hora Inicio": ev.start ? new Date(ev.start).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
+        "Hora Fin": ev.end ? new Date(ev.end).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '',
+        Estado: ev.extendedProps?.estado || '',
+        Detalle: ev.extendedProps?.detalle || '',
+      }));
+      
+      // Nombre del archivo con mes y año
+      const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      const mesNombre = meses[start.getMonth()];
+      const anio = start.getFullYear();
+      
+      const anchosColumnas = [
+        ANCHOS_COLUMNA.NOMBRE,    // Nombre
+        ANCHOS_COLUMNA.NOMBRE,    // Apellido
+        ANCHOS_COLUMNA.DOCUMENTO, // Cédula
+        ANCHOS_COLUMNA.TELEFONO,  // Teléfono
+        ANCHOS_COLUMNA.TIPO,      // Tipo de Cita
+        ANCHOS_COLUMNA.NOMBRE,    // Asesor
+        ANCHOS_COLUMNA.FECHA,     // Fecha
+        ANCHOS_COLUMNA.FECHA,     // Hora Inicio
+        ANCHOS_COLUMNA.FECHA,     // Hora Fin
+        ANCHOS_COLUMNA.ESTADO,    // Estado
+        ANCHOS_COLUMNA.COMENTARIOS // Detalle
+      ];
 
-    await excelService.generarExcel(
-      datosExcel,
-      encabezados,
-      {
-        nombreHoja: 'Citas',
-        nombreArchivo: `Citas_${mesNombre}_${anio}.xlsx`,
-        anchosColumnas,
-        titulo: `Reporte de Citas - ${mesNombre} ${anio}`,
-        incluirLogo: true,
-        filasAlternadas: true,
-        incluirFecha: false // Ya tiene fecha en el nombre
+      await excelService.generarExcel(
+        datosExcel,
+        encabezados,
+        {
+          nombreHoja: 'Citas',
+          nombreArchivo: `Citas_${mesNombre}_${anio}.xlsx`,
+          anchosColumnas,
+          titulo: `Reporte de Citas - ${mesNombre} ${anio}`,
+          incluirLogo: true,
+          filasAlternadas: true,
+          incluirFecha: false // Ya tiene fecha en el nombre
       }
     );
     
-    Swal.fire({
-      icon: 'success',
-      title: '¡Éxito!',
-      text: 'Archivo Excel descargado exitosamente.',
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#10b981',
-      customClass: {
-        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
-        title: 'text-gray-800 font-bold text-2xl mb-4',
-        content: 'text-gray-600 text-base mb-6',
-        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
-      }
-    });
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Archivo Excel descargado exitosamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#10b981',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-blue-900',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
+        }
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al descargar el archivo: ' + error.message,
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444'
+      });
+    }
   };
 
   return (

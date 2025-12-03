@@ -217,17 +217,38 @@ export const AlertService = {
   confirm: (title, text, options = {}) =>
     showAlert("question", title, text, options),
 
-  loading: (title = "Procesando...", text = "Por favor, espere...") =>
+  loading: (title = "", text = "") =>
     Swal.fire({
       ...BASE_CONFIG,
-      title,
-      text,
+      title: "",
+      html: "",
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
+        // Ocultar todos los elementos excepto el loader
+        setTimeout(() => {
+          const popup = document.querySelector('.swal2-loading-popup');
+          if (popup) {
+            // Ocultar título
+            const titleElement = popup.querySelector('.swal2-title');
+            if (titleElement) titleElement.style.display = 'none';
+            
+            // Ocultar contenido
+            const contentElements = popup.querySelectorAll('.swal2-content, .swal2-html-container, .swal2-text, .swal2-icon-container');
+            contentElements.forEach(el => el.style.display = 'none');
+            
+            // Ocultar acciones
+            const actionsElement = popup.querySelector('.swal2-actions');
+            if (actionsElement) actionsElement.style.display = 'none';
+          }
+        }, 10);
       },
+      customClass: {
+        popup: 'swal2-loading-popup',
+        title: 'swal2-loading-title-hidden'
+      }
     }),
 
   closeLoading: () => Swal.close(),
