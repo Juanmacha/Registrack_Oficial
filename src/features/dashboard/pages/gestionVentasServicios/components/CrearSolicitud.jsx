@@ -444,7 +444,7 @@ const CrearSolicitud = ({ isOpen, onClose, onGuardar, tipoSolicitud, servicioId 
       }
 
       // ✅ Usar URL base de la configuración
-      const baseURL = API_CONFIG.BASE_URL || API_CONFIG.baseURL || (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
+      const baseURL = API_CONFIG.BASE_URL || API_CONFIG.baseURL || (import.meta.env.DEV ? '' : 'https://apiregistrack-b0b629b0780d.herokuapp.com');
 
       // ✅ Llamar al endpoint de procesamiento de pago con los parámetros correctos
       // El monto es opcional - el backend lo toma automáticamente del precio del servicio

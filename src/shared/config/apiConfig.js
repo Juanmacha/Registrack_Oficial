@@ -1,20 +1,20 @@
 // Configuración de la API
 
 // URLs disponibles
-const PROD_BASE_URL = 'https://api-registrack-2.onrender.com';
+const PROD_BASE_URL = 'https://apiregistrack-b0b629b0780d.herokuapp.com';
 const LOCAL_BASE_URL = 'http://localhost:3000';
 
 // Determinar qué URL usar:
-// 1. Si VITE_USE_LOCAL_API está en 'true', usar localhost (útil si Render está caído)
+// 1. Si VITE_USE_LOCAL_API está en 'true', usar localhost (útil si Heroku está caído)
 // 2. Si está en desarrollo, usar proxy (cadena vacía)
-// 3. Si está en producción, usar Render
+// 3. Si está en producción, usar Heroku
 const getBaseURL = () => {
   // Forzar uso de localhost si la variable de entorno está configurada
   if (import.meta.env.VITE_USE_LOCAL_API === 'true') {
     return LOCAL_BASE_URL;
   }
   
-  // Lógica original: proxy en desarrollo, Render en producción
+  // Lógica original: proxy en desarrollo, Heroku en producción
   return import.meta.env.DEV ? '' : PROD_BASE_URL;
 };
 
@@ -151,8 +151,8 @@ const API_CONFIG = {
   },
   
   // Timeout para las peticiones (en milisegundos)
-  // OnRender puede tardar más en responder, especialmente si el servidor está "dormido"
-  TIMEOUT: 150000, // 150 segundos (2.5 minutos) para dar tiempo a que OnRender despierte el servidor y procese el envío de correos
+  // Heroku puede tardar más en responder, especialmente si el servidor está "dormido"
+  TIMEOUT: 150000, // 150 segundos (2.5 minutos) para dar tiempo a que Heroku despierte el servidor y procese el envío de correos
   
   // Configuración de reintentos
   RETRY_ATTEMPTS: 3,

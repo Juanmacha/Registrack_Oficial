@@ -57,11 +57,35 @@ const Login = () => {
   const handleLogin = async () => {
     // Validaciones antes de enviar
     if (!formData.email || !formData.password) {
-      setError("Todos los campos son obligatorios.");
+      await Swal.fire({
+        icon: 'warning',
+        title: '¡Atención!',
+        text: 'Por favor, completa todos los campos para iniciar sesión.',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#3b82f6',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] text-white'
+        }
+      });
       return;
     }
     if (!validateEmail(formData.email)) {
-      setError("El correo electrónico no es válido.");
+      await Swal.fire({
+        icon: 'error',
+        title: 'Correo inválido',
+        text: 'Por favor, ingresa un correo electrónico válido.',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
+      });
       return;
     }
     try {
@@ -141,15 +165,63 @@ const Login = () => {
         // El mensaje de error ya viene procesado desde authApiService
         // Si es rate limit, el mensaje ya incluye el tiempo de espera
         const errorMessage = result.message || "Credenciales incorrectas. Intenta de nuevo.";
-        setError(errorMessage);
         
-        // Si hay información adicional del error (como rate limit), podemos usarla
+        // Si es rate limit, mostrar alerta especial
         if (result.errorType === 'RATE_LIMIT' && result.errorInfo?.waitTimeMinutes) {
-          // El mensaje ya debería incluir el tiempo, pero por si acaso lo verificamos
-          if (!errorMessage.includes('Espera')) {
-            setError(`${errorMessage} (Espera ${result.errorInfo.waitTimeMinutes} ${result.errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`);
+          const rateLimitMessage = errorMessage.includes('Espera') 
+            ? errorMessage 
+            : `${errorMessage} (Espera ${result.errorInfo.waitTimeMinutes} ${result.errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`;
+          
+          await Swal.fire({
+            icon: 'warning',
+            title: '¡Demasiados intentos!',
+            text: rateLimitMessage,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#f59e0b',
+            customClass: {
+              popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+              title: 'text-gray-800 font-bold text-2xl mb-4',
+              content: 'text-gray-600 text-base mb-6',
+              confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#f59e0b] hover:bg-[#d97706] border border-[#f59e0b] text-white'
+            }
+        });
+      }
+      // Si es error de credenciales incorrectas o UNAUTHORIZED
+      else if (result.errorType === 'UNAUTHORIZED' || 
+               errorMessage.toLowerCase().includes('credenciales') ||
+               errorMessage.toLowerCase().includes('incorrect') ||
+               errorMessage.toLowerCase().includes('inválid') ||
+               errorMessage.toLowerCase().includes('no autorizado')) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Credenciales incorrectas',
+          text: 'El correo electrónico o la contraseña son incorrectos. Por favor, verifica tus datos e intenta nuevamente.',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
           }
-        }
+        });
+      }
+      // Otros errores - mostrar alerta también
+      else {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: errorMessage,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+      }
       }
     } catch (error) {
       console.error("Error en login:", error);
@@ -174,15 +246,61 @@ const Login = () => {
         ? errorMessage 
         : (errorInfo.mensaje || 'Error al iniciar sesión. Por favor, intenta de nuevo.');
       
-      // Si es rate limit, mostrar mensaje específico
+      // Si es rate limit, mostrar alerta específica
       if (errorInfo.tipo === 'RATE_LIMIT') {
-        if (errorInfo.waitTimeMinutes) {
-          setError(`${finalErrorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`);
-        } else {
-          setError(finalErrorMessage);
-        }
-      } else {
-        setError(finalErrorMessage);
+        const rateLimitMessage = errorInfo.waitTimeMinutes
+          ? `${finalErrorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`
+          : finalErrorMessage;
+        
+        await Swal.fire({
+          icon: 'warning',
+          title: '¡Demasiados intentos!',
+          text: rateLimitMessage,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#f59e0b',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-yellow-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#f59e0b] hover:bg-[#d97706] border border-[#f59e0b] text-white'
+          }
+        });
+      }
+      // Si es error de credenciales incorrectas o UNAUTHORIZED
+      else if (errorInfo.tipo === 'UNAUTHORIZED' || 
+               finalErrorMessage.toLowerCase().includes('credenciales') ||
+               finalErrorMessage.toLowerCase().includes('incorrect') ||
+               finalErrorMessage.toLowerCase().includes('inválid') ||
+               finalErrorMessage.toLowerCase().includes('no autorizado')) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Credenciales incorrectas',
+          text: 'El correo electrónico o la contraseña son incorrectos. Por favor, verifica tus datos e intenta nuevamente.',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
+      }
+      // Otros errores - mostrar alerta también
+      else {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: finalErrorMessage,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#ef4444',
+          customClass: {
+            popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+            title: 'text-gray-800 font-bold text-2xl mb-4',
+            content: 'text-gray-600 text-base mb-6',
+            confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+          }
+        });
       }
     }
   };
@@ -209,23 +327,6 @@ const Login = () => {
               Iniciar sesión - Certimarcas
             </h1>
 
-            {/* Error Message */}
-            {error && (
-              <div className={`mb-6 p-3 border rounded-lg ${
-                (typeof error === 'string' && (error.includes('Demasiados intentos') || error.includes('espera')))
-                  ? 'bg-yellow-50 border-yellow-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <p className={`text-sm text-center ${
-                  (typeof error === 'string' && (error.includes('Demasiados intentos') || error.includes('espera')))
-                    ? 'text-yellow-800' 
-                    : 'text-red-600'
-                }`}>
-                  {typeof error === 'string' ? error : String(error)}
-                </p>
-              </div>
-            )}
-
             {/* Formulario */}
             <div className="space-y-6">
               {/* Campo Email */}
@@ -241,9 +342,6 @@ const Login = () => {
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                {fieldErrors.email && (
-                  <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
-                )}
               </div>
 
               {/* Campo Password */}
@@ -266,9 +364,6 @@ const Login = () => {
                     {showPassword ? <BiHide className="text-lg" /> : <BiShow className="text-lg" />}
                   </button>
                 </div>
-                {fieldErrors.password && (
-                  <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
-                )}
               </div>
 
               {/* Forgot password */}
@@ -284,8 +379,7 @@ const Login = () => {
               {/* Botón de Login */}
               <button
                 onClick={handleLogin}
-                disabled={!isFormValid()}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
               >
                 Ingresar
               </button>

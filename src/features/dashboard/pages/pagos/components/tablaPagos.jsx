@@ -194,428 +194,367 @@ const Tablapagos = () => {
   };
 
   // Generar comprobante PDF mejorado
-  const generarComprobantePDF = async (pago) => {
+  const generarComprobantePDF = (pago) => {
     try {
-      console.log('🔧 [TablaPagos] Generando PDF para pago:', pago);
-      const { color, texto } = getEstadoPagoBadge(pago.estado);
+      console.log('🔧 [TablaPagos] Generando PDF mejorado...');
+      const { texto } = getEstadoPagoBadge(pago.estado);
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const alturaPie = 30; // Altura del pie de página
+      const margin = 15;
+      const alturaPie = 30;
       let y = margin;
 
-      // Colores corporativos de la app
-      // #174B8A en RGB: (23, 75, 138)
-      const colorAzulPrincipal = [23, 75, 138]; // #174B8A - Azul corporativo principal
-      const colorAzulAlternativo = [8, 56, 116]; // #083874 - Azul más oscuro
-      const colorVerde = [34, 197, 94]; // green-500 para montos
-      const colorGris = [107, 114, 128]; // gray-500
-      const colorGrisClaro = [242, 242, 242]; // #F2F2F2
+      // Colores mejorados
+      const colorAzul = [23, 75, 138]; // Azul más profesional
+      const colorAzulClaro = [59, 130, 246]; // Azul claro
+      const colorVerde = [34, 197, 94]; // Verde
+      const colorGris = [107, 114, 128];
+      const colorGrisClaro = [249, 250, 251]; // gray-50
+      const colorGrisMedio = [229, 231, 235]; // gray-200
+      const colorNegro = [17, 24, 39]; // gray-900
 
-      // Encabezado con fondo azul corporativo (altura aumentada para logo y texto separados)
-      doc.setFillColor(...colorAzulPrincipal);
-      doc.rect(0, 0, pageWidth, 75, 'F');
+      // ============================================
+      // ENCABEZADO SIN LOGO
+      // ============================================
+      const alturaEncabezado = 45;
       
-      // Cargar y agregar logo
-      let logoCargado = false;
-      let logoHeight = 0;
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = 'anonymous';
-        
-        await new Promise((resolve, reject) => {
-          logoImg.onload = () => {
-            try {
-              // Convertir imagen a base64
-              const canvas = document.createElement('canvas');
-              canvas.width = logoImg.width;
-              canvas.height = logoImg.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(logoImg, 0, 0);
-              const logoDataUrl = canvas.toDataURL('image/png');
-              
-              // Agregar logo al PDF (tamaño reducido: 25mm de ancho para que no se superponga)
-              const logoWidth = 25;
-              logoHeight = (logoImg.height / logoImg.width) * logoWidth;
-              const logoX = (pageWidth - logoWidth) / 2;
-              const logoY = 5; // Posición más arriba
-              
-              doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-              logoCargado = true;
-              resolve();
-            } catch (err) {
-              console.warn('⚠️ [TablaPagos] Error al procesar logo, usando diseño alternativo:', err);
-              reject(err);
-            }
-          };
-          
-          logoImg.onerror = () => {
-            console.warn('⚠️ [TablaPagos] No se pudo cargar el logo, usando diseño alternativo');
-            reject(new Error('Logo no disponible'));
-          };
-          
-          logoImg.src = '/images/logo.png';
-        });
-      } catch (logoError) {
-        // Si falla la carga del logo, usar diseño alternativo con texto
-        console.warn('⚠️ [TablaPagos] Usando diseño alternativo sin logo');
-        doc.setFontSize(16);
+      // Fondo azul que cubre todo el ancho
+      doc.setFillColor(...colorAzul);
+      doc.rect(0, 0, pageWidth, alturaEncabezado, 'F');
+      
+      // Calcular posición vertical centrada para el texto
+      const centroVertical = alturaEncabezado / 2;
+      const tituloX = pageWidth / 2;
+      
+      // Título principal (centrado)
+      doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(255, 255, 255);
-        doc.text('REGISTRACK', pageWidth / 2, 20, { align: 'center' });
-        logoHeight = 10; // Altura aproximada del texto
-      }
-
-      // Título del comprobante (posicionado más abajo para no superponerse con el logo)
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255, 255, 255);
-      // Calcular posición Y del título basado en si el logo se cargó y su altura
-      const tituloY = logoCargado ? (5 + logoHeight + 8) : 35; // 8mm de espacio entre logo y texto
-      doc.text('COMPROBANTE DE PAGO', pageWidth / 2, tituloY, { align: 'center' });
-
-      y = 85;
+      doc.text('COMPROBANTE DE PAGO', tituloX, centroVertical - 5, { align: 'center' });
       
-      // Configurar para evitar saltos de página automáticos
-      // Guardar el número de página inicial
-      const paginaInicial = doc.internal.getCurrentPageInfo().pageNumber;
-
-      // Sección: Información del Pago con fondo gris claro (altura ajustada)
-      doc.setFillColor(...colorGrisClaro);
-      doc.rect(margin, y, pageWidth - 2 * margin, 45, 'F');
-      
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colorAzulPrincipal);
-      doc.text('Información del Pago', margin + 5, y + 7);
-      y += 10;
-
-      // Línea divisoria
-      doc.setDrawColor(...colorAzulPrincipal);
-      doc.setLineWidth(0.5);
-      doc.line(margin + 5, y, pageWidth - margin - 5, y);
-      y += 6;
-
-      // Monto destacado
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colorAzulPrincipal); // Cambiado de verde a azul corporativo
-      const monto = `$${(pago.monto_pagado || pago.monto || pago.monto_pago || pago.valor || pago.solicitud?.total_orden_servicio || pago.solicitud?.total_estimado || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      doc.text('Monto Pagado:', margin + 5, y);
-      doc.text(monto, pageWidth - margin - 5, y, { align: 'right' });
-      y += 10;
-
-      // Información del pago (más compacta)
+      // Subtítulo
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(245, 245, 245);
+      doc.text('Documento válido para comprobación fiscal', tituloX, centroVertical + 5, { align: 'center' });
+      
+      // Fecha de emisión
+      doc.setFontSize(9);
+      doc.setTextColor(235, 235, 235);
+      const fechaEmision = new Date().toLocaleDateString('es-CO', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      doc.text(`Emitido el ${fechaEmision}`, tituloX, centroVertical + 13, { align: 'center' });
 
-      // Calcular posición fija para los valores (alineación consistente)
-      const labelWidth = 65; // Ancho fijo para las etiquetas
-      const valueStartX = margin + 5 + labelWidth; // Posición de inicio para los valores
+      y = alturaEncabezado + 12;
 
+      // ============================================
+      // SECCIÓN: MONTO DESTACADO
+      // ============================================
+      const monto = pago.monto_pagado || pago.monto || pago.solicitud?.total_orden_servicio || pago.solicitud?.total_estimado || 0;
+      const montoFormateado = `$${monto.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      
+      // Tarjeta de monto destacada
+      const alturaTarjetaMonto = 35;
+      doc.setFillColor(...colorGrisClaro);
+      doc.setDrawColor(...colorGrisMedio);
+      doc.setLineWidth(0.5);
+      doc.rect(margin, y, pageWidth - 2 * margin, alturaTarjetaMonto, 'FD');
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...colorGris);
+      doc.text('MONTO PAGADO', margin + 10, y + 12);
+      
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...colorAzul);
+      doc.text(montoFormateado, margin + 10, y + 28);
+      
+      // Estado del pago a la derecha
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...colorGris);
+      doc.text('Estado:', pageWidth - margin - 50, y + 12);
+      doc.setFontSize(12);
+      doc.setTextColor(...colorAzul);
+      doc.text(String(texto || pago.estado || 'N/A'), pageWidth - margin - 10, y + 12, { align: 'right' });
+      
+      y += alturaTarjetaMonto + 12;
+
+      // ============================================
+      // SECCIÓN: INFORMACIÓN GENERAL EN COLUMNAS
+      // ============================================
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...colorNegro);
+      doc.text('Información del Pago', margin, y);
+      y += 8;
+
+      // Tarjeta de información general
       const infoPago = [
-        ['ID de Pago:', pago.id_pago || pago.id || 'N/A'],
-        ['Fecha de Pago:', formatearFechaCorta(pago.fecha_pago)],
-        ['Método de Pago:', pago.metodo_pago || 'N/A'],
-        ['Estado:', texto || pago.estado || 'N/A'],
-        ['Número de Comprobante:', pago.numero_comprobante || 'N/A'],
-        ['Transaction ID:', pago.transaction_id || 'N/A'],
-      ];
+        ['ID de Pago', pago.id_pago || pago.id || 'N/A'],
+        ['Fecha de Pago', formatearFechaCorta(pago.fecha_pago)],
+        ['Método de Pago', pago.metodo_pago || 'N/A'],
+        ['N° Comprobante', pago.numero_comprobante || 'N/A'],
+        ['Transaction ID', pago.transaction_id || 'N/A'],
+        ['Expediente', pago.solicitud?.numero_expediente || 'N/A'],
+      ].filter(([_, value]) => value && value !== 'N/A');
 
-      infoPago.forEach(([label, value]) => {
-        if (value && value !== 'N/A') {
-          doc.setFont('helvetica', 'bold');
-          doc.text(label, margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          const valueStr = value !== null && value !== undefined ? String(value) : 'N/A';
-          doc.text(valueStr, valueStartX, y);
-          y += 5.5;
+      const infoColWidth = (pageWidth - 2 * margin - 20) / 2;
+      const labelWidth = 50;
+      const valueWidth = infoColWidth - labelWidth - 10; // Ancho disponible para el valor
+      
+      // Calcular alturas de cada fila considerando texto que se divide en múltiples líneas
+      let rowHeights = [];
+      let rowItems = []; // Para agrupar items por fila
+      
+      infoPago.forEach(([label, value], index) => {
+        const col = index % 2;
+        const row = Math.floor(index / 2);
+        
+        if (!rowItems[row]) rowItems[row] = [];
+        rowItems[row].push({ label, value, col, row });
+        
+        if (!rowHeights[row]) rowHeights[row] = 0;
+        
+        doc.setFontSize(9);
+        const valueText = doc.splitTextToSize(String(value), valueWidth);
+        const linesCount = Math.max(1, valueText.length);
+        const itemHeight = 8 + (linesCount - 1) * 4.5;
+        
+        if (itemHeight > rowHeights[row]) {
+          rowHeights[row] = itemHeight;
         }
       });
+      
+      const alturaInfo = 8 + rowHeights.reduce((sum, h) => sum + h, 0) + 2;
+      doc.setFillColor(...colorGrisClaro);
+      doc.setDrawColor(...colorGrisMedio);
+      doc.rect(margin, y, pageWidth - 2 * margin, alturaInfo, 'FD');
+      
+      let currentY = y + 10;
+      
+      // Dibujar cada fila
+      rowItems.forEach((items, rowIndex) => {
+        const rowHeight = rowHeights[rowIndex];
+        
+        items.forEach(({ label, value, col }) => {
+          const x = margin + 10 + (col * infoColWidth);
+          const valueX = x + labelWidth;
+          
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...colorGris);
+          doc.text(`${label}:`, x, currentY);
+          
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...colorNegro);
+          const valueText = doc.splitTextToSize(String(value), valueWidth);
+          doc.text(valueText, valueX, currentY);
+        });
+        
+        currentY += rowHeight + 2;
+      });
+      
+      y += alturaInfo + 12;
 
-      y += 2;
-
-      // Información del Cliente
+      // ============================================
+      // SECCIÓN: INFORMACIÓN DEL CLIENTE Y SERVICIO (2 COLUMNAS)
+      // ============================================
+      const colWidth = (pageWidth - 2 * margin - 10) / 2;
+      let clienteData = [];
+      let servicioData = [];
+      
+      // Preparar datos del cliente
       if (pago.cliente || pago.empresa) {
-        // Verificar espacio antes de agregar esta sección
-        if (y + 50 < pageHeight - alturaPie - 5) {
-          y += 3;
-          doc.setFillColor(...colorGrisClaro);
-          doc.rect(margin, y, pageWidth - 2 * margin, 50, 'F');
-        
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colorAzulPrincipal);
-        doc.text('Información del Cliente', margin + 5, y + 7);
-        y += 10;
-
-        doc.setDrawColor(...colorAzulPrincipal);
-        doc.setLineWidth(0.5);
-        doc.line(margin + 5, y, pageWidth - margin - 5, y);
-        y += 6;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-
-        if (pago.cliente) {
-          if (pago.cliente.marca) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Marca:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(pago.cliente.marca || ''), margin + 35, y);
-            y += 5;
-          }
-          if (pago.cliente.nombre || pago.cliente.apellido) {
-            const nombreCompleto = pago.cliente.nombre && pago.cliente.apellido
-              ? `${pago.cliente.nombre} ${pago.cliente.apellido}`
-              : pago.cliente.nombre || pago.cliente.apellido || '';
-            if (nombreCompleto) {
-              doc.setFont('helvetica', 'bold');
-              doc.text('Nombre:', margin + 5, y);
-              doc.setFont('helvetica', 'normal');
-              doc.text(String(nombreCompleto), margin + 35, y);
-              y += 5;
-            }
-          }
-          if (pago.cliente.tipo_persona) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Tipo de Persona:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(pago.cliente.tipo_persona || ''), margin + 55, y);
-            y += 5;
-          }
-          if (pago.cliente.correo) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Correo:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(pago.cliente.correo || ''), margin + 35, y);
-            y += 5;
-          }
+        if (pago.cliente?.marca) clienteData.push(['Marca', String(pago.cliente.marca)]);
+        if (pago.cliente?.nombre || pago.cliente?.apellido) {
+          const nombreCompleto = pago.cliente.nombre && pago.cliente.apellido
+            ? `${pago.cliente.nombre} ${pago.cliente.apellido}`
+            : pago.cliente.nombre || pago.cliente.apellido || '';
+          if (nombreCompleto) clienteData.push(['Nombre', String(nombreCompleto)]);
         }
-
-        if (pago.empresa) {
-          if (pago.empresa.nombre) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Empresa:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(pago.empresa.nombre || ''), margin + 35, y);
-            y += 5;
-          }
-          if (pago.empresa.nit) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('NIT:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(pago.empresa.nit), margin + 25, y);
-            y += 5;
-          }
-        }
-
-        y += 2;
-        }
+        if (pago.cliente?.correo) clienteData.push(['Correo', String(pago.cliente.correo)]);
+        if (pago.empresa?.nombre) clienteData.push(['Empresa', String(pago.empresa.nombre)]);
+        if (pago.empresa?.nit) clienteData.push(['NIT', String(pago.empresa.nit)]);
       }
-
-      // Información del Servicio
+      
+      // Preparar datos del servicio
       if (pago.servicio) {
-        // Verificar espacio antes de agregar esta sección
-        if (y + 30 < pageHeight - alturaPie - 5) {
-          y += 3;
-          doc.setFillColor(...colorGrisClaro);
-          doc.rect(margin, y, pageWidth - 2 * margin, 30, 'F');
-        
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colorAzulPrincipal);
-        doc.text('Información del Servicio', margin + 5, y + 7);
-        y += 10;
-
-        doc.setDrawColor(...colorAzulPrincipal);
-        doc.setLineWidth(0.5);
-        doc.line(margin + 5, y, pageWidth - margin - 5, y);
-        y += 6;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-
-        if (pago.servicio.nombre) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Servicio:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(pago.servicio.nombre || ''), margin + 40, y);
-          y += 5;
-        }
+        if (pago.servicio.nombre) servicioData.push(['Nombre', String(pago.servicio.nombre)]);
         if (pago.servicio.precio_base !== undefined) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Precio Base:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`$${pago.servicio.precio_base.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 45, y);
-          y += 5;
-        }
-
-        y += 2;
+          servicioData.push(['Precio Base', `$${pago.servicio.precio_base.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`]);
         }
       }
-
-      // Información de la Solicitud
+      
       if (pago.solicitud) {
-        // Verificar espacio antes de agregar esta sección
-        if (y + 35 < pageHeight - alturaPie - 5) {
-          y += 3;
-          doc.setFillColor(...colorGrisClaro);
-          doc.rect(margin, y, pageWidth - 2 * margin, 35, 'F');
-        
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colorAzulPrincipal);
-        doc.text('Información de la Solicitud', margin + 5, y + 7);
-        y += 10;
-
-        doc.setDrawColor(...colorAzulPrincipal);
-        doc.setLineWidth(0.5);
-        doc.line(margin + 5, y, pageWidth - margin - 5, y);
-        y += 6;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-
-        if (pago.solicitud.numero_expediente) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Expediente:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(pago.solicitud.numero_expediente || ''), margin + 45, y);
-          y += 5;
-        }
-        if (pago.solicitud.estado) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Estado:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(pago.solicitud.estado || ''), margin + 35, y);
-          y += 5;
-        }
+        if (pago.solicitud.estado) servicioData.push(['Estado Solicitud', String(pago.solicitud.estado)]);
         if (pago.solicitud.total_estimado !== undefined) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Total Estimado:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`$${pago.solicitud.total_estimado.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 55, y);
-          y += 5;
-        }
-
-        y += 2;
+          servicioData.push(['Total Estimado', `$${pago.solicitud.total_estimado.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`]);
         }
       }
-
-      // Información del Usuario
-      if (pago.usuario) {
-        // Verificar espacio antes de agregar esta sección
-        if (y + 35 < pageHeight - alturaPie - 5) {
-          y += 3;
-          doc.setFillColor(...colorGrisClaro);
-          doc.rect(margin, y, pageWidth - 2 * margin, 35, 'F');
-        
-        doc.setFontSize(13);
+      
+      // Columna izquierda: Cliente
+      if (clienteData.length > 0) {
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colorAzulPrincipal);
-        doc.text('Información del Usuario', margin + 5, y + 7);
-        y += 10;
+        doc.setTextColor(...colorAzul);
+        doc.text('INFORMACIÓN DEL CLIENTE', margin, y);
+        
+        const alturaCliente = 10 + (clienteData.length * 9);
+        doc.setFillColor(...colorGrisClaro);
+        doc.setDrawColor(...colorGrisMedio);
+        doc.rect(margin, y + 5, colWidth, alturaCliente, 'FD');
+        
+        clienteData.forEach(([label, value], idx) => {
+          const itemY = y + 12 + (idx * 9);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...colorGris);
+          doc.text(`${label}:`, margin + 8, itemY);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...colorNegro);
+          const valueText = doc.splitTextToSize(String(value), colWidth - 20);
+          doc.text(valueText, margin + 35, itemY);
+        });
+      }
+      
+      // Columna derecha: Servicio
+      if (servicioData.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('INFORMACIÓN DEL SERVICIO', margin + colWidth + 10, y);
+        
+        const alturaServicio = 10 + (servicioData.length * 9);
+        doc.setFillColor(...colorGrisClaro);
+        doc.setDrawColor(...colorGrisMedio);
+        doc.rect(margin + colWidth + 10, y + 5, colWidth, alturaServicio, 'FD');
+        
+        servicioData.forEach(([label, value], idx) => {
+          const itemY = y + 12 + (idx * 9);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...colorGris);
+          doc.text(`${label}:`, margin + colWidth + 18, itemY);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...colorNegro);
+          const valueText = doc.splitTextToSize(String(value), colWidth - 20);
+          doc.text(valueText, margin + colWidth + 45, itemY);
+        });
+      }
+      
+      // Ajustar Y según la altura máxima
+      const alturaMaxima = Math.max(
+        clienteData.length > 0 ? (10 + (clienteData.length * 9)) : 0,
+        servicioData.length > 0 ? (10 + (servicioData.length * 9)) : 0
+      );
+      
+      if (alturaMaxima > 0) {
+        y += alturaMaxima + 15;
+      }
 
-        doc.setDrawColor(...colorAzulPrincipal);
-        doc.setLineWidth(0.5);
-        doc.line(margin + 5, y, pageWidth - margin - 5, y);
-        y += 6;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-
+      // ============================================
+      // SECCIÓN: INFORMACIÓN DEL USUARIO
+      // ============================================
+      if (pago.usuario) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorAzul);
+        doc.text('INFORMACIÓN DEL USUARIO', margin, y);
+        
+        const usuarioData = [];
         if (pago.usuario.nombre || pago.usuario.apellido) {
           const nombreUsuario = pago.usuario.nombre && pago.usuario.apellido
             ? `${pago.usuario.nombre} ${pago.usuario.apellido}`
             : pago.usuario.nombre || pago.usuario.apellido || '';
-          if (nombreUsuario) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Nombre:', margin + 5, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(String(nombreUsuario), margin + 35, y);
-            y += 5;
-          }
+          if (nombreUsuario) usuarioData.push(['Nombre', String(nombreUsuario)]);
         }
-        if (pago.usuario.correo) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('Correo:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(pago.usuario.correo || ''), margin + 35, y);
-          y += 5;
-        }
+        if (pago.usuario.correo) usuarioData.push(['Correo', String(pago.usuario.correo)]);
         if (pago.usuario.documento || pago.usuario.numero_documento || pago.usuario.cedula || pago.usuario.numero_cedula) {
           const documento = pago.usuario.documento || pago.usuario.numero_documento || pago.usuario.cedula || pago.usuario.numero_cedula;
-          doc.setFont('helvetica', 'bold');
-          doc.text('Documento:', margin + 5, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(documento), margin + 45, y);
-          y += 5;
+          usuarioData.push(['Documento', String(documento)]);
         }
-
-        y += 2;
-        }
-      }
-
-      // Observaciones (solo si hay espacio suficiente antes del pie)
-      if (pago.observaciones) {
-        const espacioDisponible = pageHeight - y - alturaPie - 5; // 5mm de margen antes del pie
-        if (espacioDisponible > 20) {
-          y += 3;
-          const alturaObservaciones = Math.min(25, espacioDisponible - 5);
+        
+        if (usuarioData.length > 0) {
+          const alturaUsuario = 10 + (usuarioData.length * 9);
           doc.setFillColor(...colorGrisClaro);
-          doc.rect(margin, y, pageWidth - 2 * margin, alturaObservaciones, 'F');
+          doc.setDrawColor(...colorGrisMedio);
+          doc.rect(margin, y + 5, pageWidth - 2 * margin, alturaUsuario, 'FD');
           
+          usuarioData.forEach(([label, value], idx) => {
+            const itemY = y + 12 + (idx * 9);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...colorGris);
+            doc.text(`${label}:`, margin + 8, itemY);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorNegro);
+            doc.text(String(value), margin + 45, itemY);
+          });
+          
+          y += alturaUsuario + 12;
+        }
+      }
+
+      // ============================================
+      // SECCIÓN: OBSERVACIONES
+      // ============================================
+      if (pago.observaciones) {
+        const espacioDisponible = pageHeight - y - alturaPie - 15;
+        if (espacioDisponible > 20) {
           doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-          doc.setTextColor(...colorAzulPrincipal);
-          doc.text('Observaciones', margin + 5, y + 6);
-        y += 8;
-
-          doc.setDrawColor(...colorAzulPrincipal);
-          doc.setLineWidth(0.5);
-          doc.line(margin + 5, y, pageWidth - margin - 5, y);
-          y += 5;
-
-          doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-          const observaciones = doc.splitTextToSize(pago.observaciones, pageWidth - 2 * margin - 10);
-          const lineasVisibles = Math.floor((alturaObservaciones - 13) / 3.5);
-          const observacionesMostradas = observaciones.slice(0, lineasVisibles);
-          doc.text(observacionesMostradas, margin + 5, y);
-          y += observacionesMostradas.length * 3.5 + 2;
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...colorAzul);
+          doc.text('OBSERVACIONES', margin, y);
+          
+          const alturaObservaciones = Math.min(40, espacioDisponible - 10);
+          doc.setFillColor(...colorGrisClaro);
+          doc.setDrawColor(...colorGrisMedio);
+          doc.rect(margin, y + 5, pageWidth - 2 * margin, alturaObservaciones, 'FD');
+          
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...colorNegro);
+          
+          const observaciones = doc.splitTextToSize(String(pago.observaciones), pageWidth - 2 * margin - 16);
+          const lineasVisibles = Math.floor((alturaObservaciones - 10) / 5);
+          const observacionesMostradas = observaciones.slice(0, Math.max(1, lineasVisibles));
+          
+          doc.text(observacionesMostradas, margin + 8, y + 15);
+          y += alturaObservaciones + 12;
         }
       }
 
-      // Eliminar páginas adicionales PRIMERO si jsPDF las creó automáticamente
-      const totalPages = doc.internal.pages.length - 1;
-      if (totalPages > 1) {
-        for (let i = totalPages; i > 1; i--) {
-          doc.deletePage(i);
-        }
-      }
-      
-      // Asegurarse de que estamos en la primera página
-      doc.setPage(1);
-      
-      // Verificar si el contenido excede el espacio disponible antes del pie
       // Asegurar que el contenido no se superponga con el pie de página
       if (y > pageHeight - alturaPie - 5) {
         y = pageHeight - alturaPie - 5;
         console.warn('⚠️ [TablaPagos] Contenido ajustado para evitar superposición con el pie de página');
       }
-      
-      // Pie de página con fondo azul corporativo (siempre al final de la página)
-      // El pie siempre va al final de la página, independientemente de dónde termine el contenido
+
+      // ============================================
+      // PIE DE PÁGINA MEJORADO
+      // ============================================
       const pieYInicio = pageHeight - alturaPie;
       
+      // Línea divisoria superior
+      doc.setDrawColor(...colorGrisMedio);
+      doc.setLineWidth(1);
+      doc.line(margin, pieYInicio, pageWidth - margin, pieYInicio);
+      
+      // Fondo del pie de página
+      doc.setFillColor(...colorAzul);
+      doc.rect(0, pieYInicio + 1, pageWidth, alturaPie - 1, 'F');
+      
+      // Fecha de generación
       const fechaGeneracion = new Date().toLocaleString('es-CO', {
         year: 'numeric',
         month: 'long',
@@ -623,30 +562,22 @@ const Tablapagos = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-
-      // Dibujar el pie de página al final de la página
-      // Fondo azul para el pie de página
-      doc.setFillColor(...colorAzulPrincipal);
-      doc.rect(0, pieYInicio, pageWidth, alturaPie, 'F');
-      
-      // Línea divisoria superior blanca
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.5);
-      doc.line(margin, pieYInicio, pageWidth - margin, pieYInicio);
-
-      // Texto del pie de página en blanco sobre fondo azul
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(255, 255, 255);
-      doc.text(`Comprobante generado el ${fechaGeneracion}`, pageWidth / 2, pieYInicio + 7, { align: 'center' });
       
       doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Este documento es un comprobante de pago válido', pageWidth / 2, pieYInicio + 14, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Generado el ${fechaGeneracion}`, pageWidth / 2, pieYInicio + 8, { align: 'center' });
       
+      // Mensaje de validez
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Documento válido para comprobación', pageWidth / 2, pieYInicio + 15, { align: 'center' });
+      
+      // Información de la empresa
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text('Registrack - Sistema de Gestión de Marcas', pageWidth / 2, pieYInicio + 21, { align: 'center' });
+      doc.setTextColor(240, 240, 240);
+      doc.text('Registrack - Sistema de Gestión de Marcas', pageWidth / 2, pieYInicio + 22, { align: 'center' });
 
       // Guardar PDF
       const nombreArchivo = `comprobante_pago_${pago.id_pago || pago.id || 'N/A'}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -659,7 +590,7 @@ const Tablapagos = () => {
   };
 
   // Descargar comprobante - Generar PDF mejorado
-  const handleDescargarComprobante = async (pago, e) => {
+  const handleDescargarComprobante = (pago, e) => {
     // Prevenir eventos adicionales
     if (e) {
       e.preventDefault();
@@ -678,8 +609,8 @@ const Tablapagos = () => {
       console.log('🔧 [TablaPagos] Iniciando generación de comprobante para pago:', idPago);
       setDescargandoComprobante(idPago);
       
-      // Generar PDF mejorado (ahora es async)
-      await generarComprobantePDF(pago);
+      // Generar PDF mejorado
+      generarComprobantePDF(pago);
       
       setDescargandoComprobante(null);
       Swal.fire({
@@ -695,15 +626,21 @@ const Tablapagos = () => {
           confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#10b981] hover:bg-[#059669] border border-[#10b981] text-white'
         }
       });
-      
-    } catch (err) {
-      console.error('❌ [TablaPagos] Error generando comprobante:', err);
+    } catch (error) {
+      console.error('❌ [TablaPagos] Error al generar comprobante:', error);
       setDescargandoComprobante(null);
-      
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: err.message || 'No se pudo generar el comprobante. Por favor, intenta nuevamente.',
+        text: 'No se pudo generar el comprobante de pago. Por favor, inténtalo nuevamente.',
+        confirmButtonText: 'Cerrar',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border-t-4 border-t-red-500',
+          title: 'text-gray-800 font-bold text-2xl mb-4',
+          content: 'text-gray-600 text-base mb-6',
+          confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-white'
+        }
       });
     }
   };
@@ -1148,4 +1085,3 @@ const Tablapagos = () => {
 };
 
 export default Tablapagos;
-

@@ -63,7 +63,7 @@ const PagosPendientesCard = ({ proceso, onPagoExitoso }) => {
 
       const API_CONFIG = await import('../../../../../shared/config/apiConfig.js');
       const baseURL = API_CONFIG.default?.BASE_URL || API_CONFIG.BASE_URL || 
-                     (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
+                     (import.meta.env.DEV ? '' : 'https://apiregistrack-b0b629b0780d.herokuapp.com');
 
       const ordenId = Number(infoPago.orden_id);
       if (isNaN(ordenId) || ordenId <= 0) {

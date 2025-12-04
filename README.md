@@ -235,13 +235,13 @@ VITE_USE_LOCAL_API=false
 
 La aplicación se conecta automáticamente a:
 
-- **Desarrollo**: Usa proxy de Vite (configurado en `vite.config.js`) que redirige a `https://api-registrack-2.onrender.com`
-- **Producción**: Se conecta directamente a `https://api-registrack-2.onrender.com`
+- **Desarrollo**: Usa proxy de Vite (configurado en `vite.config.js`) que redirige a `https://apiregistrack-b0b629b0780d.herokuapp.com`
+- **Producción**: Se conecta directamente a `https://apiregistrack-b0b629b0780d.herokuapp.com`
 
 Para cambiar la URL de la API, edita `src/shared/config/apiConfig.js`:
 
 ```javascript
-const PROD_BASE_URL = 'https://api-registrack-2.onrender.com';
+const PROD_BASE_URL = 'https://apiregistrack-b0b629b0780d.herokuapp.com';
 const LOCAL_BASE_URL = 'http://localhost:3000';
 ```
 

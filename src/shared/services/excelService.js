@@ -131,76 +131,73 @@ class ExcelService {
    */
   async _agregarEncabezado(worksheet, titulo, incluirLogo, workbook, numColumnas) {
     let filaActual = 1;
+    const columnaLogo = 1; // Logo en la primera columna
+    const columnaTitulo = 4; // Título empieza en la columna 4 (después del logo)
 
-    // Agregar logo y título
+    // Agregar logo y título en la misma fila, uno al lado del otro
     if (incluirLogo || titulo) {
-      // Si hay logo, crear fila para el logo centrado
+      // Configurar ancho de las columnas
+      worksheet.getColumn(columnaLogo).width = 25; // Ancho aumentado para el logo más grande
+      
+      // Crear la fila para logo y título
+      const filaEncabezado = worksheet.addRow([]);
+      
+      // Si hay logo, agregarlo en la primera columna
       if (incluirLogo) {
         try {
           // Cargar logo desde la carpeta public
-          const response = await fetch('/images/logo.png');
+          const response = await fetch('/images/certimarcaslogo.jpeg');
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             const logo = workbook.addImage({
               buffer: arrayBuffer,
-              extension: 'png',
+              extension: 'jpeg',
             });
 
-            // Calcular posición centrada para el logo
-            // El logo ocupará aproximadamente 2-3 columnas en el centro
-            const columnaInicio = Math.max(0, Math.floor(numColumnas / 2) - 1.5);
-            
-            // Insertar logo centrado, más grande y visible
+            // Insertar logo en la primera columna con tamaño más grande
             worksheet.addImage(logo, {
-              tl: { col: columnaInicio, row: filaActual - 1 },
-              ext: { width: 150, height: 75 } // Logo más grande y visible
+              tl: { col: columnaLogo - 1, row: filaActual - 1 },
+              ext: { width: 180, height: 90 } // Logo más grande y bien proporcionado
             });
             
-            // Ajustar altura de la fila para el logo
-            worksheet.getRow(filaActual).height = 80;
-            filaActual = 2;
-            
-            // Fila vacía después del logo
-            worksheet.insertRow(filaActual, []);
-            filaActual = 3;
+            // Ajustar ancho de la segunda y tercera columna para espaciado
+            worksheet.getColumn(2).width = 2;
+            worksheet.getColumn(3).width = 2;
           }
         } catch (error) {
           console.warn('⚠️ [ExcelService] No se pudo cargar el logo:', error);
         }
       }
 
-      // Agregar título si existe (debajo del logo, centrado)
+      // Agregar título al lado del logo (en la misma fila)
       if (titulo) {
-        const filaTitulo = worksheet.addRow([]);
-        
-        // Colocar título centrado en todas las columnas
-        const columnaInicio = 1;
-        const columnaFin = numColumnas;
-        
-        filaTitulo.getCell(columnaInicio).value = titulo;
-        filaTitulo.getCell(columnaInicio).font = { 
+        // Colocar título empezando en la columna 4, junto al logo
+        filaEncabezado.getCell(columnaTitulo).value = titulo;
+        filaEncabezado.getCell(columnaTitulo).font = { 
           size: 18, 
           bold: true, 
           color: { argb: 'FF174B8A' } // Color azul corporativo
         };
-        filaTitulo.getCell(columnaInicio).alignment = { 
-          horizontal: 'center', 
+        filaEncabezado.getCell(columnaTitulo).alignment = { 
+          horizontal: 'left', 
           vertical: 'middle' 
         };
         
-        // Fusionar todas las celdas para el título
-        if (columnaFin > columnaInicio) {
-          worksheet.mergeCells(filaActual, columnaInicio, filaActual, columnaFin);
+        // Fusionar celdas para el título si hay espacio
+        const columnaFinTitulo = Math.min(columnaTitulo + 5, numColumnas);
+        if (columnaFinTitulo > columnaTitulo) {
+          worksheet.mergeCells(filaActual, columnaTitulo, filaActual, columnaFinTitulo);
         }
-        
-        // Ajustar altura de la fila del título
-        worksheet.getRow(filaActual).height = 30;
-        filaActual = filaActual + 1;
-        
-        // Fila vacía después del título
-        worksheet.insertRow(filaActual, []);
-        filaActual = filaActual + 1;
       }
+      
+      // Ajustar altura de la fila para que quepa bien el logo más grande y título
+      worksheet.getRow(filaActual).height = 95; // Altura aumentada para el logo más grande
+      filaActual = 2;
+      
+      // Solo una fila vacía pequeña antes de la tabla para mantener cerca
+      worksheet.insertRow(filaActual, []);
+      worksheet.getRow(filaActual).height = 8;
+      filaActual = filaActual + 1;
     }
 
     return filaActual;

@@ -121,6 +121,8 @@ export const isAppError = (error) => {
   // Errores que SÍ son de la aplicación
   return (
     message.includes('api-registrack.onrender.com') ||
+    message.includes('apiregistrack') ||
+    message.includes('herokuapp.com') ||
     message.includes('registrack') ||
     message.includes('auth') ||
     message.includes('login') ||

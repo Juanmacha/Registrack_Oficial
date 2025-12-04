@@ -172,7 +172,7 @@ const ServicioCard = ({ servicio, onSaberMas, onAdquirir, formularioDisponible }
   };
   
   return (
-    <div className="bg-gray-100 rounded-xl shadow-md transition-transform duration-300 transform hover:-translate-y-2 hover:shadow-xl text-center overflow-hidden">
+    <div className="bg-gray-100 rounded-xl shadow-md transition-transform duration-300 transform hover:-translate-y-2 hover:shadow-xl text-center overflow-hidden w-full max-w-sm">
       <img
         src={servicio.landing_data?.imagen || "/images/certificacion.jpg"}
         alt={servicio.landing_data?.titulo || servicio.nombre}
@@ -186,7 +186,7 @@ const ServicioCard = ({ servicio, onSaberMas, onAdquirir, formularioDisponible }
         <p className="text-gray-600 text-sm mb-4 text-body">
           {servicio.landing_data?.resumen || servicio.descripcion_corta}
         </p>
-        <div className="flex flex-row gap-2 justify-center mt-2">
+        <div className="flex flex-row gap-2 justify-center mt-2 flex-wrap">
           <button
             onClick={() => onSaberMas(servicio)}
             className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-md btn-text shadow-sm hover:bg-[#163366] transition-all focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -209,33 +209,124 @@ const ServicioCard = ({ servicio, onSaberMas, onAdquirir, formularioDisponible }
   );
 };
 
-// Componente para la sección de servicios
-const ServiciosSection = ({ servicios, loading, onSaberMas, onAdquirir }) => (
-  <section id="servicios" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
-    <div className="max-w-screen-xl mx-auto">
-      <h2 className="text-4xl title-primary text-center mb-12 text-[#275FAA]">
-        Nuestros Servicios
-      </h2>
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : (
-        <div className="grid gap-10 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {servicios.map((servicio) => (
-            <ServicioCard
-              key={servicio.id}
-              servicio={servicio}
-              onSaberMas={onSaberMas}
-              onAdquirir={onAdquirir}
-              formularioDisponible={!!obtenerFormularioPorServicio(servicio.nombre)}
-            />
-          ))}
-        </div>
-      )}
+// Componente decorativo para cuando hay un solo servicio
+const SingleServiceDecorator = () => (
+  <div className="w-full h-full flex flex-col justify-center items-center p-8 bg-gradient-to-br from-blue-50 via-white to-yellow-50 rounded-xl shadow-lg border border-gray-100">
+    {/* Logo */}
+    <div className="mb-6">
+      <img
+        src="/images/logoNombre.png"
+        alt="Certimarcas"
+        className="h-16 w-auto object-contain"
+        onError={(e) => {
+          e.target.style.display = 'none';
+        }}
+      />
     </div>
-  </section>
+
+    {/* Línea decorativa */}
+    <div className="w-24 h-1 bg-gradient-to-r from-transparent via-[#275FAA] to-transparent mb-6"></div>
+
+    {/* Información destacada */}
+    <div className="space-y-4 text-center max-w-md">
+      <h3 className="text-2xl font-bold text-[#083874] title-secondary">
+        Protección Legal Confiable
+      </h3>
+      <div className="space-y-3">
+        <div className="flex items-start gap-3 text-left">
+          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+            <FaCheck className="text-green-600 text-xs" />
+          </div>
+          <p className="text-gray-700 text-sm">Más de 12 años de experiencia en Propiedad Industrial</p>
+        </div>
+        <div className="flex items-start gap-3 text-left">
+          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+            <FaCheck className="text-green-600 text-xs" />
+          </div>
+          <p className="text-gray-700 text-sm">Asesoría legal especializada y personalizada</p>
+        </div>
+        <div className="flex items-start gap-3 text-left">
+          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+            <FaCheck className="text-green-600 text-xs" />
+          </div>
+          <p className="text-gray-700 text-sm">Acompañamiento completo durante todo el proceso</p>
+        </div>
+      </div>
+
+      {/* Estadísticas o badges */}
+      <div className="flex flex-wrap justify-center gap-4 mt-6 pt-6 border-t border-gray-200">
+        <div className="flex flex-col items-center">
+          <div className="text-2xl font-bold text-[#275FAA]">12+</div>
+          <div className="text-xs text-gray-600">Años</div>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="text-2xl font-bold text-[#275FAA]">100%</div>
+          <div className="text-xs text-gray-600">Confiable</div>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="text-2xl font-bold text-[#275FAA]">✓</div>
+          <div className="text-xs text-gray-600">Garantía</div>
+        </div>
+      </div>
+    </div>
+  </div>
 );
+
+// Componente para la sección de servicios
+const ServiciosSection = ({ servicios, loading, onSaberMas, onAdquirir }) => {
+  // Calcular el número de servicios para ajustar el layout
+  const numServicios = servicios?.length || 0;
+  
+  return (
+    <section id="servicios" className="py-20 px-4 sm:px-6 lg:px-8 bg-white w-full">
+      <div className={`mx-auto w-full ${
+        numServicios <= 3 ? 'max-w-5xl' : 'max-w-screen-xl'
+      }`}>
+        <h2 className="text-4xl title-primary text-center mb-12 text-[#275FAA]">
+          Nuestros Servicios
+        </h2>
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : numServicios === 1 ? (
+          // Layout especial para un solo servicio: 2 columnas
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto items-center">
+            {/* Card del servicio */}
+            <div className="flex justify-center lg:justify-end">
+              <ServicioCard
+                servicio={servicios[0]}
+                onSaberMas={onSaberMas}
+                onAdquirir={onAdquirir}
+                formularioDisponible={!!obtenerFormularioPorServicio(servicios[0].nombre)}
+              />
+            </div>
+            {/* Contenido decorativo */}
+            <div className="flex justify-center lg:justify-start">
+              <SingleServiceDecorator />
+            </div>
+          </div>
+        ) : (
+          <div className={`grid gap-10 justify-items-center ${
+            numServicios === 2
+              ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+          }`}>
+            {servicios.map((servicio) => (
+              <ServicioCard
+                key={servicio.id}
+                servicio={servicio}
+                onSaberMas={onSaberMas}
+                onAdquirir={onAdquirir}
+                formularioDisponible={!!obtenerFormularioPorServicio(servicio.nombre)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
 
 // Hook personalizado para manejar servicios
 const useServicios = () => {
@@ -642,7 +733,7 @@ const Hero = () => {
       
       // Importar API_CONFIG
       const API_CONFIG = await import('../../../shared/config/apiConfig.js');
-      const baseURL = API_CONFIG.default?.BASE_URL || API_CONFIG.BASE_URL || (import.meta.env.DEV ? '' : 'https://api-registrack-2.onrender.com');
+      const baseURL = API_CONFIG.default?.BASE_URL || API_CONFIG.BASE_URL || (import.meta.env.DEV ? '' : 'https://apiregistrack-b0b629b0780d.herokuapp.com');
 
       console.log('🔧 [Hero] Base URL:', baseURL);
       console.log('🔧 [Hero] orden_id original:', solicitudCreada.orden_id);

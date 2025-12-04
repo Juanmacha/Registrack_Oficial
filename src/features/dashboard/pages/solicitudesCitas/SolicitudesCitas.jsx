@@ -308,32 +308,6 @@ const SolicitudesCitas = () => {
                           )}
                         </div>
                       </div>
-                      <div className="pt-2 border-t border-gray-200 space-y-1 text-xs">
-                        {/* Mostrar documento solo si tiene valor real */}
-                        {(selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento) && 
-                         (selectedSolicitud.cliente?.documento !== 'N/A' && selectedSolicitud.cliente?.numero_documento !== 'N/A') && (
-                          <div className="flex items-center space-x-2">
-                            <i className="bi bi-card-text text-gray-400"></i>
-                            <span className="text-gray-600">Documento:</span>
-                            <span className="font-medium text-gray-800">
-                              {selectedSolicitud.cliente?.tipo_documento || selectedSolicitud.cliente?.tipoDocumento || 'CC'} {selectedSolicitud.cliente?.documento || selectedSolicitud.cliente?.numero_documento}
-                            </span>
-                          </div>
-                        )}
-                        {/* Mostrar teléfono solo si tiene valor real */}
-                        {(selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono) && 
-                         selectedSolicitud.cliente?.telefono !== 'N/A' && 
-                         selectedSolicitud.cliente?.telefono !== 'No disponible' &&
-                         selectedSolicitud.telefono !== 'N/A' &&
-                         selectedSolicitud.telefono !== 'No disponible' &&
-                         (selectedSolicitud.cliente?.telefono?.trim() !== '' || selectedSolicitud.telefono?.trim() !== '') && (
-                          <div className="flex items-center space-x-2">
-                            <i className="bi bi-telephone text-gray-400"></i>
-                            <span className="text-gray-600">Teléfono:</span>
-                            <span className="font-medium text-gray-800">{selectedSolicitud.cliente?.telefono || selectedSolicitud.telefono}</span>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
 

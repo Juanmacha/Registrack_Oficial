@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://api-registrack-2.onrender.com',
+        target: 'https://apiregistrack-b0b629b0780d.herokuapp.com',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path,

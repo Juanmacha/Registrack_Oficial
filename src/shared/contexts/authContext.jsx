@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import authApiService from '../../features/auth/services/authApiService.js';
 import userApiService from '../../features/auth/services/userApiService.js';
 import { manejarErrorAPI, obtenerMensajeErrorUsuario } from '../utils/errorHandler.js';
+import Swal from 'sweetalert2';
 
 // Valores por defecto del contexto
 const defaultContextValue = {
@@ -54,6 +55,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Función para verificar si el token expiró (sin cerrar sesión)
+  const isTokenExpired = (token) => {
+    try {
+      if (!token) return true;
+      
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp && payload.exp < currentTime) {
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Error al verificar expiración del token:", error);
+      return true; // Si hay error, considerar como expirado
+    }
+  };
+
   // Función para generar JWT simple (para desarrollo)
   const generateToken = (userData) => {
     const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -73,10 +93,52 @@ export const AuthProvider = ({ children }) => {
     return `${header}.${payload}.${signature}`;
   };
 
+  // Referencia para evitar múltiples alertas simultáneas
+  const logoutInProgressRef = useRef(false);
+
+  // Función para cerrar sesión por expiración del token
+  const handleTokenExpiration = () => {
+    // Evitar múltiples llamadas simultáneas
+    if (logoutInProgressRef.current) return;
+    logoutInProgressRef.current = true;
+
+    // Mostrar alerta al usuario
+    Swal.fire({
+      icon: 'warning',
+      title: 'Sesión Expirada',
+      text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+      confirmButtonText: 'Ir al Login',
+      confirmButtonColor: '#2563eb',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border-t-4 border-t-orange-500',
+        title: 'text-gray-800 font-bold text-2xl mb-4',
+        content: 'text-gray-600 text-base mb-6',
+        confirmButton: 'rounded-xl px-8 py-3 font-bold text-base bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#2563eb] text-white'
+      }
+    }).then(() => {
+      // Cerrar sesión y redirigir
+      authApiService.logout();
+      setUser(null);
+      window.location.href = '/login';
+      logoutInProgressRef.current = false;
+    });
+  };
+
   // Verificar si hay un usuario logueado al cargar la aplicación
   useEffect(() => {
     const checkAuthStatus = () => {
       try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        // Verificar si el token expiró antes de cargar el usuario
+        if (token && isTokenExpired(token)) {
+          console.warn('⏰ [AuthContext] Token expirado al cargar la aplicación');
+          handleTokenExpiration();
+          return;
+        }
+
         // Usar el servicio de autenticación real
         if (authApiService.isAuthenticated()) {
           const currentUser = authApiService.getCurrentUser();
@@ -105,6 +167,38 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuthStatus();
+  }, []);
+
+  // Verificar expiración del token periódicamente
+  useEffect(() => {
+    // Verificar cada 60 segundos si el token expiró
+    const intervalId = setInterval(() => {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (token && isTokenExpired(token)) {
+        console.warn('⏰ [AuthContext] Token expirado detectado durante verificación periódica');
+        clearInterval(intervalId);
+        handleTokenExpiration();
+      }
+    }, 60000); // Verificar cada minuto
+
+    // Verificar también cuando la ventana se enfoca (usuario vuelve a la pestaña)
+    const handleFocus = () => {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (token && isTokenExpired(token)) {
+        console.warn('⏰ [AuthContext] Token expirado detectado al enfocar la ventana');
+        handleTokenExpiration();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    // Limpiar listeners al desmontar
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   // Función para iniciar sesión con email y password

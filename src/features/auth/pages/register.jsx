@@ -45,6 +45,9 @@ const Register = () => {
       case "email":
         e.email = value ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "" : "Correo inválido.") : "El correo es requerido.";
         break;
+      case "phone":
+        e.phone = value ? "" : "El teléfono es requerido.";
+        break;
       case "password":
         if (!value) {
           e.password = "La contraseña es requerida.";
@@ -105,6 +108,7 @@ const Register = () => {
       formData.documentType &&
       formData.documentNumber &&
       formData.email &&
+      formData.phone &&
       formData.password &&
       formData.confirmPassword
     );
@@ -142,6 +146,11 @@ const Register = () => {
 
     // Validar política de privacidad
     if (!acceptedPrivacyPolicy) {
+      await alertService.warning(
+        "¡Atención!",
+        "Debes aceptar la política de privacidad para continuar.",
+        { confirmButtonText: "Entendido" }
+      );
       setErrors((prev) => ({
         ...prev,
         privacyPolicy: "Debes aceptar la política de privacidad para continuar.",
@@ -151,31 +160,32 @@ const Register = () => {
     }
 
     // Validar campos requeridos
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.documentType || !formData.documentNumber) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "Por favor, completa todos los campos requeridos."
-      }));
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.password || !formData.documentType || !formData.documentNumber) {
+      await alertService.warning(
+        "¡Atención!",
+        "Por favor, completa todos los campos requeridos para crear tu cuenta.",
+        { confirmButtonText: "Entendido" }
+      );
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "Las contraseñas no coinciden.",
-        confirmPassword: "Las contraseñas no coinciden."
-      }));
+      await alertService.error(
+        "Error",
+        "Las contraseñas no coinciden. Por favor, verifica que ambas contraseñas sean iguales.",
+        { confirmButtonText: "Entendido" }
+      );
       return;
     }
 
     // Validar fortaleza de contraseña
     const passwordValidation = validatePasswordStrength(formData.password);
     if (!passwordValidation.isValid) {
-      setErrors((prev) => ({
-        ...prev,
-        general: passwordValidation.errors[0] || "La contraseña no cumple con los requisitos de seguridad.",
-        password: passwordValidation.errors[0]
-      }));
+      await alertService.error(
+        "Contraseña inválida",
+        passwordValidation.errors[0] || "La contraseña no cumple con los requisitos de seguridad.",
+        { confirmButtonText: "Entendido" }
+      );
       return;
     }
 
@@ -219,11 +229,12 @@ const Register = () => {
         
         navigate("/login");
       } else {
-        // Mostrar mensaje de error del resultado
-        setErrors((prev) => ({
-          ...prev,
-          general: result.message || "Error al crear la cuenta. Por favor, intenta de nuevo."
-        }));
+        // Mostrar mensaje de error con alerta
+        await alertService.error(
+          "Error al crear cuenta",
+          result.message || "Error al crear la cuenta. Por favor, intenta de nuevo.",
+          { confirmButtonText: "Entendido" }
+        );
       }
     } catch (error) {
       console.error("Error en registro:", error);
@@ -232,19 +243,24 @@ const Register = () => {
       const errorInfo = manejarErrorAPI(error, error.response);
       const errorMessage = obtenerMensajeErrorUsuario(errorInfo);
       
-      // Si es rate limit, mostrar mensaje específico
+      // Si es rate limit, mostrar alerta específica
       if (errorInfo.tipo === 'RATE_LIMIT') {
-        setErrors((prev) => ({
-          ...prev,
-          general: errorMessage,
-          rateLimit: true,
-          waitTime: errorInfo.waitTimeMinutes
-        }));
+        const rateLimitMessage = errorInfo.waitTimeMinutes
+          ? `${errorMessage} (Espera ${errorInfo.waitTimeMinutes} ${errorInfo.waitTimeMinutes === 1 ? 'minuto' : 'minutos'})`
+          : errorMessage;
+        
+        await alertService.warning(
+          "¡Demasiados intentos!",
+          rateLimitMessage,
+          { confirmButtonText: "Entendido" }
+        );
       } else {
-        setErrors((prev) => ({
-          ...prev,
-          general: errorMessage
-        }));
+        // Mostrar alerta de error
+        await alertService.error(
+          "Error",
+          errorMessage,
+          { confirmButtonText: "Entendido" }
+        );
       }
     } finally {
       // Siempre resetear el estado de envío, incluso si hay error
@@ -274,35 +290,15 @@ const Register = () => {
               Registro - Certimarcas
             </h1>
 
-            {/* Error Message */}
-            {errors.general && (
-              <div className={`mb-6 p-3 border rounded-lg ${
-                errors.rateLimit 
-                  ? 'bg-yellow-50 border-yellow-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <p className={`text-sm text-center ${
-                  errors.rateLimit ? 'text-yellow-800' : 'text-red-600'
-                }`}>
-                  {typeof errors.general === 'string' ? errors.general : 
-                   errors.general?.message || 
-                   errors.general?.error || 
-                   'Error al crear la cuenta. Por favor, intenta de nuevo.'}
-                </p>
-                {errors.rateLimit && errors.waitTime && (
-                  <p className="text-yellow-700 text-xs text-center mt-2">
-                    Tiempo de espera: {errors.waitTime} {errors.waitTime === 1 ? 'minuto' : 'minutos'}
-                  </p>
-                )}
-              </div>
-            )}
-
             {/* Formulario */}
             <div className="space-y-6">
               {/* Primera fila: Nombre y Apellido */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Campo Nombre */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -313,13 +309,13 @@ const Register = () => {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {errors.firstName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
-                  )}
                 </div>
 
                 {/* Campo Apellido */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apellido <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -330,9 +326,6 @@ const Register = () => {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {errors.lastName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
-                  )}
                 </div>
               </div>
 
@@ -340,6 +333,9 @@ const Register = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Campo Email */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Correo electrónico <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -351,19 +347,19 @@ const Register = () => {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {errors.email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-                  )}
                 </div>
 
                 {/* Campo Teléfono */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Teléfono <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
                       name="phone"
                       type="tel"
-                      placeholder="Teléfono (opcional)"
+                      placeholder="Teléfono"
                       value={formData.phone}
                       onChange={handlePhoneChangeWrapper}
                       onKeyDown={handlePhoneKeyDown}
@@ -371,9 +367,6 @@ const Register = () => {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-                  )}
                 </div>
               </div>
 
@@ -381,6 +374,9 @@ const Register = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Tipo de Documento */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de documento <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiIdCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <select
@@ -398,13 +394,13 @@ const Register = () => {
                       <option value="NIT">NIT</option>
                     </select>
                   </div>
-                  {errors.documentType && (
-                    <p className="text-red-500 text-xs mt-1">{errors.documentType}</p>
-                  )}
                 </div>
 
                 {/* Número de Documento */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Número de documento <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiIdCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -417,9 +413,6 @@ const Register = () => {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {errors.documentNumber && (
-                    <p className="text-red-500 text-xs mt-1">{errors.documentNumber}</p>
-                  )}
                 </div>
               </div>
 
@@ -427,6 +420,9 @@ const Register = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Campo Contraseña */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -445,9 +441,6 @@ const Register = () => {
                       {showPassword ? <BiHide className="text-lg" /> : <BiShow className="text-lg" />}
                     </button>
                   </div>
-                  {errors.password && (
-                    <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-                  )}
                   {formData.password && !errors.password && (
                     <p className="text-gray-500 text-xs mt-1">
                       {getPasswordRequirementsShort()}
@@ -457,6 +450,9 @@ const Register = () => {
 
                 {/* Confirmar Contraseña */}
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmar contraseña <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <BiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                     <input
@@ -475,9 +471,6 @@ const Register = () => {
                       {showConfirmPassword ? <BiHide className="text-lg" /> : <BiShow className="text-lg" />}
                     </button>
                   </div>
-                  {errors.confirmPassword && (
-                    <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
-                  )}
                 </div>
               </div>
 
@@ -507,16 +500,12 @@ const Register = () => {
                   <span className="text-red-500"> *</span>
                 </label>
               </div>
-              {errors.privacyPolicy && (
-                <p className="text-red-500 text-xs mt-1">{errors.privacyPolicy}</p>
-              )}
 
               {/* Botón de Registro */}
               <button
                 type="button"
                 onClick={handleRegister}
-                disabled={!isFormValid()}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center">
