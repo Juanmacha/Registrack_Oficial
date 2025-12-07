@@ -22,15 +22,19 @@ const Footer = () => {
             </div>
             <div className="flex items-start gap-2">
               <FaPhone className="text-blue-700 text-sm flex-shrink-0 mt-0.5" />
-              <p><strong>Teléfono:</strong> +57 300 123 4567</p>
+              <p><strong>Teléfono:</strong> +57 301 518 5163</p>
             </div>
             <div className="flex items-start gap-2">
               <FaEnvelope className="text-blue-700 text-sm flex-shrink-0 mt-0.5" />
-              <p><strong>Correo:</strong> contacto@certimarcas.com</p>
+              <p><strong>Correo:</strong> jorgevanegas@certimarcas.com</p>
             </div>
             <div className="flex items-start gap-2">
               <FaClock className="text-blue-700 text-sm flex-shrink-0 mt-0.5" />
               <p><strong>Horario:</strong> Lunes a Viernes, 8:00am - 6:00pm</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <FaClock className="text-blue-700 text-sm flex-shrink-0 mt-0.5" />
+              <p><strong>Atención Virtual:</strong> Disponible de manera permanente</p>
             </div>
           </div>
         </div>

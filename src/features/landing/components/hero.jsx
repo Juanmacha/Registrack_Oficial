@@ -1020,7 +1020,7 @@ const Hero = () => {
                   somos el equipo que te brinda la tranquilidad y la certeza de
                   tener tu marca protegida. Con más de 12 años de experiencia en
                   Propiedad Industrial, nos dedicamos a ser tu aliado estratégico en
-                  Medellín y a nivel internacional.
+                  Colombia y a nivel internacional.
                 </p>
                 <p className="text-base md:text-lg text-gray-700 mb-4 text-body">
                   Nos mueve tu éxito. Nos apasiona proteger la identidad de tu

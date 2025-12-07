@@ -876,7 +876,7 @@ class SolicitudesApiService {
         if (!pais) camposFaltantes.push('pais');
         if (!nombreABuscar) camposFaltantes.push('nombre_a_buscar');
         if (!tipoProductoServicio) camposFaltantes.push('tipo_producto_servicio');
-        if (!logotipoBase64 || logotipoBase64.trim() === '') camposFaltantes.push('logotipo');
+        // logotipo es ahora opcional para Búsqueda de antecedentes
         
         if (camposFaltantes.length > 0) {
           console.error('❌ [SolicitudesApiService] Campos faltantes:', camposFaltantes);

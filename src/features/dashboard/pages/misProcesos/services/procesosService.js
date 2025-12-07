@@ -177,10 +177,8 @@ export async function getSolicitudesUsuario(email) {
 export function filtrarProcesos(procesos, finalizados = false, servicios = []) {
   if (!Array.isArray(procesos)) return [];
   
-  // Estados que siempre se consideran finalizados (incluyendo variaciones masculino/femenino)
+  // Estados que siempre se consideran finalizados (solo anulado y finalizado según requerimiento)
   const estadosFinalesHardcodeados = [
-    "Aprobado", "Aprobada",
-    "Rechazado", "Rechazada", 
     "Anulado", "Anulada",
     "Finalizado", "Finalizada"
   ];
@@ -202,14 +200,10 @@ export function filtrarProcesos(procesos, finalizados = false, servicios = []) {
       return true;
     }
     
-    // Verificar si contiene palabras clave de finalización/anulación (case-insensitive)
+    // Verificar si contiene palabras clave de finalización/anulación (solo anulado y finalizado según requerimiento)
     const palabrasFinales = [
-      'finalizado', 'finalizada', 
-      'completado', 'completada', 
-      'terminado', 'terminada',
-      'anulado', 'anulada',  // ✅ Asegurar que se detecte anulado/anulada
-      'aprobado', 'aprobada',
-      'rechazado', 'rechazada'
+      'finalizado', 'finalizada',
+      'anulado', 'anulada'  // Solo estos dos estados van al historial
     ];
     const contienePalabraFinal = palabrasFinales.some(
       palabra => estadoLower.includes(palabra)

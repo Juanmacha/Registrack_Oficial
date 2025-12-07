@@ -52,7 +52,7 @@ Aplicación web moderna para la gestión integral de servicios de registro de ma
 
 Soporte para 7 tipos de servicios:
 
-1. **Búsqueda de Antecedentes**
+1. **Búsqueda de Antecedentes** (logo opcional)
 2. **Registro de Marca**
 3. **Certificación de Marca**
 4. **Renovación de Marca**
@@ -364,7 +364,7 @@ npm run verify-mock-data
 
 ### 1. Autenticación (`/features/auth`)
 
-- **Páginas**: Login, Registro, Recuperación de contraseña, Perfil
+- **Páginas**: Login, Registro, Recuperación de contraseña, Perfil, Editar Perfil
 - **Componentes**: Navbars, Layouts, Guards de rutas
 - **Servicios**: API de autenticación, gestión de usuarios
 - **Funcionalidades**:
@@ -372,6 +372,7 @@ npm run verify-mock-data
   - Registro de usuarios
   - Recuperación de contraseña con código
   - Gestión de perfil
+  - Edición de perfil propio (clientes)
   - Protección de rutas por rol
 
 ### 2. Dashboard Administrativo (`/features/dashboard/pages/dashAdmin`)
@@ -444,7 +445,11 @@ npm run verify-mock-data
   - Seguimiento de procesos
   - Estados y actualizaciones
   - Pagos pendientes
-  - Descarga de documentos
+  - Descarga de documentos asociados a seguimientos
+  - Modal detallado de seguimientos con descarga de archivos adjuntos
+  - **Descarga de archivos de seguimiento** con endpoints diferenciados por rol:
+    - Clientes: Acceso a archivos de sus propios seguimientos
+    - Administradores/Empleados: Acceso completo a todos los seguimientos
 
 ### 10. Landing Page (`/features/landing`)
 

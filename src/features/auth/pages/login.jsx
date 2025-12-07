@@ -306,11 +306,11 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex flex-col md:flex-row">
       {/* Formulario de Login - Lado Izquierdo */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-lg shadow-lg p-8">
+          <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
             {/* Botón Volver */}
             <div className="mb-4">
               <button
@@ -402,7 +402,7 @@ const Login = () => {
       </div>
 
       {/* Video Decorativo - Lado Derecho */}
-      <div className="flex-1 flex items-center justify-center bg-white">
+      <div className="hidden md:flex flex-1 items-center justify-center bg-white">
         <div className="w-full max-w-lg h-96 flex items-center justify-center">
           <video
             src="/images/Whisk_cauajgm4ymzhyjjkltawzjetndazzc1hn2y3lwe.mp4"

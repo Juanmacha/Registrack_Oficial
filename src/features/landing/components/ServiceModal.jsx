@@ -429,7 +429,19 @@ const ServiceModal = ({ isOpen, onClose, servicio }) => {
                         </svg>
                         Costo Aproximado
                       </h4>
-                      <p className="text-gray-700 text-body font-medium">{serviceDetails.costo}</p>
+                      <p className="text-gray-700 text-body font-medium">
+                        {(() => {
+                          // Extraer el valor numérico del costo (remover "Desde $" y puntos)
+                          const costoMatch = serviceDetails.costo?.match(/Desde \$([0-9.,]+)/);
+                          if (costoMatch) {
+                            const costoCOP = parseInt(costoMatch[1].replace(/\./g, ''));
+                            // Conversión aproximada COP a USD (usando tasa ~4,000 COP por USD)
+                            const costoUSD = Math.round(costoCOP / 4000);
+                            return `COP $${costoCOP.toLocaleString('es-CO')} / USD $${costoUSD.toLocaleString('en-US')}`;
+                          }
+                          return serviceDetails.costo;
+                        })()}
+                      </p>
                     </div>
                   )}
                 </div>

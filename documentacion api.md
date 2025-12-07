@@ -2429,6 +2429,7 @@ GET /api/dashboard/ingresos?periodo=6meses
 - **POST /login** (autenticación)
 - **POST /forgot-password** (enviar código/link de recuperación)
 - **POST /reset-password** (restablecer contraseña)
+- **PUT /perfil** (actualización de perfil propio - requiere autenticación JWT)
 - **GET /, GET /:id, DELETE /:id, PUT /:id** (protegidos: admin/empleado)
 - **POST /crear** (crear usuario por admin)
 
@@ -2682,6 +2683,11 @@ Content-Type: application/json
   - Permite a los clientes ver todos los seguimientos asociados a una de sus solicitudes
   - Valida automáticamente que la solicitud pertenece al cliente autenticado
   - Retorna: Array de seguimientos con información completa (titulo, descripcion, fecha_registro, usuario_registro, etc.)
+- **GET /cliente/descargar/:idSeguimiento**: Descargar archivos adjuntos de un seguimiento (solo clientes) ⭐ **NUEVO**
+  - Permite a los clientes descargar archivos adjuntos de seguimientos de sus propias solicitudes
+  - Valida automáticamente que el seguimiento pertenece a una solicitud del cliente autenticado
+  - Descarga todos los archivos adjuntos en un archivo ZIP con README incluido
+  - Soporta archivos en formato Base64 y URLs
 - **GET /:id/descargar-archivos**: Descargar archivos adjuntos de un seguimiento (admin/empleado) ⭐ **NUEVO**
   - Descarga todos los archivos adjuntos de un seguimiento en un archivo ZIP
   - Incluye un archivo README.txt con información del seguimiento
@@ -3227,8 +3233,7 @@ const camposObligatorios = [
   'correo',
   'pais',
   'nombre_a_buscar',
-  'tipo_producto_servicio',
-  'logotipo'
+  'tipo_producto_servicio'
 ];
 ```
 

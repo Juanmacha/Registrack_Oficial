@@ -252,7 +252,7 @@ const userApiService = {
   updateProfile: async (profileData) => {
     try {
       console.log('🔄 [UserApiService] updateProfile - Datos recibidos:', profileData);
-      
+
       const currentUser = JSON.parse(localStorage.getItem('currentUser'));
       if (!currentUser) {
         console.error('❌ [UserApiService] No hay usuario en localStorage');
@@ -262,30 +262,9 @@ const userApiService = {
         };
       }
 
-      // Obtener el ID del usuario (puede venir en diferentes formatos)
-      const userId = currentUser.id_usuario || currentUser.id || currentUser.userId;
-      if (!userId) {
-        console.error('❌ [UserApiService] No se pudo obtener el ID del usuario:', currentUser);
-        return {
-          success: false,
-          message: 'No se pudo identificar al usuario'
-        };
-      }
-
-      console.log('🔄 [UserApiService] ID del usuario:', userId);
-      console.log('🔄 [UserApiService] Usuario actual:', currentUser);
-
-      // Detectar si el usuario es cliente
-      const userRole = currentUser.rol?.nombre || currentUser.role || currentUser.rol || '';
-      const userRoleId = currentUser.rol?.id || currentUser.id_rol || currentUser.idRol;
-      const userRoleLower = (userRole || '').toLowerCase().trim();
-      const isClient = userRoleId === 1 || userRoleId === '1' || userRoleLower === 'cliente' || userRoleLower === 'client';
-
-      console.log('🔍 [UserApiService] Rol del usuario:', userRole, 'ID:', userRoleId, 'Es cliente:', isClient);
-
-      // Preparar datos para enviar al backend
+      // Preparar datos para enviar al backend usando el endpoint PUT /api/usuarios/perfil
       const requestData = {};
-      
+
       // Solo incluir campos que tienen valor y que el backend acepta
       if (profileData.nombre) requestData.nombre = profileData.nombre;
       if (profileData.apellido) requestData.apellido = profileData.apellido;
@@ -296,77 +275,19 @@ const userApiService = {
       }
       if (profileData.tipoDocumento) requestData.tipo_documento = profileData.tipoDocumento;
       if (profileData.documento) requestData.documento = profileData.documento;
-      // Nota: La contraseña no se puede actualizar a través del endpoint de cliente
-      // Solo se puede actualizar a través del endpoint de usuarios
-      if (!isClient && profileData.contrasena && profileData.contrasena.trim()) {
-        requestData.contrasena = profileData.contrasena;
-      }
 
       console.log('📤 [UserApiService] Datos a enviar al backend:', requestData);
+      console.log('📤 [UserApiService] Endpoint:', API_CONFIG.ENDPOINTS.USER_PROFILE);
 
-      let response;
-      
-      // Si es cliente, usar el endpoint de gestión de clientes
-      if (isClient) {
-        console.log('👤 [UserApiService] Usuario es cliente, usando endpoint de gestión de clientes');
-        
-        // Obtener el ID del cliente asociado al usuario
-        let clienteId = currentUser.id_cliente || currentUser.idCliente;
-        
-        // Si no tenemos el id_cliente, buscarlo
-        if (!clienteId) {
-          console.log('🔍 [UserApiService] No se encontró id_cliente, buscando cliente asociado...');
-          try {
-            const clientes = await clientesApiService.getAllClientes();
-            const clienteAsociado = clientes.find(c => c.id_usuario === userId || c.id === userId);
-            
-            if (clienteAsociado) {
-              clienteId = clienteAsociado.id_cliente || clienteAsociado.id;
-              console.log('✅ [UserApiService] Cliente encontrado con ID:', clienteId);
-            } else {
-              console.error('❌ [UserApiService] No se encontró cliente asociado al usuario');
-              return {
-                success: false,
-                message: 'No se encontró cliente asociado a tu usuario'
-              };
-            }
-          } catch (error) {
-            console.error('❌ [UserApiService] Error al buscar cliente:', error);
-            return {
-              success: false,
-              message: 'Error al buscar cliente asociado: ' + error.message
-            };
-          }
-        }
-        
-        console.log('📤 [UserApiService] Actualizando usuario del cliente con ID:', clienteId);
-        console.log('📤 [UserApiService] Endpoint:', API_CONFIG.ENDPOINTS.CLIENT_UPDATE_USUARIO(clienteId));
-        
-        // Usar el endpoint específico para actualizar usuario del cliente
-        response = await apiService.put(API_CONFIG.ENDPOINTS.CLIENT_UPDATE_USUARIO(clienteId), requestData);
-      } else {
-        // Si no es cliente, usar el endpoint normal de usuarios
-        console.log('👤 [UserApiService] Usuario no es cliente, usando endpoint de usuarios');
-        console.log('📤 [UserApiService] Endpoint:', API_CONFIG.ENDPOINTS.USER_BY_ID(userId));
-        
-        response = await apiService.put(API_CONFIG.ENDPOINTS.USER_BY_ID(userId), requestData);
-      }
-      
+      // Usar el endpoint específico PUT /api/usuarios/perfil (requiere JWT)
+      const response = await apiService.put(API_CONFIG.ENDPOINTS.USER_PROFILE, requestData);
+
       console.log('📥 [UserApiService] Respuesta del backend:', response);
 
       if (response.success || response.mensaje) {
         // Actualizar datos del usuario en localStorage
-        // La estructura de respuesta es diferente según el endpoint usado
-        let updatedUser;
-        
-        if (isClient) {
-          // Para clientes, la respuesta viene en response.data.cliente.usuario
-          updatedUser = response.data?.cliente?.usuario || response.data?.usuario || response.usuario || response.data;
-        } else {
-          // Para usuarios normales, la respuesta viene en response.data.usuario
-          updatedUser = response.data?.usuario || response.usuario || response.data;
-        }
-        
+        let updatedUser = response.data?.usuario || response.usuario || response.data;
+
         // Si la respuesta no incluye el usuario completo, combinar con el usuario actual
         if (updatedUser && currentUser) {
           // Preservar el rol si no viene en la respuesta
@@ -391,7 +312,7 @@ const userApiService = {
             updatedUser.id_cliente = currentUser.id_cliente;
           }
         }
-        
+
         // Si no hay usuario en la respuesta, crear uno basado en el usuario actual y los datos actualizados
         if (!updatedUser && currentUser) {
           updatedUser = {
@@ -404,10 +325,10 @@ const userApiService = {
             documento: profileData.documento || currentUser.documento
           };
         }
-        
+
         console.log('✅ [UserApiService] Usuario actualizado:', updatedUser);
         console.log('✅ [UserApiService] Rol del usuario:', updatedUser?.rol || updatedUser?.role);
-        
+
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
 
         return {
@@ -430,9 +351,9 @@ const userApiService = {
         message: error.message,
         stack: error.stack
       });
-      
+
       let errorMessage = 'Error de conexión con el servidor';
-      
+
       if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       } else if (error.response?.data?.mensaje) {

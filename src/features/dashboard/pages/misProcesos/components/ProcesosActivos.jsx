@@ -4,10 +4,12 @@ import { obtenerFechaCreacion, obtenerFechaSolicitud } from '../services/proceso
 import { PAISES } from '../../../../../shared/utils/paises.js';
 import seguimientoApiService from '../../gestionVentasServicios/services/seguimientoApiService';
 import { useAuth } from '../../../../../shared/contexts/authContext';
+import alertService from '../../../../../utils/alertService';
+import { isClient } from '../../../../../shared/utils/roleUtils';
 
 // Componente para mostrar el modal de seguimientos
 const SeguimientosModal = ({ proceso, isOpen, onClose }) => {
-  const { getToken } = useAuth();
+  const { getToken, user } = useAuth();
   const [seguimientos, setSeguimientos] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
@@ -116,6 +118,53 @@ const SeguimientosModal = ({ proceso, isOpen, onClose }) => {
     return docs && docs !== null && docs !== '' && docs !== 'null';
   };
 
+  const descargarArchivosSeguimiento = async (idSeguimiento) => {
+    try {
+      console.log(`🔧 [SeguimientosModal] Descargando archivos del seguimiento ${idSeguimiento}...`);
+
+      const token = getToken();
+      if (!token) {
+        alertService.error('Error', 'No se pudo obtener el token de autenticación', { confirmButtonText: 'Entendido' });
+        return;
+      }
+
+      // Usar endpoint específico según el rol del usuario
+      const result = isClient(user)
+        ? await seguimientoApiService.descargarArchivosSeguimientoCliente(idSeguimiento, token)
+        : await seguimientoApiService.descargarArchivosSeguimiento(idSeguimiento, token);
+
+      // Crear URL del blob y descargar
+      const url = window.URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log('✅ [SeguimientosModal] Archivos descargados exitosamente');
+      await alertService.success(
+        '¡Descarga completada!',
+        'Los archivos se han descargado correctamente.',
+        { confirmButtonText: 'Entendido' }
+      );
+    } catch (error) {
+      console.error('❌ [SeguimientosModal] Error descargando archivos:', error);
+
+      let errorMessage = 'No se pudieron descargar los archivos. Por favor, intente nuevamente.';
+      if (error.message) {
+        if (error.message.includes('403') || error.message.includes('401')) {
+          errorMessage = 'No tiene permisos para descargar estos archivos.';
+        } else if (error.message.includes('token')) {
+          errorMessage = 'Sesión expirada. Por favor, inicie sesión nuevamente.';
+        }
+      }
+
+      await alertService.error('Error al descargar', errorMessage, { confirmButtonText: 'Entendido' });
+    }
+  };
+
   if (!isOpen || !proceso) return null;
 
   return (
@@ -187,10 +236,20 @@ const SeguimientosModal = ({ proceso, isOpen, onClose }) => {
                               {seguimiento.titulo || seguimiento.título || 'Sin título'}
                             </h3>
                             {tieneDocs && (
-                              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
-                                <i className="bi bi-paperclip"></i>
-                                Documentos
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                                  <i className="bi bi-paperclip"></i>
+                                  Documentos
+                                </span>
+                                <button
+                                  onClick={() => descargarArchivosSeguimiento(idSeguimiento)}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 transition-colors"
+                                  title="Descargar archivos adjuntos"
+                                >
+                                  <i className="bi bi-download"></i>
+                                  Descargar
+                                </button>
+                              </div>
                             )}
                             {seguimiento.nuevo_estado && (
                               <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">

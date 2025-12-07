@@ -67,7 +67,7 @@ const NavBarLanding = () => {
         <div className="flex items-center flex-shrink-0">
           <Link to="/">
             <img
-              src="/images/logoNombre.png"
+              src="/images/logoconregistromarcas.jpeg"
               alt="Logo"
               className="navbar-logo h-16 sm:h-20 w-auto object-contain cursor-pointer"
             />

@@ -45,6 +45,7 @@ const API_CONFIG = {
     USERS: '/api/usuarios',
     CREATE_USER: '/api/usuarios/crear',
     USER_BY_ID: (id) => `/api/usuarios/${id}`,
+    USER_PROFILE: '/api/usuarios/perfil',
     
     // Servicios
     SERVICES: '/api/servicios',

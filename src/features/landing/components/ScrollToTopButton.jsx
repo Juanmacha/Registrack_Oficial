@@ -15,6 +15,13 @@ const ScrollToTopButton = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const scrollToServices = () => {
+    const element = document.getElementById('servicios');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return visible ? (
     <div className="fixed bottom-6 right-6 z-50 group">
       {/* Tooltip */}
@@ -22,13 +29,13 @@ const ScrollToTopButton = () => {
         Subir al inicio
         <div className="absolute top-full right-3 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-900"></div>
       </div>
-      
+
       {/* Botón cuadrado con esquinas redondas */}
       <button
         onClick={scrollToTop}
         aria-label="Subir al inicio"
         className="bg-white border-2 border-blue-700 hover:bg-blue-50 shadow-lg rounded-lg p-3 flex items-center justify-center transition-all duration-200 transform hover:scale-105"
-        style={{ 
+        style={{
           width: '48px',
           height: '48px'
         }}

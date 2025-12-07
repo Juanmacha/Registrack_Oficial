@@ -165,7 +165,7 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     tipoProductoServicio: '', // Se mapea a 'tipo_producto_servicio' en el backend
     claseNiza: '', // ✅ Opcional - se puede enviar como 'clase_niza'
     clases: [{ numero: '', descripcion: '' }], // ✅ Opcional - se convierte a clase_niza
-    logotipoMarca: null, // ✅ Requerido - se mapea a 'logotipo' en el backend
+    logotipoMarca: null, // ✅ Opcional - se mapea a 'logotipo' en el backend
     fechaSolicitud: '',
     estado: 'En revisión',
     tipoSolicitud: tipoSolicitud,
@@ -317,10 +317,10 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
     const f = customForm || form;
     const e = {};
     
-    // ✅ Campos requeridos según backend: nombres_apellidos (nombres + apellidos), tipo_documento, 
-    // numero_documento, direccion, telefono, correo (email), pais, nombre_a_buscar (nombreMarca), 
-    // tipo_producto_servicio, logotipo
-    const requiredFields = ['tipoDocumento', 'numeroDocumento', 'nombres', 'apellidos', 'email', 'telefono', 'direccion', 'pais', 'nombreMarca', 'tipoProductoServicio', 'logotipoMarca'];
+    // ✅ Campos requeridos según backend: nombres_apellidos (nombres + apellidos), tipo_documento,
+    // numero_documento, direccion, telefono, correo (email), pais, nombre_a_buscar (nombreMarca),
+    // tipo_producto_servicio. Logotipo es opcional para búsqueda de antecedentes.
+    const requiredFields = ['tipoDocumento', 'numeroDocumento', 'nombres', 'apellidos', 'email', 'telefono', 'direccion', 'pais', 'nombreMarca', 'tipoProductoServicio'];
     const requiredErrors = ValidationService.validateRequiredFields(f, requiredFields);
     Object.assign(e, requiredErrors);
     
@@ -386,10 +386,8 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
       }
     });
     
-    // Validación de logotipo (requerido según especificación)
-    if (!f.logotipoMarca) {
-      e.logotipoMarca = 'El logotipo es requerido';
-    } else if (f.logotipoMarca instanceof File) {
+    // Validación de logotipo (opcional para búsqueda de antecedentes)
+    if (f.logotipoMarca instanceof File) {
       // Validar tamaño (máx 5MB)
       if (f.logotipoMarca.size > 5 * 1024 * 1024) {
         e.logotipoMarca = 'El logotipo no puede exceder 5MB';
@@ -858,14 +856,14 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
               <button type="button" onClick={addClase} disabled={form.clases.length >= 25} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded disabled:opacity-50">Añadir Clase</button>
             </div>
           </div>
-          {/* Adjuntar Logotipo (Requerido) - Se mapea a logotipo */}
+          {/* Adjuntar Logotipo (Opcional) - Se mapea a logotipo */}
           <div className="mb-4">
             <FileUpload
               name="logotipoMarca"
               value={form.logotipoMarca}
               onChange={handleChange}
-              label="Logotipo de la Marca *"
-              required={true}
+              label="Logotipo de la Marca (Opcional)"
+              required={false}
               accept=".jpg,.jpeg,.png"
               error={errors.logotipoMarca}
             />
@@ -1311,14 +1309,14 @@ const FormularioBusqueda = ({ isOpen, onClose, onGuardar, tipoSolicitud = 'Búsq
                   <button type="button" onClick={addClase} disabled={form.clases.length >= 25} className="mt-2 px-4 py-1 bg-blue-600 text-white rounded disabled:opacity-50">Añadir Clase</button>
                 </div>
               </div>
-              {/* Adjuntar Logotipo (Requerido) - Se mapea a logotipo */}
+              {/* Adjuntar Logotipo (Opcional) - Se mapea a logotipo */}
               <div className="mb-4">
                 <FileUpload
                   name="logotipoMarca"
                   value={form.logotipoMarca}
                   onChange={handleChange}
-                  label="Logotipo de la Marca *"
-                  required={true}
+                  label="Logotipo de la Marca (Opcional)"
+                  required={false}
                   accept=".jpg,.jpeg,.png"
                   error={errors.logotipoMarca}
                 />
